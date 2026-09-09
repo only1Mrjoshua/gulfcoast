@@ -133,65 +133,69 @@
 .mobileFdic {
   display: none;
   align-items: center;
-  justify-content: flex-start;
-  gap: 35px;
-  font-size: 1.35rem;
+  justify-content: center;
+  gap: 30px;
+  font-size: 1.25rem;
   color: #222222;
   text-align: left;
-  padding: 20px 45px 20px 20px;
+  padding: 8px 30px;
   border-top: 1px solid var(--hairline);
-  margin-top: 15px;
+  margin-top: 0;
 }
 
 .mobileFdicLogo {
-  width: 115px;
-  flex-shrink: 0;
+  width: 100px;
   height: auto;
+  flex-shrink: 0;
 }
 
 .mobileFdicText {
   font-style: italic;
-  line-height: 1.15;
+  line-height: 1.05;
 }
 
-/* Responsive - Tablets and larger phones (481px - 768px) */
+
+/* Tablets and larger phones */
 @media (min-width: 481px) and (max-width: 768px) {
   .mobileFdic {
     display: flex;
+    justify-content: center;
+    align-items: center;
     gap: 30px;
     font-size: 1.25rem;
-    padding: 18px 30px 18px 20px;
+    padding: 8px 30px;
+    margin-top: 0;
   }
 
   .mobileFdicLogo {
     width: 100px;
   }
+
+  .mobileFdicText {
+    line-height: 1.05;
+  }
 }
 
-/* Mobile - Small phones (≤480px) */
+
+/* Small phones */
 @media (max-width: 480px) {
   .mobileFdic {
     display: flex;
+    justify-content: center;
+    align-items: center;
     gap: 20px;
-    font-size: 1.1rem;
-    padding: 16px 16px 16px 12px;
-    margin-top: 10px;
+    font-size: 1rem;
+    padding: 6px 20px;
+    margin-top: 0;
   }
 
   .mobileFdicLogo {
-    width: 85px;
+    width: 75px;
   }
 
   .mobileFdicText {
     font-size: 0.95rem;
-    line-height: 1.2;
-  }
-}
-
-/* Ensure mobile FDIC shows on mobile */
-@media (max-width: 768px) {
-  .mobileFdic {
-    display: flex;
+    line-height: 1.05;
   }
 }
 
