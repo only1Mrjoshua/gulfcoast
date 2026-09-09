@@ -44,11 +44,6 @@ function Navbar() {
       {/* Main Navigation */}
       <nav className={styles.navbar}>
         <div className={`container ${styles.navInner}`}>
-          <button className={styles.hamburger} aria-label="Menu">
-            <span className={styles.bar}></span>
-            <span className={styles.bar}></span>
-            <span className={styles.bar}></span>
-          </button>
 
           <div className={styles.logo}>
             <Link to="/">
