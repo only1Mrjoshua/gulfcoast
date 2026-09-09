@@ -1,4 +1,4 @@
-/* Utility bar */
+/* Utility bar - Desktop only */
 .utilityBar {
   background-color: var(--faint-bg);
   border-bottom: 1px solid var(--hairline);
@@ -15,7 +15,20 @@
 }
 
 .utilityLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 400;
+}
+
+.fdicLogo {
+  width: 42px;
+  height: auto;
+  flex-shrink: 0;
+}
+
+.fdicText {
+  font-style: italic;
 }
 
 .utilityRight a {
@@ -34,6 +47,7 @@
   background-color: var(--canvas);
   border-bottom: 1px solid var(--hairline);
   padding: 12px 0;
+  position: relative;
 }
 
 .navInner {
@@ -42,11 +56,17 @@
   align-items: center;
 }
 
+.logo {
+  display: flex;
+  align-items: center;
+}
+
 .logo img {
   height: 40px;
   width: auto;
 }
 
+/* Desktop nav links */
 .navLinks {
   list-style: none;
   display: flex;
@@ -88,7 +108,52 @@
   color: white !important;
 }
 
-/* Hamburger (mobile) */
+/* Mobile Login Button - hidden on desktop */
+.mobileLoginBtn {
+  display: none;
+  background-color: var(--primary);
+  color: white !important;
+  padding: 8px 18px 6px 18px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  text-decoration: none !important;
+  min-height: 36px;
+  border: none;
+  transition: background-color 0.2s;
+}
+
+.mobileLoginBtn:hover {
+  background-color: #006a7a !important;
+  color: white !important;
+  text-decoration: none !important;
+}
+
+/* Mobile FDIC - hidden on desktop */
+.mobileFdic {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.6rem;
+  color: var(--muted);
+  text-align: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--hairline);
+  margin-top: 8px;
+}
+
+.mobileFdicLogo {
+  width: 30px;
+  height: auto;
+  flex-shrink: 0;
+}
+
+.mobileFdicText {
+  font-style: italic;
+}
+
+/* Hamburger - visible on mobile only */
 .hamburger {
   display: none;
   flex-direction: column;
@@ -109,38 +174,72 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+  /* Hide desktop utility bar */
+  .utilityBar {
+    display: none;
+  }
+
+  /* Show hamburger, mobile login, and mobile FDIC */
   .hamburger {
     display: flex;
+    order: 0;
   }
 
-  .navLinks {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background-color: var(--canvas);
-    flex-direction: column;
-    padding: 20px;
-    gap: 16px;
-    border-bottom: 1px solid var(--hairline);
-    display: none;
-    z-index: 100;
+  .mobileLoginBtn {
+    display: inline-block;
+    order: 2;
   }
 
-  .navLinks.open {
+  .logo {
+    order: 1;
+    flex: 1;
+    justify-content: center;
+  }
+
+  .logo img {
+    height: 32px;
+  }
+
+  .mobileFdic {
     display: flex;
   }
 
-  .utilityLeft {
-    font-size: 0.7rem;
+  /* Hide desktop nav links on mobile */
+  .navLinks {
+    display: none !important;
+  }
+
+  .utilityRight {
+    display: none;
   }
 }
 
 @media (max-width: 480px) {
-  .utilityRight a {
-    margin-left: 12px;
-    font-size: 0.7rem;
+  .logo img {
+    height: 28px;
+  }
+
+  .mobileLoginBtn {
+    font-size: 0.75rem;
+    padding: 6px 14px 4px 14px;
+    min-height: 30px;
+  }
+
+  .hamburger {
+    gap: 4px;
+  }
+
+  .bar {
+    width: 22px;
+    height: 2.5px;
+  }
+
+  .mobileFdic {
+    font-size: 0.5rem;
+    gap: 4px;
+  }
+
+  .mobileFdicLogo {
+    width: 24px;
   }
 }
-
-.utilityLeft { display: flex; align-items: center; gap: 8px; } .fdicLogo { width: 42px; height: auto; flex-shrink: 0; } .fdicText { font-style: italic; }
