@@ -113,12 +113,12 @@
   display: none;
   background-color: var(--primary);
   color: white !important;
-  padding: 8px 18px 6px 18px;
+  padding: 10px 22px 8px 22px;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 1rem;
   text-transform: uppercase;
   text-decoration: none !important;
-  min-height: 36px;
+  min-height: 42px;
   border: none;
   transition: background-color 0.2s;
 }
@@ -134,17 +134,17 @@
   display: none;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  font-size: 0.6rem;
+  gap: 8px;
+  font-size: 0.75rem;
   color: var(--muted);
   text-align: center;
-  padding-top: 8px;
+  padding-top: 10px;
   border-top: 1px solid var(--hairline);
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .mobileFdicLogo {
-  width: 30px;
+  width: 38px;
   height: auto;
   flex-shrink: 0;
 }
@@ -197,7 +197,7 @@
   }
 
   .logo img {
-    height: 32px;
+    height: 40px; /* increased from 32px */
   }
 
   .mobileFdic {
@@ -216,13 +216,13 @@
 
 @media (max-width: 480px) {
   .logo img {
-    height: 28px;
+    height: 36px; /* increased from 28px */
   }
 
   .mobileLoginBtn {
-    font-size: 0.75rem;
-    padding: 6px 14px 4px 14px;
-    min-height: 30px;
+    font-size: 0.85rem;
+    padding: 8px 16px 6px 16px;
+    min-height: 36px;
   }
 
   .hamburger {
@@ -235,11 +235,13 @@
   }
 
   .mobileFdic {
-    font-size: 0.5rem;
-    gap: 4px;
+    font-size: 0.65rem;
+    gap: 6px;
+    padding-top: 8px;
+    margin-top: 8px;
   }
 
   .mobileFdicLogo {
-    width: 24px;
+    width: 30px;
   }
 }
