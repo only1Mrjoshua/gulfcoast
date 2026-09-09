@@ -1,0 +1,549 @@
+/* src/pages/Transactions.module.css */
+
+.transactionsPage {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Page Header */
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #e7e7e7;
+  padding-bottom: 16px;
+}
+
+.pageTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0;
+}
+
+.pageSubtitle {
+  font-family: 'Lato', sans-serif;
+  color: #495867;
+  margin: 4px 0 0;
+}
+
+.downloadBtn {
+  background: transparent;
+  border: 1px solid #008296;
+  color: #008296;
+  padding: 10px 24px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 0;
+  min-height: 45px;
+  transition: background 0.15s;
+}
+
+.downloadBtn:hover {
+  background: #f4f4f4;
+}
+
+/* Summary */
+.summarySection {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.summaryItem {
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.summaryLabel {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.8rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summaryValue {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #003256;
+  margin-top: 2px;
+}
+
+.summaryValuePositive {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #008296;
+  margin-top: 2px;
+}
+
+.summaryValueNegative {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #d9534f;
+  margin-top: 2px;
+}
+
+/* Filters */
+.filtersBar {
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filterGroup label {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #003256;
+}
+
+.filterSelect,
+.filterInput {
+  padding: 6px 10px;
+  border: 1px solid #e7e7e7;
+  background: #fff;
+  font-family: 'Lato', sans-serif;
+  font-size: 0.9rem;
+  border-radius: 0;
+  min-width: 120px;
+}
+
+.filterSelect:focus,
+.filterInput:focus {
+  outline: none;
+  border-color: #008296;
+}
+
+.toggleFiltersBtn {
+  background: transparent;
+  border: 1px solid #e7e7e7;
+  padding: 6px 16px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  color: #003256;
+  cursor: pointer;
+  border-radius: 0;
+  min-height: 36px;
+}
+
+.toggleFiltersBtn:hover {
+  background: #fff;
+}
+
+.advancedFilters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e7e7e7;
+}
+
+.clearFiltersBtn {
+  background: transparent;
+  border: none;
+  color: #008296;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Lato', sans-serif;
+  padding: 6px 12px;
+}
+
+.clearFiltersBtn:hover {
+  text-decoration: underline;
+}
+
+/* Transaction List */
+.transactionListContainer {
+  margin-bottom: 24px;
+}
+
+.dateGroup {
+  margin-bottom: 20px;
+}
+
+.dateGroupTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 8px 0;
+  border-bottom: 1px solid #e7e7e7;
+  padding-bottom: 4px;
+}
+
+.transactionList {
+  display: flex;
+  flex-direction: column;
+}
+
+.transactionItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f4f4f4;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.transactionItem:hover {
+  background: #f9f9f9;
+}
+
+.txLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.txDescription {
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  color: #000;
+}
+
+.txAccount {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.txCategory {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.8rem;
+  color: #666;
+  background: #f4f4f4;
+  padding: 2px 8px;
+}
+
+.txStatusPending {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #f0ad4e;
+  background: #fff3e0;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+
+.txRight {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.txAmount {
+  font-family: 'Lato', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.txBalance {
+  font-family: 'Lato', sans-serif;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* Empty State */
+.emptyState {
+  text-align: center;
+  padding: 40px 20px;
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+}
+
+.emptyState p {
+  font-family: 'Lato', sans-serif;
+  color: #495867;
+  margin: 0;
+}
+
+.emptySub {
+  margin-top: 4px;
+  color: #666;
+}
+
+/* Statements Link */
+.statementsLink {
+  margin: 24px 0;
+  padding: 12px 16px;
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-family: 'Lato', sans-serif;
+}
+
+.statementsLink a {
+  color: #008296;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.statementsLink a:hover {
+  text-decoration: underline;
+}
+
+/* Modal */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 10000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.modalPanel {
+  background: #fff;
+  border: 1px solid #e7e7e7;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 32px;
+  position: relative;
+}
+
+.modalClose {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  font-size: 1.8rem;
+  cursor: pointer;
+  color: #666;
+}
+
+.modalClose:hover {
+  color: #000;
+}
+
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modalTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 12px 0;
+}
+
+.modalRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid #f4f4f4;
+  font-family: 'Lato', sans-serif;
+}
+
+.modalLabel {
+  color: #666;
+}
+
+.modalValue {
+  font-weight: 600;
+  color: #000;
+}
+
+.positive {
+  color: #008296;
+}
+
+.negative {
+  color: #d9534f;
+}
+
+.statusPending {
+  color: #f0ad4e;
+}
+
+.statusCompleted {
+  color: #008296;
+}
+
+.modalActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.modalAction {
+  background: transparent;
+  border: 1px solid #e7e7e7;
+  padding: 8px 16px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  color: #003256;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 0.15s;
+}
+
+.modalAction:hover {
+  background: #f4f4f4;
+}
+
+/* Security */
+.securitySection {
+  margin: 24px 0;
+  padding: 12px 16px;
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.securityText {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.9rem;
+  color: #495867;
+  margin: 0;
+  flex: 1;
+}
+
+.securityIcon {
+  margin-right: 4px;
+}
+
+.securityActions {
+  display: flex;
+  gap: 8px;
+}
+
+.securityBtn {
+  background: transparent;
+  border: 1px solid #008296;
+  color: #008296;
+  padding: 6px 16px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.securityBtn:hover {
+  background: #fff;
+}
+
+/* Help */
+.supportSection {
+  margin-top: 32px;
+  border-top: 1px solid #e7e7e7;
+  padding-top: 32px;
+}
+
+.supportTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 16px 0;
+}
+
+.supportOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.supportOptions button {
+  background: #fff;
+  border: 1px solid #e7e7e7;
+  padding: 10px 20px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  color: #003256;
+  cursor: pointer;
+  border-radius: 0;
+  min-height: 45px;
+  transition: background 0.15s;
+}
+
+.supportOptions button:hover {
+  background: #f4f4f4;
+  border-color: #008296;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .pageHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .summarySection {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .filterRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .filterSelect,
+  .filterInput {
+    width: 100%;
+  }
+  .advancedFilters {
+    flex-direction: column;
+  }
+  .transactionItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .txRight {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .modalPanel {
+    margin: 10px;
+    padding: 20px;
+  }
+  .securitySection {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

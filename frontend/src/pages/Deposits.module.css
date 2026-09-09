@@ -1,0 +1,740 @@
+/* src/pages/Deposits.module.css */
+
+.depositsPage {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* Page Header */
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 32px;
+  border-bottom: 1px solid #e7e7e7;
+  padding-bottom: 16px;
+}
+
+.pageTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0;
+}
+
+.pageSubtitle {
+  font-family: 'Lato', sans-serif;
+  color: #495867;
+  margin: 4px 0 0;
+}
+
+.primaryAction {
+  background: #008296;
+  color: #fff;
+  border: none;
+  padding: 10px 24px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  min-height: 45px;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 0.15s;
+}
+
+.primaryAction:hover {
+  background: #005d6b;
+}
+
+/* Overview */
+.overviewSection {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.overviewCard {
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.overviewLabel {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.overviewValue {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #003256;
+  margin-top: 4px;
+}
+
+/* Mobile Deposit CTA */
+.mobileDepositSection {
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  padding: 32px;
+  margin-bottom: 32px;
+}
+
+.sectionTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 4px 0;
+}
+
+.sectionSubtitle {
+  font-family: 'Lato', sans-serif;
+  color: #495867;
+  margin: 0 0 16px 0;
+}
+
+.depositSteps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-bottom: 16px;
+}
+
+.stepItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Lato', sans-serif;
+  color: #003256;
+}
+
+.stepNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: #008296;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.8rem;
+  border-radius: 50%;
+}
+
+.startDepositBtn {
+  background: #008296;
+  color: #fff;
+  border: none;
+  padding: 10px 32px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 0;
+  min-height: 45px;
+  transition: background 0.15s;
+}
+
+.startDepositBtn:hover {
+  background: #005d6b;
+}
+
+.securityNote {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  color: #495867;
+  margin-top: 8px;
+}
+
+/* Recent Deposits */
+.recentSection {
+  margin-bottom: 32px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filterSelect,
+.filterDate {
+  padding: 6px 10px;
+  border: 1px solid #e7e7e7;
+  background: #fff;
+  font-family: 'Lato', sans-serif;
+  font-size: 0.9rem;
+  border-radius: 0;
+}
+
+.filterSelect:focus,
+.filterDate:focus {
+  outline: none;
+  border-color: #008296;
+}
+
+.clearFilter {
+  background: transparent;
+  border: none;
+  color: #008296;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0 4px;
+}
+
+.depositList {
+  border-top: 1px solid #e7e7e7;
+}
+
+.depositItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #f4f4f4;
+}
+
+.depositInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.depositType {
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  color: #000;
+}
+
+.depositAccount {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.depositRight {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.depositDate {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.depositAmount {
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  color: #008296;
+}
+
+.depositStatus {
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: capitalize;
+}
+
+.completed {
+  color: #008296;
+}
+
+.processing {
+  color: #f0ad4e;
+}
+
+.rejected {
+  color: #d9534f;
+}
+
+.canceled {
+  color: #d9534f;
+}
+
+.noDeposits {
+  font-family: 'Lato', sans-serif;
+  color: #666;
+  padding: 20px 0;
+  text-align: center;
+}
+
+/* Info Sections (Limits, Availability) */
+.infoSection {
+  margin-bottom: 32px;
+  border-top: 1px solid #e7e7e7;
+  padding-top: 24px;
+}
+
+.infoTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 8px 0;
+}
+
+.limitsGrid {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 8px;
+}
+
+.limitItem {
+  display: flex;
+  flex-direction: column;
+}
+
+.limitLabel {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.limitValue {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #003256;
+}
+
+.limitInfo,
+.availabilityText {
+  font-family: 'Lato', sans-serif;
+  color: #495867;
+  margin: 4px 0;
+}
+
+.infoLink {
+  font-family: 'Lato', sans-serif;
+  color: #008296;
+  text-decoration: none;
+}
+
+.infoLink:hover {
+  text-decoration: underline;
+}
+
+/* Form */
+.formContainer {
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  padding: 32px;
+  margin-bottom: 32px;
+}
+
+.formTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 24px 0;
+}
+
+.depositForm {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.formGroup label {
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  color: #003256;
+}
+
+.select {
+  padding: 10px 12px;
+  border: 1px solid #e7e7e7;
+  border-radius: 0;
+  font-family: 'Lato', sans-serif;
+  font-size: 1rem;
+  background: #fff;
+}
+
+.select:focus {
+  outline: none;
+  border-color: #008296;
+}
+
+.amountInput {
+  display: flex;
+  align-items: center;
+  border: 1px solid #e7e7e7;
+  background: #fff;
+}
+
+.currencySymbol {
+  padding: 0 8px 0 12px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 700;
+  color: #495867;
+}
+
+.amountField {
+  flex: 1;
+  border: none;
+  padding: 10px 12px 10px 4px;
+  font-family: 'Lato', sans-serif;
+  font-size: 1.2rem;
+  outline: none;
+  background: transparent;
+}
+
+.helperText {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.imageUploads {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.imageUpload {
+  border: 1px solid #e7e7e7;
+  padding: 16px;
+  text-align: center;
+  background: #fff;
+  position: relative;
+}
+
+.uploadLabel {
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.fileInput {
+  display: none;
+}
+
+.uploadPlaceholder {
+  padding: 20px;
+  background: #f4f4f4;
+  font-family: 'Lato', sans-serif;
+  color: #666;
+  cursor: pointer;
+  border: 1px dashed #e7e7e7;
+}
+
+.uploadPreview {
+  max-width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid #e7e7e7;
+  padding-top: 20px;
+}
+
+.cancelBtn,
+.submitBtn {
+  padding: 10px 24px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  border: 1px solid #e7e7e7;
+  background: #fff;
+  color: #003256;
+  cursor: pointer;
+  border-radius: 0;
+  min-height: 45px;
+  transition: background 0.15s;
+}
+
+.submitBtn {
+  background: #008296;
+  color: #fff;
+  border-color: #008296;
+}
+
+.submitBtn:hover {
+  background: #005d6b;
+}
+
+.cancelBtn:hover {
+  background: #f4f4f4;
+}
+
+/* Review */
+.reviewPanel {
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  padding: 32px;
+  margin-bottom: 32px;
+}
+
+.reviewTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 24px 0;
+}
+
+.reviewDetails {
+  margin-bottom: 24px;
+}
+
+.reviewRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #e7e7e7;
+  font-family: 'Lato', sans-serif;
+}
+
+.reviewLabel {
+  color: #495867;
+}
+
+.reviewValue {
+  font-weight: 600;
+  color: #000;
+}
+
+.reviewActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid #e7e7e7;
+  padding-top: 24px;
+}
+
+.backBtn,
+.confirmBtn {
+  padding: 10px 24px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  border: 1px solid #e7e7e7;
+  background: #fff;
+  color: #003256;
+  cursor: pointer;
+  border-radius: 0;
+  min-height: 45px;
+}
+
+.confirmBtn {
+  background: #008296;
+  color: #fff;
+  border-color: #008296;
+}
+
+.confirmBtn:hover {
+  background: #005d6b;
+}
+
+.backBtn:hover {
+  background: #f4f4f4;
+}
+
+/* Success */
+.successPanel {
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  padding: 40px;
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+.successIcon {
+  font-size: 3rem;
+  color: #008296;
+  margin-bottom: 8px;
+}
+
+.successTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 8px 0;
+}
+
+.successMessage {
+  font-family: 'Lato', sans-serif;
+  color: #495867;
+  margin-bottom: 24px;
+}
+
+.successDetails {
+  text-align: left;
+  max-width: 500px;
+  margin: 0 auto 24px;
+  background: #fff;
+  border: 1px solid #e7e7e7;
+  padding: 16px 20px;
+}
+
+.successRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-family: 'Lato', sans-serif;
+}
+
+.successLabel {
+  color: #666;
+}
+
+.successValue {
+  font-weight: 600;
+}
+
+.successActions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.successAction,
+.successActionSecondary {
+  padding: 10px 24px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  border: 1px solid #008296;
+  background: #008296;
+  color: #fff;
+  cursor: pointer;
+  border-radius: 0;
+  min-height: 45px;
+}
+
+.successActionSecondary {
+  background: #fff;
+  color: #008296;
+}
+
+.successAction:hover {
+  background: #005d6b;
+}
+
+.successActionSecondary:hover {
+  background: #f4f4f4;
+}
+
+/* Security */
+.securityReminder {
+  margin: 32px 0;
+  padding: 12px 16px;
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.securityIcon {
+  font-size: 1.2rem;
+}
+
+.securityText {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.9rem;
+  color: #495867;
+}
+
+/* Help */
+.supportSection {
+  margin-top: 32px;
+  border-top: 1px solid #e7e7e7;
+  padding-top: 32px;
+}
+
+.supportTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 16px 0;
+}
+
+.supportOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.supportOptions button {
+  background: #fff;
+  border: 1px solid #e7e7e7;
+  padding: 10px 20px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  color: #003256;
+  cursor: pointer;
+  border-radius: 0;
+  min-height: 45px;
+  transition: background 0.15s;
+}
+
+.supportOptions button:hover {
+  background: #f4f4f4;
+  border-color: #008296;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .pageHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .overviewSection {
+    grid-template-columns: 1fr;
+  }
+  .imageUploads {
+    grid-template-columns: 1fr;
+  }
+  .depositItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .depositRight {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .limitsGrid {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .reviewRow {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .successActions {
+    flex-direction: column;
+  }
+  .filterGroup {
+    flex-wrap: wrap;
+  }
+}

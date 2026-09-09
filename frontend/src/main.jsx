@@ -8,7 +8,18 @@ import App from './App';
 import AppLayout from './components/layout/AppLayout';
 import Home from './pages/Home';
 import Accounts from './pages/Accounts';
-import Transfers from './pages/Transfers';           // ✅ Added
+import Transfers from './pages/Transfers';
+import Payments from './pages/Payments';
+import Deposits from './pages/Deposits';
+import Transactions from './pages/Transactions';
+import Statements from './pages/Statements';
+import Cards from './pages/Cards';
+import Loans from './pages/Loans';
+import Goals from './pages/Goals';
+import Insights from './pages/Insights';
+import Messages from './pages/Messages';
+import Help from './pages/Help';           // ✅ Added
+import Settings from './pages/Settings';   // ✅ Added
 import LandingPage from './pages/LandingPage';
 import PlaceholderPage from './pages/PlaceholderPage';
 import LocationsPage from './pages/LocationsPage';
@@ -50,19 +61,18 @@ const router = createBrowserRouter([
     children: [
       { path: 'home', element: <Home /> },
       { path: 'accounts', element: <Accounts /> },
-      { path: 'transfers', element: <Transfers /> },   // ✅ Live page
-      // All other sidebar links – mapped to PlaceholderPage for now
-      { path: 'payments', element: <PlaceholderPage title="Payments" /> },
-      { path: 'deposits', element: <PlaceholderPage title="Deposits" /> },
-      { path: 'transactions', element: <PlaceholderPage title="Transactions" /> },
-      { path: 'statements', element: <PlaceholderPage title="Statements" /> },
-      { path: 'cards', element: <PlaceholderPage title="Cards" /> },
-      { path: 'loans', element: <PlaceholderPage title="Loans" /> },
-      { path: 'goals', element: <PlaceholderPage title="Financial Goals" /> },
-      { path: 'insights', element: <PlaceholderPage title="Insights" /> },
-      { path: 'messages', element: <PlaceholderPage title="Messages" /> },
-      { path: 'help', element: <PlaceholderPage title="Help" /> },
-      { path: 'settings', element: <PlaceholderPage title="Settings" /> },
+      { path: 'transfers', element: <Transfers /> },
+      { path: 'payments', element: <Payments /> },
+      { path: 'deposits', element: <Deposits /> },
+      { path: 'transactions', element: <Transactions /> },
+      { path: 'statements', element: <Statements /> },
+      { path: 'cards', element: <Cards /> },
+      { path: 'loans', element: <Loans /> },
+      { path: 'goals', element: <Goals /> },
+      { path: 'insights', element: <Insights /> },
+      { path: 'messages', element: <Messages /> },
+      { path: 'help', element: <Help /> },          // ✅ Now live
+      { path: 'settings', element: <Settings /> },   // ✅ Now live
     ],
   },
 ]);

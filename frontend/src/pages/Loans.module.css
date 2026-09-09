@@ -1,0 +1,1029 @@
+/* src/pages/Loans.module.css */
+
+.loansPage {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Page Header */
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #e7e7e7;
+  padding-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.headerLeft {
+  flex: 1;
+}
+
+.pageTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0;
+}
+
+.pageSubtitle {
+  font-family: 'Lato', sans-serif;
+  color: #495867;
+  margin: 4px 0 0;
+}
+
+.headerActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.primaryAction {
+  background: #008296;
+  color: #fff;
+  border: none;
+  padding: 10px 24px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  min-height: 45px;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 0.15s;
+}
+
+.primaryAction:hover {
+  background: #005d6b;
+}
+
+.secondaryAction {
+  background: transparent;
+  color: #008296;
+  border: 1px solid #008296;
+  padding: 10px 24px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  min-height: 45px;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 0.15s;
+}
+
+.secondaryAction:hover {
+  background: #f4f4f4;
+}
+
+/* Overview */
+.overviewSection {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.overviewCard {
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.overviewLabel {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.8rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.overviewValue {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #003256;
+  margin-top: 2px;
+}
+
+/* Loans Grid */
+.loansSection {
+  margin-bottom: 32px;
+}
+
+.sectionTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 16px 0;
+}
+
+.loansGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.loanCard {
+  background: #fff;
+  border: 1px solid #e7e7e7;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.loanCard:hover {
+  border-color: #008296;
+}
+
+.loanCard.selected {
+  border-color: #008296;
+  border-width: 2px;
+}
+
+.loanHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.loanType {
+  font-family: 'Lato', sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #003256;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.loanStatus {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #008296;
+  text-transform: uppercase;
+  padding: 2px 8px;
+}
+
+.loanName {
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #003256;
+}
+
+.loanNumber {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.loanBalance {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-top: 1px solid #e7e7e7;
+  border-bottom: 1px solid #e7e7e7;
+  margin-bottom: 8px;
+}
+
+.balanceLabel {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.balanceAmount {
+  font-family: 'Noto Serif', serif;
+  font-weight: 700;
+  color: #003256;
+}
+
+.loanDetails {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+  margin-bottom: 12px;
+}
+
+.detailItem {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  padding: 2px 0;
+}
+
+.detailLabel {
+  color: #666;
+}
+
+.detailValue {
+  font-weight: 600;
+  color: #003256;
+}
+
+.viewDetailsBtn {
+  background: transparent;
+  border: 1px solid #e7e7e7;
+  padding: 6px 16px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  color: #003256;
+  cursor: pointer;
+  width: 100%;
+  border-radius: 0;
+  transition: background 0.15s;
+}
+
+.viewDetailsBtn:hover {
+  background: #f4f4f4;
+  border-color: #008296;
+}
+
+/* Detail Section */
+.detailSection {
+  margin-bottom: 32px;
+  border-top: 1px solid #e7e7e7;
+  padding-top: 24px;
+}
+
+.detailPanel {
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  padding: 20px;
+}
+
+.detailHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-bottom: 1px solid #e7e7e7;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.detailLoanInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.detailLoanName {
+  font-family: 'Lato', sans-serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: #003256;
+}
+
+.detailLoanType {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.9rem;
+  color: #495867;
+}
+
+.detailLoanNumber {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.detailActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.detailActionBtn {
+  background: transparent;
+  border: 1px solid #e7e7e7;
+  padding: 6px 16px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  color: #003256;
+  cursor: pointer;
+  border-radius: 0;
+  min-height: 36px;
+}
+
+.detailActionBtn:hover {
+  background: #fff;
+}
+
+.detailContent {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.detailInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid #e7e7e7;
+  font-family: 'Lato', sans-serif;
+}
+
+.detailLabel {
+  color: #666;
+}
+
+.detailValue {
+  font-weight: 600;
+  color: #000;
+}
+
+.statusActive {
+  color: #008296;
+}
+
+/* Progress */
+.progressSection {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e7e7e7;
+}
+
+.progressLabel {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.progressBar {
+  height: 6px;
+  background: #e7e7e7;
+  margin: 4px 0;
+}
+
+.progressFill {
+  height: 100%;
+  background: #008296;
+  transition: width 0.3s;
+}
+
+.progressPercent {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #003256;
+}
+
+/* Payment History */
+.paymentHistory {
+  display: flex;
+  flex-direction: column;
+}
+
+.historyTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 8px 0;
+}
+
+.historyList {
+  border-top: 1px solid #e7e7e7;
+}
+
+.historyItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f4f4f4;
+}
+
+.historyLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.historyDate {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.historyAmount {
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  color: #d9534f;
+}
+
+.historyRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.historyDetail {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.historyStatus {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #008296;
+  text-transform: uppercase;
+}
+
+.noHistory {
+  font-family: 'Lato', sans-serif;
+  color: #666;
+  padding: 12px 0;
+}
+
+.viewAllBtn {
+  background: transparent;
+  border: none;
+  color: #008296;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-start;
+  font-family: 'Lato', sans-serif;
+  margin-top: 8px;
+}
+
+.viewAllBtn:hover {
+  text-decoration: underline;
+}
+
+/* Documents */
+.documentsSection {
+  margin-top: 16px;
+  border-top: 1px solid #e7e7e7;
+  padding-top: 16px;
+}
+
+.documentsTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 8px 0;
+}
+
+.documentsList {
+  display: flex;
+  flex-direction: column;
+}
+
+.documentItem {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f4f4f4;
+  font-family: 'Lato', sans-serif;
+  font-size: 0.9rem;
+}
+
+.docName {
+  flex: 1;
+  font-weight: 500;
+}
+
+.docDate {
+  color: #666;
+  width: 100px;
+}
+
+.docType {
+  color: #666;
+  width: 60px;
+}
+
+.docSize {
+  color: #666;
+  width: 70px;
+}
+
+.docActions {
+  display: flex;
+  gap: 8px;
+}
+
+.docActionBtn {
+  background: transparent;
+  border: none;
+  color: #008296;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 2px 8px;
+}
+
+.docActionBtn:hover {
+  text-decoration: underline;
+}
+
+.noDocuments {
+  font-family: 'Lato', sans-serif;
+  color: #666;
+  padding: 8px 0;
+}
+
+/* Alerts */
+.alertsSection {
+  margin-bottom: 32px;
+  border-top: 1px solid #e7e7e7;
+  padding-top: 24px;
+}
+
+.alertsList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.alertItem {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f4f4f4;
+  font-family: 'Lato', sans-serif;
+}
+
+.alertName {
+  flex: 1;
+  font-weight: 500;
+}
+
+.alertStatus {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.enabled {
+  color: #008296;
+}
+
+.disabled {
+  color: #d9534f;
+}
+
+.alertToggle {
+  background: transparent;
+  border: 1px solid #e7e7e7;
+  padding: 2px 12px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.alertToggle:hover {
+  background: #f4f4f4;
+}
+
+/* Explore */
+.exploreSection {
+  margin-bottom: 32px;
+  border-top: 1px solid #e7e7e7;
+  padding-top: 24px;
+}
+
+.exploreGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.exploreCard {
+  background: #fff;
+  border: 1px solid #e7e7e7;
+  padding: 16px;
+  text-align: center;
+}
+
+.exploreIcon {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.exploreName {
+  font-family: 'Lato', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #003256;
+  display: block;
+}
+
+.exploreDesc {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  color: #495867;
+  display: block;
+  margin: 4px 0 8px;
+}
+
+.exploreBtn {
+  background: transparent;
+  border: 1px solid #008296;
+  color: #008296;
+  padding: 4px 16px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.exploreBtn:hover {
+  background: #f4f4f4;
+}
+
+/* Security Notice */
+.securityNotice {
+  margin: 24px 0;
+  padding: 12px 16px;
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.securityIcon {
+  font-size: 1.2rem;
+}
+
+.securityText {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.9rem;
+  color: #495867;
+}
+
+/* Help */
+.supportSection {
+  margin-top: 32px;
+  border-top: 1px solid #e7e7e7;
+  padding-top: 32px;
+}
+
+.supportTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 16px 0;
+}
+
+.supportOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.supportOptions button {
+  background: #fff;
+  border: 1px solid #e7e7e7;
+  padding: 10px 20px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  color: #003256;
+  cursor: pointer;
+  border-radius: 0;
+  min-height: 45px;
+  transition: background 0.15s;
+}
+
+.supportOptions button:hover {
+  background: #f4f4f4;
+  border-color: #008296;
+}
+
+/* Modal */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 10000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.modalPanel {
+  background: #fff;
+  border: 1px solid #e7e7e7;
+  max-width: 550px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 32px;
+  position: relative;
+}
+
+.modalClose {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  font-size: 1.8rem;
+  cursor: pointer;
+  color: #666;
+}
+
+.modalClose:hover {
+  color: #000;
+}
+
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modalTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0;
+}
+
+.modalSubtitle {
+  font-family: 'Lato', sans-serif;
+  color: #495867;
+  margin: 0;
+}
+
+/* Payment Form */
+.paymentForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.formGroup label {
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  color: #003256;
+}
+
+.formSelect,
+.formInput {
+  padding: 8px 10px;
+  border: 1px solid #e7e7e7;
+  border-radius: 0;
+  font-family: 'Lato', sans-serif;
+  font-size: 1rem;
+  background: #fff;
+}
+
+.formSelect:focus,
+.formInput:focus {
+  outline: none;
+  border-color: #008296;
+}
+
+.amountInput {
+  display: flex;
+  align-items: center;
+  border: 1px solid #e7e7e7;
+  background: #fff;
+}
+
+.currencySymbol {
+  padding: 0 8px 0 12px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 700;
+  color: #495867;
+}
+
+.amountField {
+  flex: 1;
+  border: none;
+  padding: 8px 12px 8px 4px;
+  font-family: 'Lato', sans-serif;
+  font-size: 1.2rem;
+  outline: none;
+  background: transparent;
+}
+
+.helperText {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.paymentActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid #e7e7e7;
+  padding-top: 16px;
+}
+
+.cancelBtn,
+.submitBtn {
+  padding: 8px 20px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  border: 1px solid #e7e7e7;
+  background: #fff;
+  color: #003256;
+  cursor: pointer;
+  border-radius: 0;
+  min-height: 40px;
+  transition: background 0.15s;
+}
+
+.submitBtn {
+  background: #008296;
+  color: #fff;
+  border-color: #008296;
+}
+
+.submitBtn:hover {
+  background: #005d6b;
+}
+
+.cancelBtn:hover {
+  background: #f4f4f4;
+}
+
+/* Autopay */
+.autopayInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.autopayRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid #f4f4f4;
+  font-family: 'Lato', sans-serif;
+}
+
+.autopayLabel {
+  color: #666;
+}
+
+.autopayValue {
+  font-weight: 600;
+  color: #000;
+}
+
+.statusOn {
+  color: #008296;
+  font-weight: 600;
+}
+
+.statusOff {
+  color: #d9534f;
+  font-weight: 600;
+}
+
+.autopayActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid #e7e7e7;
+  padding-top: 16px;
+}
+
+/* Payoff */
+.payoffInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.payoffRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid #f4f4f4;
+  font-family: 'Lato', sans-serif;
+}
+
+.payoffLabel {
+  color: #666;
+}
+
+.payoffValue {
+  font-weight: 600;
+  color: #000;
+}
+
+.payoffNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  margin-top: 4px;
+}
+
+.noteIcon {
+  font-size: 1.2rem;
+}
+
+.noteText {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.9rem;
+  color: #495867;
+}
+
+.payoffActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid #e7e7e7;
+  padding-top: 16px;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .detailContent {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .pageHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .headerActions {
+    width: 100%;
+  }
+  .headerActions button {
+    flex: 1;
+  }
+  .overviewSection {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .loansGrid {
+    grid-template-columns: 1fr;
+  }
+  .detailHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .detailActions {
+    width: 100%;
+  }
+  .detailActions button {
+    flex: 1;
+  }
+  .exploreGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .documentItem {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .docDate,
+  .docType,
+  .docSize {
+    font-size: 0.8rem;
+    width: auto;
+  }
+  .modalPanel {
+    padding: 20px;
+    margin: 10px;
+  }
+  .securityNotice {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

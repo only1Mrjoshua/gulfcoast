@@ -1,0 +1,792 @@
+/* src/pages/Payments.module.css */
+
+.paymentsPage {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* Page Header */
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 32px;
+  border-bottom: 1px solid #e7e7e7;
+  padding-bottom: 16px;
+}
+
+.pageTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0;
+}
+
+.pageSubtitle {
+  font-family: 'Lato', sans-serif;
+  color: #495867;
+  margin: 4px 0 0;
+}
+
+.primaryAction {
+  background: #008296;
+  color: #fff;
+  border: none;
+  padding: 10px 24px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  min-height: 45px;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 0.15s;
+}
+
+.primaryAction:hover {
+  background: #005d6b;
+}
+
+/* Overview */
+.overviewSection {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.overviewCard {
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  padding: 16px 20px;
+}
+
+.overviewLabel {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  color: #666;
+  text-transform: uppercase;
+  display: block;
+}
+
+.overviewValue {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #003256;
+  display: block;
+  margin: 4px 0;
+}
+
+.overviewSub {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.8rem;
+  color: #495867;
+}
+
+/* Sections */
+.section {
+  margin-bottom: 40px;
+}
+
+.sectionTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 16px 0;
+  border-bottom: 1px solid #e7e7e7;
+  padding-bottom: 8px;
+}
+
+/* Upcoming Payments */
+.upcomingList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upcomingItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border: 1px solid #e7e7e7;
+  background: #fff;
+}
+
+.upcomingInfo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  font-family: 'Lato', sans-serif;
+}
+
+.upcomingPayee {
+  font-weight: 600;
+}
+
+.upcomingDue {
+  color: #666;
+}
+
+.upcomingAmount {
+  font-weight: 600;
+}
+
+.upcomingStatus {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.autopayOn {
+  color: #008296;
+}
+
+.autopayOff {
+  color: #d9534f;
+}
+
+.payNowBtn {
+  background: transparent;
+  border: 1px solid #008296;
+  color: #008296;
+  padding: 6px 16px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 0;
+  min-height: 36px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.payNowBtn:hover {
+  background: #008296;
+  color: #fff;
+}
+
+/* Payees */
+.payeeList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.payeeItem {
+  background: #fff;
+  border: 1px solid #e7e7e7;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.payeeName {
+  font-weight: 700;
+  color: #003256;
+}
+
+.payeeCategory {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.payeeActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.payeeAction {
+  background: transparent;
+  border: none;
+  color: #008296;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.payeeAction:hover {
+  text-decoration: underline;
+}
+
+/* Autopay */
+.autopayList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.autopayItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  border: 1px solid #e7e7e7;
+  background: #fff;
+  font-family: 'Lato', sans-serif;
+}
+
+.autopayPayee {
+  font-weight: 600;
+}
+
+.autopayFrequency,
+.autopayDate {
+  color: #495867;
+}
+
+.autopayAmount {
+  font-weight: 600;
+}
+
+.autopayManage {
+  background: transparent;
+  border: 1px solid #e7e7e7;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #003256;
+  border-radius: 0;
+}
+
+.autopayManage:hover {
+  background: #f4f4f4;
+}
+
+/* Payment History */
+.historyList {
+  border: 1px solid #e7e7e7;
+  background: #fff;
+}
+
+.historyHeader {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr;
+  padding: 10px 16px;
+  background: #f4f4f4;
+  font-family: 'Lato', sans-serif;
+  font-weight: 700;
+  color: #003256;
+  border-bottom: 1px solid #e7e7e7;
+}
+
+.historyItem {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr;
+  padding: 10px 16px;
+  font-family: 'Lato', sans-serif;
+  border-bottom: 1px solid #f4f4f4;
+  align-items: center;
+}
+
+.historyItem:last-child {
+  border-bottom: none;
+}
+
+.historyDate {
+  color: #666;
+}
+
+.historyPayee {
+  font-weight: 500;
+}
+
+.historyAccount {
+  color: #495867;
+  font-size: 0.9rem;
+}
+
+.historyAmount {
+  font-weight: 600;
+}
+
+.historyStatus {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.paid {
+  color: #008296;
+}
+
+.scheduled {
+  color: #f0ad4e;
+}
+
+.processing {
+  color: #f0ad4e;
+}
+
+.failed {
+  color: #d9534f;
+}
+
+.canceled {
+  color: #d9534f;
+}
+
+/* Reminders */
+.remindersList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reminderItem {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f4f4f4;
+  font-family: 'Lato', sans-serif;
+}
+
+.reminderName {
+  font-weight: 500;
+}
+
+.reminderStatus {
+  font-weight: 600;
+}
+
+.statusOn {
+  color: #008296;
+}
+
+.statusOff {
+  color: #d9534f;
+}
+
+/* Form */
+.paymentForm {
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  padding: 32px;
+}
+
+.formTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 24px 0;
+}
+
+.formGroup {
+  margin-bottom: 20px;
+}
+
+.formGroup label {
+  display: block;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #003256;
+}
+
+.select,
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e7e7e7;
+  border-radius: 0;
+  font-family: 'Lato', sans-serif;
+  font-size: 1rem;
+  background: #fff;
+}
+
+.select:focus,
+.input:focus {
+  outline: none;
+  border-color: #008296;
+}
+
+.helperText {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 4px;
+}
+
+.amountInput {
+  display: flex;
+  align-items: center;
+  border: 1px solid #e7e7e7;
+  background: #fff;
+}
+
+.currencySymbol {
+  padding: 0 8px 0 12px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 700;
+  color: #495867;
+}
+
+.amountField {
+  flex: 1;
+  border: none;
+  padding: 10px 12px 10px 4px;
+  font-family: 'Lato', sans-serif;
+  font-size: 1.2rem;
+  outline: none;
+  background: transparent;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.addPayeeBtn {
+  background: transparent;
+  border: none;
+  color: #008296;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  font-family: 'Lato', sans-serif;
+  font-size: 0.9rem;
+  padding: 0;
+}
+
+.addPayeeBtn:hover {
+  text-decoration: underline;
+}
+
+.payeeSelection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.payeeOption {
+  background: #fff;
+  border: 1px solid #e7e7e7;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-family: 'Lato', sans-serif;
+  text-align: left;
+  transition: border-color 0.15s;
+  border-radius: 0;
+}
+
+.payeeOption:hover {
+  border-color: #008296;
+}
+
+.payeeSelected {
+  border-color: #008296;
+  background: #e7f3f5;
+}
+
+.payeeOptionName {
+  display: block;
+  font-weight: 600;
+}
+
+.payeeOptionCategory {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  border-top: 1px solid #e7e7e7;
+  padding-top: 24px;
+}
+
+.cancelBtn,
+.submitBtn {
+  padding: 10px 24px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  border: 1px solid #e7e7e7;
+  background: #fff;
+  color: #003256;
+  cursor: pointer;
+  border-radius: 0;
+  min-height: 45px;
+}
+
+.submitBtn {
+  background: #008296;
+  color: #fff;
+  border-color: #008296;
+}
+
+.submitBtn:hover {
+  background: #005d6b;
+}
+
+.cancelBtn:hover {
+  background: #f4f4f4;
+}
+
+/* Review */
+.reviewPanel {
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  padding: 32px;
+}
+
+.reviewTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 24px 0;
+}
+
+.reviewDetails {
+  margin-bottom: 24px;
+}
+
+.reviewRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #e7e7e7;
+  font-family: 'Lato', sans-serif;
+}
+
+.reviewLabel {
+  color: #495867;
+}
+
+.reviewValue {
+  font-weight: 600;
+  color: #000;
+}
+
+.reviewActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid #e7e7e7;
+  padding-top: 24px;
+}
+
+.backBtn,
+.confirmBtn {
+  padding: 10px 24px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  border: 1px solid #e7e7e7;
+  background: #fff;
+  color: #003256;
+  cursor: pointer;
+  border-radius: 0;
+  min-height: 45px;
+}
+
+.confirmBtn {
+  background: #008296;
+  color: #fff;
+  border-color: #008296;
+}
+
+.confirmBtn:hover {
+  background: #005d6b;
+}
+
+.backBtn:hover {
+  background: #f4f4f4;
+}
+
+/* Success */
+.successPanel {
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  padding: 40px;
+  text-align: center;
+}
+
+.successIcon {
+  font-size: 3rem;
+  color: #008296;
+  margin-bottom: 8px;
+}
+
+.successTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 8px 0;
+}
+
+.successMessage {
+  font-family: 'Lato', sans-serif;
+  color: #495867;
+  margin-bottom: 24px;
+}
+
+.successDetails {
+  text-align: left;
+  max-width: 400px;
+  margin: 0 auto 24px;
+  background: #fff;
+  border: 1px solid #e7e7e7;
+  padding: 16px 20px;
+}
+
+.successRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-family: 'Lato', sans-serif;
+}
+
+.successLabel {
+  color: #666;
+}
+
+.successValue {
+  font-weight: 600;
+}
+
+.successActions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.successAction,
+.successActionSecondary {
+  padding: 10px 24px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  border: 1px solid #008296;
+  background: #008296;
+  color: #fff;
+  cursor: pointer;
+  border-radius: 0;
+  min-height: 45px;
+}
+
+.successActionSecondary {
+  background: #fff;
+  color: #008296;
+}
+
+.successAction:hover {
+  background: #005d6b;
+}
+
+.successActionSecondary:hover {
+  background: #f4f4f4;
+}
+
+/* Security */
+.securityNotice {
+  margin: 32px 0;
+  padding: 12px 16px;
+  background: #f4f4f4;
+  border: 1px solid #e7e7e7;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.securityIcon {
+  font-size: 1.2rem;
+}
+
+.securityText {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.9rem;
+  color: #495867;
+}
+
+/* Help */
+.supportSection {
+  margin-top: 32px;
+  border-top: 1px solid #e7e7e7;
+  padding-top: 32px;
+}
+
+.supportTitle {
+  font-family: 'Noto Serif', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #003256;
+  margin: 0 0 16px 0;
+}
+
+.supportOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.supportOptions button {
+  background: #fff;
+  border: 1px solid #e7e7e7;
+  padding: 10px 20px;
+  font-family: 'Lato', sans-serif;
+  font-weight: 600;
+  color: #003256;
+  cursor: pointer;
+  border-radius: 0;
+  min-height: 45px;
+  transition: background 0.15s;
+}
+
+.supportOptions button:hover {
+  background: #f4f4f4;
+  border-color: #008296;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .pageHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .overviewSection {
+    grid-template-columns: 1fr 1fr;
+  }
+  .upcomingItem {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .upcomingInfo {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .payeeList {
+    grid-template-columns: 1fr;
+  }
+  .historyHeader,
+  .historyItem {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
+  }
+  .historyHeader span:nth-child(3),
+  .historyItem .historyAccount {
+    display: none; /* hide account on mobile if needed */
+  }
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+  .reviewRow {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .successActions {
+    flex-direction: column;
+  }
+  .autopayItem {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
