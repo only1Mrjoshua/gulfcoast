@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // ← add useNavigate
 import styles from './Navbar.module.css';
 
 // SVG icons for username and password fields
@@ -19,9 +19,35 @@ const LockIcon = () => (
 
 function Navbar() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const navigate = useNavigate();
 
-  const openModal = () => setIsModalOpen(true);
+  // Demo credentials (hardcoded for testing)
+  const DEMO_USER = 'demo';
+  const DEMO_PASS = 'demo123';
+
+  const openModal = () => {
+    setUsername('');
+    setPassword('');
+    setLoginError('');
+    setIsModalOpen(true);
+  };
   const closeModal = () => setIsModalOpen(false);
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    setLoginError('');
+
+    if (username === DEMO_USER && password === DEMO_PASS) {
+      // Successful login – close modal and redirect to /home
+      closeModal();
+      navigate('/home');
+    } else {
+      setLoginError('Invalid username or password. Try demo / demo123');
+    }
+  };
 
   return (
     <>
@@ -87,7 +113,7 @@ function Navbar() {
               <h2 className={styles.loginSmallHeading}>DIGITAL BANKING LOGIN</h2>
               <h1 className={styles.loginMainHeading}>Access your accounts</h1>
 
-              <form className={styles.loginForm} onSubmit={(e) => e.preventDefault()}>
+              <form className={styles.loginForm} onSubmit={handleLogin}>
                 <div className={styles.inputGroup}>
                   <div className={styles.inputIcon}>
                     <UserIcon />
@@ -96,6 +122,9 @@ function Navbar() {
                     type="text"
                     placeholder="Username"
                     className={styles.loginInput}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    required
                   />
                 </div>
 
@@ -107,8 +136,15 @@ function Navbar() {
                     type="password"
                     placeholder="Password"
                     className={styles.loginInput}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
                   />
                 </div>
+
+                {loginError && (
+                  <div className={styles.loginError}>{loginError}</div>
+                )}
 
                 <div className={styles.loginActions}>
                   <a href="#" className={styles.forgotPassword}>Forgot Password?</a>
@@ -118,6 +154,10 @@ function Navbar() {
                   </button>
                 </div>
               </form>
+
+              <div className={styles.demoHint}>
+                Demo: username <strong>demo</strong> / password <strong>demo123</strong>
+              </div>
             </div>
           </div>
         </div>

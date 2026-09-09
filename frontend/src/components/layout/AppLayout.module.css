@@ -1,0 +1,255 @@
+/* AppLayout.module.css */
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+  background: #fefefe;
+}
+
+/* Sidebar */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 240px;
+  height: 100vh;
+  background: #003256;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease;
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.logo {
+  padding: 20px 16px;
+  background: #fff;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.logoText {
+  font-family: 'Noto Serif', serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: #003256;
+  letter-spacing: -0.5px;
+}
+
+.nav {
+  flex: 1;
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  color: rgba(255, 255, 255, 0.75);
+  text-decoration: none;
+  font-family: 'Lato', sans-serif;
+  font-size: 0.9rem;
+  transition: background 0.15s, color 0.15s;
+  border-left: 3px solid transparent;
+}
+
+.navLink:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.navLink.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-left-color: #f2672a;
+}
+
+.navIcon {
+  margin-right: 12px;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+}
+
+.navLabel {
+  flex: 1;
+  white-space: nowrap;
+}
+
+/* Mobile overlay */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 999;
+  display: none;
+}
+
+/* Content area with header */
+.contentWrapper {
+  margin-left: 240px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.topHeader {
+  background: #fff;
+  border-bottom: 1px solid #e7e7e7;
+  padding: 12px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  flex-shrink: 0;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+}
+
+.headerLogo {
+  font-family: 'Noto Serif', serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #003256;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.headerSearch {
+  display: flex;
+  align-items: center;
+  background: #f4f4f4;
+  padding: 4px 12px;
+  border: 1px solid #e7e7e7;
+  border-radius: 0;
+}
+
+.searchInput {
+  border: none;
+  background: transparent;
+  padding: 6px 8px;
+  font-family: 'Lato', sans-serif;
+  font-size: 0.9rem;
+  width: 160px;
+  outline: none;
+}
+
+.headerIconBtn {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #495867;
+  display: flex;
+  align-items: center;
+}
+
+.headerIconBtn:hover {
+  color: #003256;
+}
+
+.headerIcon {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+}
+
+.headerLogout {
+  background: transparent;
+  border: none;
+  font-family: 'Lato', sans-serif;
+  color: #003256;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.headerLogout:hover {
+  text-decoration: underline;
+}
+
+.content {
+  padding: 32px;
+  background: #fefefe;
+  flex: 1;
+}
+
+/* Mobile styles */
+.mobileTopBar {
+  display: none;
+  background: #003256;
+  color: #fff;
+  padding: 12px 16px;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 1001;
+  height: 56px;
+}
+
+.hamburger {
+  background: none;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.hamburger span {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: #fff;
+  border-radius: 0;
+}
+
+.mobileLogo {
+  font-family: 'Noto Serif', serif;
+  font-weight: 700;
+  font-size: 1rem;
+  margin-left: 12px;
+}
+
+@media (max-width: 768px) {
+  .mobileTopBar {
+    display: flex;
+  }
+  .sidebar {
+    transform: translateX(-100%);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .overlay {
+    display: block;
+  }
+  .contentWrapper {
+    margin-left: 0;
+  }
+  .topHeader {
+    display: none; /* we rely on mobile top bar, but we can keep header hidden */
+  }
+  .content {
+    padding: 16px;
+  }
+  /* We could also hide the desktop header and show a simplified one, but we use mobileTopBar */
+}

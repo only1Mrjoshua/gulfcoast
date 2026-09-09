@@ -586,3 +586,25 @@
     height: 4px;
   }
 }
+
+.loginError {
+  color: #d9534f;
+  font-family: 'Lato', sans-serif;
+  font-size: 0.9rem;
+  margin: -8px 0 8px 0;
+  text-align: left;
+}
+
+.demoHint {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 20px;
+  text-align: center;
+  border-top: 1px solid #e7e7e7;
+  padding-top: 16px;
+}
+
+.demoHint strong {
+  color: #003256;
+}
