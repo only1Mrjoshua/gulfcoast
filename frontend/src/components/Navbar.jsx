@@ -85,7 +85,7 @@ function Navbar() {
 
             <div className={styles.loginContent}>
               <h2 className={styles.loginSmallHeading}>DIGITAL BANKING LOGIN</h2>
-              <h1 className={styles.loginMainHeading}>Access your accounts.</h1>
+              <h1 className={styles.loginMainHeading}>Access your accounts</h1>
 
               <form className={styles.loginForm} onSubmit={(e) => e.preventDefault()}>
                 <div className={styles.inputGroup}>
