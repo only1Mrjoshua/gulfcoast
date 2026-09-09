@@ -133,24 +133,66 @@
 .mobileFdic {
   display: none;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 0.75rem;
-  color: var(--muted);
-  text-align: center;
-  padding-top: 10px;
+  justify-content: flex-start;
+  gap: 35px;
+  font-size: 1.35rem;
+  color: #222222;
+  text-align: left;
+  padding: 20px 45px 20px 20px;
   border-top: 1px solid var(--hairline);
-  margin-top: 10px;
+  margin-top: 15px;
 }
 
 .mobileFdicLogo {
-  width: 38px;
-  height: auto;
+  width: 115px;
   flex-shrink: 0;
+  height: auto;
 }
 
 .mobileFdicText {
   font-style: italic;
+  line-height: 1.15;
+}
+
+/* Responsive - Tablets and larger phones (481px - 768px) */
+@media (min-width: 481px) and (max-width: 768px) {
+  .mobileFdic {
+    display: flex;
+    gap: 30px;
+    font-size: 1.25rem;
+    padding: 18px 30px 18px 20px;
+  }
+
+  .mobileFdicLogo {
+    width: 100px;
+  }
+}
+
+/* Mobile - Small phones (≤480px) */
+@media (max-width: 480px) {
+  .mobileFdic {
+    display: flex;
+    gap: 20px;
+    font-size: 1.1rem;
+    padding: 16px 16px 16px 12px;
+    margin-top: 10px;
+  }
+
+  .mobileFdicLogo {
+    width: 85px;
+  }
+
+  .mobileFdicText {
+    font-size: 0.95rem;
+    line-height: 1.2;
+  }
+}
+
+/* Ensure mobile FDIC shows on mobile */
+@media (max-width: 768px) {
+  .mobileFdic {
+    display: flex;
+  }
 }
 
 /* Hamburger - visible on mobile only */
@@ -235,7 +277,7 @@
   }
 
   .mobileFdic {
-    font-size: 0.65rem;
+    font-size: 0.8rem;
     gap: 6px;
     padding-top: 8px;
     margin-top: 8px;
