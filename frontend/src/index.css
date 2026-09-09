@@ -1,0 +1,80 @@
+/* Reset & base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Colors – design tokens */
+  --primary: #008296;
+  --deep-accent: #003256;
+  --canvas: #fefefe;
+  --surface-alt: #005d6b;
+  --ink: #000000;
+  --body-text: #495867;
+  --muted: #666666;
+  --faint-bg: #f4f4f4;
+  --hairline: #e7e7e7;
+  --secondary-orange: #f2672a;
+  --card-accent: #d46432;
+
+  /* Typography */
+  --font-serif: 'Noto Serif', Georgia, serif;
+  --font-sans: 'Lato', 'Helvetica Neue', sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--body-text);
+  background-color: var(--canvas);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: #006a7a; /* slightly darker teal */
+  text-decoration: underline;
+}
+
+/* Utility classes */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.section-padding {
+  padding: 60px 0;
+}
+
+@media (max-width: 768px) {
+  .section-padding {
+    padding: 40px 0;
+  }
+}
+
+/* All interactive elements get sharp corners */
+button,
+input,
+a,
+.card {
+  border-radius: 0 !important;
+}
+
+/* No box-shadows anywhere */
+* {
+  box-shadow: none !important;
+}

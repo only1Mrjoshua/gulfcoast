@@ -1,0 +1,146 @@
+/* Utility bar */
+.utilityBar {
+  background-color: var(--faint-bg);
+  border-bottom: 1px solid var(--hairline);
+  font-size: 0.8rem;
+  padding: 6px 0;
+  color: var(--muted);
+}
+
+.utilityInner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.utilityLeft {
+  font-weight: 400;
+}
+
+.utilityRight a {
+  margin-left: 20px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.utilityRight a:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* Main nav */
+.navbar {
+  background-color: var(--canvas);
+  border-bottom: 1px solid var(--hairline);
+  padding: 12px 0;
+}
+
+.navInner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo img {
+  height: 40px;
+  width: auto;
+}
+
+.navLinks {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  margin: 0;
+  padding: 0;
+}
+
+.navLinks li a {
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 1rem;
+}
+
+.navLinks li a:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.loginBtn {
+  background-color: var(--primary) !important;
+  color: white !important;
+  padding: 14px 28px 8px 28px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-height: 45px;
+  display: inline-block;
+  border: none;
+  text-decoration: none !important;
+  transition: background-color 0.2s;
+}
+
+.loginBtn:hover {
+  background-color: #006a7a !important;
+  text-decoration: none !important;
+  color: white !important;
+}
+
+/* Hamburger (mobile) */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.bar {
+  display: block;
+  width: 25px;
+  height: 3px;
+  background-color: var(--ink);
+  transition: 0.3s;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .hamburger {
+    display: flex;
+  }
+
+  .navLinks {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: var(--canvas);
+    flex-direction: column;
+    padding: 20px;
+    gap: 16px;
+    border-bottom: 1px solid var(--hairline);
+    display: none;
+    z-index: 100;
+  }
+
+  .navLinks.open {
+    display: flex;
+  }
+
+  .utilityLeft {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .utilityRight a {
+    margin-left: 12px;
+    font-size: 0.7rem;
+  }
+}
+
+.utilityLeft { display: flex; align-items: center; gap: 8px; } .fdicLogo { width: 42px; height: auto; flex-shrink: 0; } .fdicText { font-style: italic; }

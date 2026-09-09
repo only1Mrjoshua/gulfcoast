@@ -1,0 +1,9 @@
+<svg version="1.1" class="fdic-logo" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 36 17" xml:space="preserve">
+              <title>FDIC Logo</title>
+              <g class="fdic" transform="translate(0,0.7)">
+                <path class="st0 fdic-svg fill-2" d="M13.4,3.2c-0.2,0-0.4,0-0.7,0v7.5c2.5,0,4.5-1,4.5-3.9C17.2,4.4,15.6,3.2,13.4,3.2L13.4,3.2zM8.7,0h5c4.5,0,7.4,2.7,7.4,7c0,4.7-3.2,7-8.3,7H8.7V0L8.7,0z"></path>
+                <path class="st0 fdic-svg fill-4" d="M36.5,4V0.3c-1-0.4-1.9-0.6-3.2-0.6c-4.2,0-7.5,3.1-7.5,7.2s3.3,7.1,7.4,7.1c1.5,0,2.5-0.3,3.3-0.9V9.4c-1.2,0.7-2,1-3.1,1c-2.1,0-3.7-1.5-3.7-3.7c0-2.2,1.7-3.7,3.7-3.7C34.6,3,35.5,3.4,36.5,4"></path>
+                <polygon class="st0 fdic-svg fill-10" points="0.1,0 0.1,14 4,14 4.1,8.6 7.9,8.6 7.9,5.4 4.1,5.4 4.1,3.2 8.1,3.2 8.1,0"></polygon>
+                <polygon class="st0 fdic-svg fill-20" points="21.5,14 25.4,14 25.4,0 21.5,0"></polygon>
+              </g>
+            </svg>

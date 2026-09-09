@@ -1,0 +1,119 @@
+.about {
+  background-color: #005D6B;
+  padding: 40px 0; /* reduced from section-padding (60px) */
+}
+
+.wrapper {
+  display: flex;
+  align-items: center;
+  gap: 50px;
+}
+
+.imageWrapper {
+  flex: 1;
+}
+
+.imageWrapper img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 0;
+}
+
+.content {
+  flex: 1;
+}
+
+.content h2 {
+  font-family: var(--font-serif);
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 16px; /* reduced */
+}
+
+.content p {
+  font-size: 1.05rem;
+  line-height: 1.5; /* slightly tighter */
+  color: #ffffff;
+  margin-bottom: 12px; /* reduced */
+}
+
+.tagline {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: #ffffff;
+  margin-top: 4px;
+}
+
+/* Our History button – white background, teal text, no arrow */
+.link {
+  display: inline-block;
+  background-color: #ffffff;
+  color: #005D6B !important;
+  padding: 12px 28px 8px 28px;
+  font-weight: 600;
+  font-size: 1rem;
+  text-decoration: none !important;
+  min-height: 45px;
+  transition: background 0.2s, color 0.2s;
+  border: none;
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  margin-top: 8px;
+  border-radius: 0 !important;
+}
+
+.link:hover {
+  background-color: #e8e8e8;
+  color: #005D6B !important;
+  text-decoration: none !important;
+}
+
+/* Responsive: stack on mobile */
+@media (max-width: 768px) {
+  .wrapper {
+    flex-direction: column;
+    gap: 30px;
+  }
+
+  .imageWrapper {
+    width: 100%;
+  }
+
+  .content h2 {
+    font-size: 2rem;
+  }
+
+  .content p {
+    font-size: 1rem;
+  }
+
+  .about {
+    padding: 30px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .content h2 {
+    font-size: 1.6rem;
+  }
+
+  .content p {
+    font-size: 0.95rem;
+  }
+
+  .tagline {
+    font-size: 1rem;
+  }
+
+  .link {
+    font-size: 0.9rem;
+    padding: 10px 20px 6px 20px;
+  }
+
+  .about {
+    padding: 20px 0;
+  }
+}

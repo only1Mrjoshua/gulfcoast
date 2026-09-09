@@ -1,0 +1,153 @@
+.locations {
+  background-image: url('/map.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  min-height: 450px;
+  display: flex;
+  align-items: center;
+  padding: 40px 0;
+}
+
+.textBox {
+  background-color: #005D6B;
+  padding: 35px 40px 30px;
+  max-width: 480px;
+  margin-left: auto; /* pushes to the right */
+  margin-right: -560px; /* offsets container padding to make it flush with the right edge */
+  border-radius: 0;
+}
+
+.textBox h2 {
+  font-family: var(--font-sans-serif);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.subtext {
+  font-family: var(--font-sans-serif);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: 0.3px;
+}
+
+@media (max-width: 768px) {
+  .locations {
+    min-height: 350px;
+    padding: 30px 0;
+  }
+
+  .textBox {
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0; /* reset on mobile */
+    padding: 25px 20px;
+  }
+
+  .textBox h2 {
+    font-size: 1.3rem;
+  }
+
+  .subtext {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .locations {
+    min-height: 280px;
+    padding: 20px 0;
+  }
+
+  .textBox {
+    padding: 20px 16px;
+  }
+
+  .textBox h2 {
+    font-size: 1.1rem;
+  }
+
+  .subtext {
+    font-size: 0.9rem;
+  }
+}
+
+.locations {
+  background-image: url('/map.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  min-height: 450px;
+  display: flex;
+  align-items: center;
+  padding: 40px 0;
+}
+
+.subtextLink {
+  display: inline-block;
+  background-color: #ffffff;
+  color: #005D6B !important;
+  padding: 12px 28px 8px 28px;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  text-decoration: none;
+  letter-spacing: 0.5px;
+  min-height: 45px;
+  transition: background-color 0.2s;
+  border: none;
+}
+
+.subtextLink:hover {
+  opacity: 0.7;
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .locations {
+    min-height: 350px;
+    padding: 30px 0;
+  }
+
+  .textBox {
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    padding: 25px 20px;
+  }
+
+  .textBox h2 {
+    font-size: 1.3rem;
+  }
+
+  .subtextLink {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .locations {
+    min-height: 280px;
+    padding: 20px 0;
+  }
+
+  .textBox {
+    padding: 20px 16px;
+  }
+
+  .textBox h2 {
+    font-size: 1.1rem;
+  }
+
+  .subtextLink {
+    font-size: 0.9rem;
+  }
+}

@@ -1,0 +1,591 @@
+.contactsPage {
+  background-color: #fefefe;
+}
+
+/* ============================================ */
+/* HERO SECTION */
+/* ============================================ */
+.hero {
+  background-image: url('/contact_us_header.png');
+  background-size: cover;
+  background-position: center;
+  min-height: 300px;
+  position: relative;
+}
+
+.heroOverlay {
+  background: linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.7) 40%, rgba(0,0,0,0.3) 70%, rgba(0,0,0,0.1) 100%);
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  padding: 40px 0;
+}
+
+.heroContent {
+  max-width: 500px;
+  padding: 20px 0;
+}
+
+.heroTitle {
+  font-family: var(--font-serif);
+  font-size: 38px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 10px 0;
+  line-height: 1.2;
+}
+
+.heroDescription {
+  font-size: 16px;
+  color: rgba(255,255,255,0.9);
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+.heroBtn {
+  display: inline-block;
+  background: #ffffff;
+  color: #005D6B !important;
+  padding: 12px 28px 8px 28px;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-decoration: none;
+  letter-spacing: 0.5px;
+  transition: background 0.2s;
+  border: none;
+  min-height: 45px;
+  font-family: var(--font-sans);
+}
+
+.heroBtn:hover {
+  background: #e8e8e8;
+  color: #005D6B !important;
+  text-decoration: none;
+}
+
+/* ============================================ */
+/* SECURITY WARNING */
+/* ============================================ */
+.securityWarning {
+  background-color: #ffffff;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.securityText {
+  font-size: 14px;
+  color: #666666;
+  line-height: 1.6;
+  margin: 0;
+  text-align: center;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.securityText strong {
+  color: #333333;
+}
+
+/* ============================================ */
+/* COMMERCIAL LENDERS */
+/* ============================================ */
+.lendersSection {
+  background-color: #005D6B;
+  padding: 50px 0 35px;
+}
+
+.lendersTitle {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 700;
+  color: #ffffff;
+  text-align: center;
+  margin: 0 0 28px 0;
+  letter-spacing: 0.3px;
+}
+
+.regionTabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.regionTab {
+  padding: 10px 24px;
+  background: #ffffff;
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: #005D6B;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  letter-spacing: 0.5px;
+  min-height: 40px;
+}
+
+.regionTab:hover {
+  background: #e8e8e8;
+}
+
+.activeRegion {
+  background: #ffffff;
+  color: #005D6B;
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.regionLocations {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 20px;
+  padding: 12px 0;
+}
+
+.regionLocation {
+  font-size: 16px;
+  color: rgba(255,255,255,0.9);
+  padding: 4px 8px;
+}
+
+/* ============================================ */
+/* TOP WORKPLACES */
+/* ============================================ */
+.workplacesBadge {
+  padding: 20px 0;
+  background: #ffffff;
+  text-align: center;
+}
+
+.workplacesImg {
+  max-height: 80px;
+  width: auto;
+}
+
+/* ============================================ */
+/* PRIMARY CONTACT CARDS */
+/* ============================================ */
+.primaryCards {
+  padding: 50px 0;
+  background-color: #f4f4f4;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+}
+
+.contactCard {
+  background: #f9f9f9;
+  border: 1px solid #e7e7e7;
+  padding: 30px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+
+.cardImage {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin: 0 auto 18px;
+  border: 2px solid #e7e7e7;
+}
+
+.cardImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cardTitle {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 700;
+  color: #005D6B;
+  text-align: center;
+  margin: 0 0 12px 0;
+}
+
+.cardText {
+  font-size: 16px;
+  color: #495867;
+  line-height: 1.6;
+  margin: 0 0 10px 0;
+  text-align: center;
+}
+
+.cardText strong {
+  color: #333333;
+}
+
+.cardSubtext {
+  font-size: 15px;
+  color: #666666;
+  line-height: 1.5;
+  margin: 0 0 16px 0;
+  text-align: center;
+  font-style: italic;
+}
+
+.inlineLink {
+  color: #008296;
+  text-decoration: underline;
+}
+
+.inlineLink:hover {
+  color: #006a7a;
+}
+
+.phoneLink {
+  color: #008296;
+  text-decoration: none;
+}
+
+.phoneLink:hover {
+  color: #006a7a;
+  text-decoration: underline;
+}
+
+.cardBtn {
+  display: inline-block;
+  background: #008296;
+  color: #ffffff !important;
+  padding: 12px 24px 8px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  text-decoration: none;
+  letter-spacing: 0.5px;
+  margin: auto auto 0 auto;
+  transition: background 0.2s;
+  border: none;
+  min-height: 45px;
+  font-family: var(--font-sans);
+}
+
+.cardBtn:hover {
+  background: #006a7a;
+  color: #ffffff !important;
+  text-decoration: none;
+}
+
+/* ============================================ */
+/* BANKER APPOINTMENT CTA */
+/* ============================================ */
+.appointmentSection {
+  background-color: #005D6B;
+  padding: 40px 0;
+  text-align: center;
+}
+
+.appointmentText {
+  color: #ffffff;
+  font-size: 22px;
+  margin: 0 0 18px 0;
+  font-family: var(--font-serif);
+}
+
+.appointmentBtn {
+  display: inline-block;
+  background: #ffffff;
+  color: #005D6B !important;
+  padding: 14px 36px 8px 36px;
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-decoration: none;
+  letter-spacing: 0.5px;
+  transition: background 0.2s;
+  border: none;
+  min-height: 45px;
+  font-family: var(--font-sans);
+}
+
+.appointmentBtn:hover {
+  background: #e8e8e8;
+  color: #005D6B !important;
+  text-decoration: none;
+}
+
+/* ============================================ */
+/* DETAILED SUPPORT INFORMATION GRID */
+/* ============================================ */
+.supportGrid {
+  padding: 50px 0;
+  background-color: #ffffff;
+}
+
+.supportGridWrapper {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+}
+
+.supportCard {
+  padding: 20px 0;
+  border-top: 1px solid #e7e7e7;
+}
+
+.supportCard:nth-child(-n+3) {
+  border-top: none;
+}
+
+.supportHeading {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 700;
+  color: #F2672A;
+  margin: 0 0 12px 0;
+}
+
+.supportHeadingSmall {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 700;
+  color: #F2672A;
+  margin: 18px 0 6px 0;
+}
+
+.supportText {
+  font-size: 16px;
+  color: #495867;
+  line-height: 1.6;
+  margin: 0 0 8px 0;
+}
+
+.supportText strong {
+  color: #333333;
+}
+
+.supportText .note {
+  font-size: 14px;
+  color: #999999;
+  font-style: italic;
+}
+
+/* ============================================ */
+/* BRANCH LOCATIONS */
+/* ============================================ */
+.branchLocations {
+  padding: 50px 0 60px;
+  background-color: #f4f4f4;
+}
+
+.branchTitle {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 700;
+  color: #005D6B;
+  text-transform: uppercase;
+  text-align: center;
+  margin: 0 0 30px 0;
+  letter-spacing: 1px;
+}
+
+.branchDirectory {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.branchRow {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px solid #e7e7e7;
+}
+
+.branchRow:last-child {
+  border-bottom: none;
+}
+
+.branchLabel {
+  min-width: 150px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 700;
+  color: #F2672A;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-right: 20px;
+  flex-shrink: 0;
+}
+
+.branchNames {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+}
+
+.branchNames span {
+  font-size: 16px;
+  color: #495867;
+  cursor: pointer;
+}
+
+.branchNames span:hover {
+  color: #008296;
+  text-decoration: underline;
+}
+
+/* ============================================ */
+/* RESPONSIVE */
+/* ============================================ */
+@media (max-width: 1024px) {
+  .cardGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .supportGridWrapper {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .supportCard:nth-child(-n+3) {
+    border-top: 1px solid #e7e7e7;
+  }
+  .supportCard:nth-child(-n+2) {
+    border-top: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero {
+    min-height: 250px;
+  }
+  .heroOverlay {
+    min-height: 250px;
+  }
+  .heroTitle {
+    font-size: 32px;
+  }
+  .heroDescription {
+    font-size: 15px;
+  }
+  .cardGrid {
+    grid-template-columns: 1fr;
+  }
+  .supportGridWrapper {
+    grid-template-columns: 1fr;
+  }
+  .supportCard {
+    border-top: 1px solid #e7e7e7;
+  }
+  .supportCard:first-child {
+    border-top: none;
+  }
+  .branchRow {
+    flex-direction: column;
+    padding: 14px 0;
+  }
+  .branchLabel {
+    min-width: auto;
+    margin-bottom: 6px;
+    font-size: 14px;
+  }
+  .branchNames {
+    gap: 4px 16px;
+  }
+  .branchNames span {
+    font-size: 15px;
+  }
+  .regionTabs {
+    gap: 8px;
+  }
+  .regionTab {
+    font-size: 13px;
+    padding: 8px 18px;
+    min-height: 36px;
+  }
+  .lendersTitle {
+    font-size: 18px;
+  }
+  .appointmentText {
+    font-size: 18px;
+  }
+  .appointmentBtn {
+    font-size: 14px;
+    padding: 12px 28px 8px 28px;
+  }
+  .cardTitle {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero {
+    min-height: 220px;
+  }
+  .heroOverlay {
+    min-height: 220px;
+  }
+  .heroTitle {
+    font-size: 26px;
+  }
+  .heroDescription {
+    font-size: 14px;
+  }
+  .heroBtn {
+    font-size: 12px;
+    padding: 10px 20px 6px 20px;
+    min-height: 38px;
+  }
+  .securityText {
+    font-size: 13px;
+  }
+  .lendersTitle {
+    font-size: 16px;
+  }
+  .regionTab {
+    font-size: 11px;
+    padding: 6px 14px;
+    min-height: 32px;
+  }
+  .regionLocation {
+    font-size: 14px;
+  }
+  .contactCard {
+    padding: 20px 16px;
+  }
+  .cardTitle {
+    font-size: 18px;
+  }
+  .cardText {
+    font-size: 14px;
+  }
+  .cardBtn {
+    font-size: 12px;
+    padding: 10px 20px 6px 20px;
+    min-height: 38px;
+  }
+  .appointmentText {
+    font-size: 16px;
+  }
+  .appointmentBtn {
+    font-size: 12px;
+    padding: 10px 20px 6px 20px;
+    min-height: 38px;
+  }
+  .supportHeading {
+    font-size: 17px;
+  }
+  .supportHeadingSmall {
+    font-size: 15px;
+  }
+  .supportText {
+    font-size: 14px;
+  }
+  .branchTitle {
+    font-size: 18px;
+  }
+  .branchLabel {
+    font-size: 12px;
+  }
+  .branchNames span {
+    font-size: 13px;
+  }
+}

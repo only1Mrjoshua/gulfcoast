@@ -1,0 +1,149 @@
+.footer {
+  background-color: #262A2D; /* updated background */
+  color: #ffffff;
+  padding: 30px 0 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.footerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+/* Left: badges */
+.badges {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.badge {
+  height: 40px;
+  width: auto;
+  display: block;
+  filter: brightness(0) invert(1);
+}
+
+/* Center: text block – left‑aligned, white, larger */
+.center {
+  flex: 1;
+  text-align: left; /* left‑aligned text inside the block */
+  min-width: 0;
+}
+
+.memberFdic {
+  font-size: 0.85rem;
+  color: #ffffff;
+  margin: 0 0 2px 0;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.copyright {
+  font-size: 1rem;
+  color: #ffffff;
+  margin: 0 0 4px 0;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.legalLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: #ffffff;
+}
+
+.legalLinks a {
+  color: #ffffff;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.legalLinks a:hover {
+  color: #cccccc;
+  text-decoration: underline;
+}
+
+.nmls {
+  color: #ffffff;
+}
+
+/* Right: social icons */
+.social {
+  display: flex;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.social a {
+  display: inline-block;
+  transition: opacity 0.2s;
+}
+
+.social a:hover {
+  opacity: 0.7;
+}
+
+.social img {
+  width: 28px;
+  height: 28px;
+  filter: brightness(0) invert(1);
+  display: block;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .footerInner {
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .badges {
+    justify-content: center;
+  }
+
+  .center {
+    text-align: left;
+    width: 100%;
+  }
+
+  .legalLinks {
+    justify-content: flex-start;
+  }
+
+  .social {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .badge {
+    height: 30px;
+  }
+
+  .memberFdic {
+    font-size: 0.75rem;
+  }
+
+  .copyright {
+    font-size: 0.85rem;
+  }
+
+  .legalLinks {
+    font-size: 0.7rem;
+    gap: 2px 4px;
+  }
+
+  .social img {
+    width: 24px;
+    height: 24px;
+  }
+}

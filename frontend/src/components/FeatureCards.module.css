@@ -1,0 +1,184 @@
+/* ----- Entire section: dark charcoal background ----- */
+.features {
+  background-color: #313538;
+}
+
+/* ----- Grid: 3 columns, responsive ----- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 38px;
+  margin: 0 30px;
+}
+
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 30px;
+    margin: 0 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    margin: 0 16px;
+  }
+}
+
+/* ----- Individual card: white, shadow, sharp corners ----- */
+.card {
+  background: #fefefe;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  border-radius: 0 !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+}
+
+/* ----- Image wrapper: fixed height, 13px side padding, 15px top ----- */
+.imageWrapper {
+  position: relative;
+  margin: 15px 13px 0;
+  height: 307px;
+  overflow: hidden;
+  background: #000;
+}
+
+.imageWrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ----- Teal stripe at bottom of image ----- */
+.tealLine {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 8px;
+  background: #008a99;
+}
+
+/* ----- Content area: padding and flex column ----- */
+.cardContent {
+  padding: 17px 25px 26px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ----- Heading: serif, dark gray ----- */
+.cardContent h3 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #666666;
+  margin: 0 0 7px 0;
+  line-height: 1.2;
+}
+
+/* ----- Body text: sans-serif ----- */
+.cardContent p {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
+  color: #666666;
+  margin: 0 0 20px 0;
+  flex: 1;
+}
+
+
+/* ----- "LOCALLY OWNED AND OPERATED" banner – centered, orange heading + white subheading ----- */
+.localBanner {
+  padding: 60px 30px;
+  text-align: center;
+  margin-top: 30px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 140px;
+}
+
+/* Orange serif heading */
+.localBanner h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 32px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #E9682A;
+  text-align: center;
+  line-height: 1.2;
+  margin: 0 0 4px 0;
+  letter-spacing: normal;
+}
+
+/* White light sans-serif subheading – reduced to keep one line */
+.localBanner p {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 36px;
+  font-weight: 300;
+  color: #F1F1F1;
+  text-align: center;
+  line-height: 1.2;
+  margin: 0;
+  letter-spacing: normal;
+  white-space: nowrap;
+}
+
+/* ----- Responsive adjustments ----- */
+@media (max-width: 768px) {
+  .cardContent h3 {
+    font-size: 19px;
+  }
+  .cardContent p {
+    font-size: 15px;
+  }
+  .ctaLink {
+    font-size: 14px;
+  }
+  .imageWrapper {
+    height: 220px;
+  }
+  .localBanner {
+    padding: 40px 20px;
+    min-height: 110px;
+  }
+  .localBanner h2 {
+    font-size: 26px;
+  }
+  .localBanner p {
+    font-size: 28px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cardContent h3 {
+    font-size: 17px;
+  }
+  .cardContent p {
+    font-size: 14px;
+  }
+  .ctaLink {
+    font-size: 13px;
+  }
+  .imageWrapper {
+    height: 180px;
+  }
+  .localBanner {
+    padding: 30px 16px;
+    min-height: 90px;
+  }
+  .localBanner h2 {
+    font-size: 20px;
+  }
+  .localBanner p {
+    font-size: 20px;
+    white-space: normal; /* allow wrap if needed, but size fits */
+  }
+}
