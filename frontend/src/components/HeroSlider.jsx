@@ -74,12 +74,6 @@ function HeroSlider() {
                     {slide.copy}
                   </p>
 
-                  <a
-                    href={slide.link}
-                    className="inline-flex min-h-[48px] items-center justify-center bg-white px-6 py-3 text-sm font-semibold uppercase tracking-wide text-primary-deep transition-colors hover:bg-[#e8e8e8] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:text-base"
-                  >
-                    {slide.cta}
-                  </a>
                 </div>
               </div>
             </div>
