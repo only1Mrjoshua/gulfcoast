@@ -253,3 +253,39 @@
   }
   /* We could also hide the desktop header and show a simplified one, but we use mobileTopBar */
 }
+
+/* Floating Hamburger Button */
+.floatingHamburger {
+  display: none; /* Hidden by default on desktop */
+}
+
+@media (max-width: 1024px) {
+  .floatingHamburger {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 9999;
+    background-color: #002A3A; /* Match your deep-accent color */
+    padding: 10px;
+    border: none;
+    cursor: pointer;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .floatingHamburger span {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background-color: #ffffff;
+    transition: 0.3s;
+  }
+
+  /* Optional: Add a small hover effect */
+  .floatingHamburger:hover {
+    background-color: #00405A; /* Slightly lighter on hover */
+  }
+}

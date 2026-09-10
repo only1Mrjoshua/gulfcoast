@@ -140,13 +140,16 @@ const AppLayout = () => {
 
   return (
     <div className={styles.layout}>
-      {/* Mobile top bar */}
-      <div className={styles.mobileTopBar}>
-        <button className={styles.hamburger} onClick={toggleDrawer}>
-          <span></span><span></span><span></span>
-        </button>
-        <img src="/logo.svg" alt="Gulf Coast Trust" className={styles.mobileLogoImage} />
-      </div>
+      {/* Floating Hamburger Button for Mobile */}
+      <button
+        className={styles.floatingHamburger}
+        onClick={toggleDrawer}
+        aria-label="Open menu"
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
 
       <Sidebar
         isOpen={drawerOpen}
