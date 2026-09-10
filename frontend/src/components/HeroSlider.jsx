@@ -1,5 +1,6 @@
+// src/components/HeroSlider.jsx
 import { useState, useEffect } from 'react';
-import styles from './HeroSlider.module.css';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const slides = [
   {
@@ -34,7 +35,7 @@ function HeroSlider() {
     setCurrent(index);
   };
 
-  // Auto‑advance every 7 seconds (pause on hover/focus)
+  // Auto-advance every 7 seconds (pause on hover/focus)
   useEffect(() => {
     if (isPaused) return;
     const interval = setInterval(nextSlide, 7000);
@@ -43,50 +44,85 @@ function HeroSlider() {
 
   return (
     <section
-      className={styles.slider}
+      className="relative h-[280px] overflow-hidden sm:h-[320px] md:h-[420px]"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onFocus={() => setIsPaused(true)}
       onBlur={() => setIsPaused(false)}
     >
-      <div className={styles.slidesWrapper}>
-        {slides.map((slide, index) => (
-          <div
-            key={slide.id}
-            className={`${styles.slide} ${index === current ? styles.active : ''}`}
-            style={{ backgroundImage: `url(${slide.image})` }}
-          >
-            <div className={styles.overlay}>
-              <div className={`container ${styles.content}`}>
-                <h1>{slide.headline}</h1>
-                <p>{slide.copy}</p>
-                <a href={slide.link} className={styles.ctaBtn}>
-                  {slide.cta}
-                </a>
+      {/* Slides */}
+      <div className="relative h-full w-full">
+        {slides.map((slide, index) => {
+          const isActive = index === current;
+          return (
+            <div
+              key={slide.id}
+              className={`absolute inset-0 bg-cover bg-center transition-opacity duration-700 ease-in-out ${
+                isActive ? 'opacity-100' : 'opacity-0'
+              }`}
+              style={{ backgroundImage: `url(${slide.image})` }}
+            >
+              {/* Dark overlay */}
+              <div className="flex h-full w-full items-center bg-black/60">
+                {/* Content */}
+                <div className="container-bank max-w-[700px] text-white">
+                  <h1 className="font-serif text-3xl font-black leading-tight text-white sm:text-4xl md:text-[52px]">
+                    {slide.headline}
+                  </h1>
+
+                  <p className="mt-4 mb-7 text-sm leading-relaxed text-white/90 sm:text-base md:text-lg">
+                    {slide.copy}
+                  </p>
+
+                  <a
+                    href={slide.link}
+                    className="inline-flex min-h-[48px] items-center justify-center bg-white px-6 py-3 text-sm font-semibold uppercase tracking-wide text-primary-deep transition-colors hover:bg-[#e8e8e8] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:text-base"
+                  >
+                    {slide.cta}
+                  </a>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Controls */}
-      <button className={`${styles.control} ${styles.prev}`} onClick={prevSlide}>
-        ‹
-      </button>
-      <button className={`${styles.control} ${styles.next}`} onClick={nextSlide}>
-        ›
+      {/* Prev control */}
+      <button
+        type="button"
+        onClick={prevSlide}
+        aria-label="Previous slide"
+        className="absolute left-4 top-1/2 z-10 inline-flex -translate-y-1/2 items-center justify-center bg-black/30 p-2 text-white transition-colors hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:p-2.5"
+      >
+        <ChevronLeft className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8" strokeWidth={2} />
       </button>
 
-      {/* Dots – now only 2 dots */}
-      <div className={styles.dots}>
-        {slides.map((_, index) => (
-          <button
-            key={index}
-            className={`${styles.dot} ${index === current ? styles.activeDot : ''}`}
-            onClick={() => goToSlide(index)}
-            aria-label={`Slide ${index + 1}`}
-          />
-        ))}
+      {/* Next control */}
+      <button
+        type="button"
+        onClick={nextSlide}
+        aria-label="Next slide"
+        className="absolute right-4 top-1/2 z-10 inline-flex -translate-y-1/2 items-center justify-center bg-black/30 p-2 text-white transition-colors hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:p-2.5"
+      >
+        <ChevronRight className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8" strokeWidth={2} />
+      </button>
+
+      {/* Dots */}
+      <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 gap-3">
+        {slides.map((_, index) => {
+          const isActive = index === current;
+          return (
+            <button
+              key={index}
+              type="button"
+              aria-label={`Slide ${index + 1}`}
+              onClick={() => goToSlide(index)}
+              className={`h-3.5 w-3.5 border-2 border-white transition-colors ${
+                isActive ? 'bg-white' : 'bg-transparent hover:bg-white/40'
+              }`}
+            />
+          );
+        })}
       </div>
     </section>
   );

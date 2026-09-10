@@ -18,8 +18,8 @@ import Loans from './pages/Loans';
 import Goals from './pages/Goals';
 import Insights from './pages/Insights';
 import Messages from './pages/Messages';
-import Help from './pages/Help';           // ✅ Added
-import Settings from './pages/Settings';   // ✅ Added
+import Help from './pages/Help';
+import Settings from './pages/Settings';
 import LandingPage from './pages/LandingPage';
 import PlaceholderPage from './pages/PlaceholderPage';
 import LocationsPage from './pages/LocationsPage';
@@ -71,8 +71,8 @@ const router = createBrowserRouter([
       { path: 'goals', element: <Goals /> },
       { path: 'insights', element: <Insights /> },
       { path: 'messages', element: <Messages /> },
-      { path: 'help', element: <Help /> },          // ✅ Now live
-      { path: 'settings', element: <Settings /> },   // ✅ Now live
+      { path: 'help', element: <Help /> },
+      { path: 'settings', element: <Settings /> },
     ],
   },
 ]);

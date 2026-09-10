@@ -1,5 +1,15 @@
 import { useState, useEffect } from 'react';
-import styles from './LocationsPage.module.css';
+import {
+  MapPin,
+  Search,
+  Building2,
+  CreditCard,
+  Phone,
+  Clock,
+  Car,
+  Landmark,
+  SlidersHorizontal,
+} from 'lucide-react';
 
 const locationsData = [
   {
@@ -15,7 +25,7 @@ const locationsData = [
     services: ['Drive Thru', 'Coin Counting', 'Safe Deposit Box'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
     driveUpHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm | Sat. 9am-noon',
-    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM'
+    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM',
   },
   {
     id: 2,
@@ -30,7 +40,7 @@ const locationsData = [
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
     driveUpHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm | Sat. 9am-noon',
-    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM'
+    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM',
   },
   {
     id: 3,
@@ -45,7 +55,7 @@ const locationsData = [
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
     driveUpHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm | Sat. 9am-noon',
-    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM'
+    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM',
   },
   {
     id: 4,
@@ -60,7 +70,7 @@ const locationsData = [
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
     driveUpHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm',
-    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM'
+    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM',
   },
   {
     id: 5,
@@ -75,7 +85,7 @@ const locationsData = [
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
     driveUpHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm',
-    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM'
+    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM',
   },
   {
     id: 6,
@@ -90,7 +100,7 @@ const locationsData = [
     services: [],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
     driveUpHours: 'No Drive Up Available',
-    atm: 'ATM | Community Cash ATM'
+    atm: 'ATM | Community Cash ATM',
   },
   {
     id: 7,
@@ -105,7 +115,7 @@ const locationsData = [
     services: ['Drive Thru', 'Coin Counting', 'Safe Deposit Box'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
     driveUpHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm | Sat. 9am-noon',
-    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM'
+    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM',
   },
   {
     id: 8,
@@ -120,7 +130,7 @@ const locationsData = [
     services: [],
     lobbyHours: 'ATM Hours: 24 hours / 7 days a week',
     driveUpHours: '',
-    atm: 'ATM | Community Cash ATM'
+    atm: 'ATM | Community Cash ATM',
   },
   {
     id: 9,
@@ -135,7 +145,7 @@ const locationsData = [
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
     driveUpHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm | Sat. 9am-noon',
-    atm: 'ATM | Community Cash ATM'
+    atm: 'ATM | Community Cash ATM',
   },
   {
     id: 10,
@@ -150,7 +160,7 @@ const locationsData = [
     services: ['Drive Thru'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
     driveUpHours: 'Mon.-Fri. 9am-4pm',
-    atm: 'ATM | Community Cash ATM'
+    atm: 'ATM | Community Cash ATM',
   },
   {
     id: 11,
@@ -165,7 +175,7 @@ const locationsData = [
     services: ['Coin Counting', 'Safe Deposit Box'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
     driveUpHours: '',
-    atm: 'ATM | Community Cash ATM'
+    atm: 'ATM | Community Cash ATM',
   },
   {
     id: 12,
@@ -180,7 +190,7 @@ const locationsData = [
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
     driveUpHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm | Sat. 9am-noon',
-    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM'
+    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM',
   },
   {
     id: 13,
@@ -195,7 +205,7 @@ const locationsData = [
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
     driveUpHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm | Sat. 9am-noon',
-    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM'
+    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM',
   },
   {
     id: 14,
@@ -210,7 +220,7 @@ const locationsData = [
     services: ['Drive Thru', 'Coin Counting', 'Safe Deposit Box'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
     driveUpHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm | Sat. 9am-noon',
-    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM'
+    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM',
   },
   {
     id: 15,
@@ -225,7 +235,7 @@ const locationsData = [
     services: [],
     lobbyHours: 'ATM - Deposit Cash and Checks | 24 hours / 7 days a week',
     driveUpHours: '',
-    atm: 'Community Cash ATM'
+    atm: 'Community Cash ATM',
   },
   {
     id: 16,
@@ -240,7 +250,7 @@ const locationsData = [
     services: ['Drive Thru', 'Coin Counting', 'Safe Deposit Box'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
     driveUpHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm | Sat. 9am-noon',
-    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM'
+    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM',
   },
   {
     id: 17,
@@ -255,7 +265,7 @@ const locationsData = [
     services: ['Drive Thru', 'Safe Deposit Box'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
     driveUpHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm | Sat. 9am-noon',
-    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM'
+    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM',
   },
   {
     id: 18,
@@ -270,7 +280,7 @@ const locationsData = [
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
     driveUpHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm | Sat. 9am-noon',
-    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM'
+    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM',
   },
   {
     id: 19,
@@ -285,7 +295,7 @@ const locationsData = [
     services: ['Drive Thru', 'Safe Deposit Box'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
     driveUpHours: 'Mon.-Fri. 9am-4pm',
-    atm: 'ATM | Community Cash ATM'
+    atm: 'ATM | Community Cash ATM',
   },
   {
     id: 20,
@@ -300,7 +310,7 @@ const locationsData = [
     services: ['Drive Thru'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
     driveUpHours: 'Mon.-Fri. 9am-4pm',
-    atm: 'ATM | Community Cash ATM'
+    atm: 'ATM | Community Cash ATM',
   },
   {
     id: 21,
@@ -315,7 +325,7 @@ const locationsData = [
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
     driveUpHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm',
-    atm: 'ATM | Community Cash ATM'
+    atm: 'ATM | Community Cash ATM',
   },
   {
     id: 22,
@@ -330,7 +340,7 @@ const locationsData = [
     services: ['Drive Thru', 'Coin Counting', 'Safe Deposit Box'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
     driveUpHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm',
-    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM'
+    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM',
   },
   {
     id: 23,
@@ -345,7 +355,7 @@ const locationsData = [
     services: [],
     lobbyHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-4:30pm',
     driveUpHours: '',
-    atm: ''
+    atm: '',
   },
   {
     id: 24,
@@ -360,7 +370,7 @@ const locationsData = [
     services: [],
     lobbyHours: 'ATM Hours: 6am - 11pm / 7 days a week',
     driveUpHours: '',
-    atm: 'ATM | Community Cash ATM'
+    atm: 'ATM | Community Cash ATM',
   },
   {
     id: 25,
@@ -375,7 +385,7 @@ const locationsData = [
     services: [],
     lobbyHours: 'ATM Hours: 24 hours / 7 days a week',
     driveUpHours: '',
-    atm: 'ATM | Community Cash ATM'
+    atm: 'ATM | Community Cash ATM',
   },
   {
     id: 26,
@@ -390,7 +400,7 @@ const locationsData = [
     services: [],
     lobbyHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm',
     driveUpHours: '',
-    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM'
+    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM',
   },
   {
     id: 27,
@@ -405,9 +415,18 @@ const locationsData = [
     services: [],
     lobbyHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm',
     driveUpHours: '',
-    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM'
-  }
+    atm: 'ATM - Deposit Cash and Checks | Community Cash ATM',
+  },
 ];
+
+// Icon for service tag
+const getServiceIcon = (service) => {
+  const s = service.toLowerCase();
+  if (s.includes('drive')) return Car;
+  if (s.includes('coin')) return CreditCard;
+  if (s.includes('safe') || s.includes('deposit')) return Landmark;
+  return Building2;
+};
 
 function LocationsPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -416,29 +435,30 @@ function LocationsPage() {
   const [sortBy, setSortBy] = useState('name');
   const [filteredLocations, setFilteredLocations] = useState(locationsData);
 
-  const types = ['any', ...new Set(locationsData.map(loc => loc.type))];
+  const types = ['any', ...new Set(locationsData.map((loc) => loc.type))];
 
   useEffect(() => {
     let results = locationsData;
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      results = results.filter(loc =>
-        loc.name.toLowerCase().includes(term) ||
-        loc.city.toLowerCase().includes(term) ||
-        loc.state.toLowerCase().includes(term) ||
-        loc.address.toLowerCase().includes(term) ||
-        loc.zip.includes(term)
+      results = results.filter(
+        (loc) =>
+          loc.name.toLowerCase().includes(term) ||
+          loc.city.toLowerCase().includes(term) ||
+          loc.state.toLowerCase().includes(term) ||
+          loc.address.toLowerCase().includes(term) ||
+          loc.zip.includes(term)
       );
     }
 
     if (filterType !== 'any') {
-      results = results.filter(loc => loc.type === filterType);
+      results = results.filter((loc) => loc.type === filterType);
     }
 
     if (filterDistance !== 'any') {
       const maxDist = parseFloat(filterDistance);
-      results = results.filter(loc => {
+      results = results.filter((loc) => {
         const dist = parseFloat(loc.distance);
         return !isNaN(dist) && dist <= maxDist;
       });
@@ -457,138 +477,282 @@ function LocationsPage() {
   }, [searchTerm, filterType, filterDistance, sortBy]);
 
   return (
-    <div className={styles.locationsPage}>
-      <div className={styles.mapSection}>
-        <div className={styles.mapContainer}>
-          <img src="/map.png" alt="Map of locations" className={styles.mapImage} />
-        </div>
+    <div className="bg-canvas">
+      {/* Map Section */}
+      <div className="h-[240px] w-full overflow-hidden bg-[#313538] sm:h-[300px] lg:h-[400px]">
+        <img
+          src="/map.png"
+          alt="Map of locations"
+          className="h-full w-full object-cover"
+        />
       </div>
 
-      <div className={styles.listSection}>
-        <div className="container">
-          <h1 className={styles.pageTitle}>Locations</h1>
-          <p className={styles.pageDescription}>
-            With {locationsData.length} locations, Gulf Coast Bank &amp; Trust serves Baton Rouge, New Orleans Metro Area, Florida, Alabama, and Mississippi.
+      {/* List Section */}
+      <div className="container-bank py-10 sm:py-12 lg:py-16">
+        {/* Header */}
+        <div className="mb-8 border-b border-hairline pb-6">
+          <div className="flex items-center gap-2.5">
+            <MapPin className="h-5 w-5 shrink-0 text-primary" strokeWidth={1.75} />
+            <h1 className="font-serif text-3xl font-bold leading-tight text-deep-accent sm:text-4xl">
+              Locations
+            </h1>
+          </div>
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-body sm:text-base">
+            With {locationsData.length} locations, Gulf Coast Bank &amp; Trust serves
+            Baton Rouge, New Orleans Metro Area, Florida, Alabama, and Mississippi.
           </p>
+        </div>
 
-          <div className={styles.controls}>
-            <div className={styles.searchWrapper}>
+        {/* Controls */}
+        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-stretch">
+          {/* Search */}
+          <div className="flex min-h-[48px] w-full min-w-0 flex-1 items-stretch border border-hairline bg-white focus-within:border-primary">
+            <div className="flex flex-1 items-center">
+              <Search
+                className="ml-4 h-4 w-4 shrink-0 text-muted"
+                strokeWidth={2}
+              />
               <input
                 type="text"
                 placeholder="Search by city, address, or name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className={styles.searchInput}
+                className="h-full w-full border-none bg-transparent px-3 py-3 text-sm text-body outline-none placeholder:text-muted/70"
               />
-              <button className={styles.searchBtn}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="18" height="18">
-                  <path d="M508.5 468.9L387.1 347.5c-2.3-2.3-5.3-3.5-8.5-3.5h-13.2c31.5-36.5 50.6-84 50.6-136C416 93.1 322.9 0 208 0S0 93.1 0 208s93.1 208 208 208c52 0 99.5-19.1 136-50.6v13.2c0 3.2 1.3 6.2 3.5 8.5l121.4 121.4c4.7 4.7 12.3 4.7 17 0l22.6-22.6c4.7-4.7 4.7-12.3 0-17zM208 368c-88.4 0-160-71.6-160-160S119.6 48 208 48s160 71.6 160 160-71.6 160-160 160z"/>
-                </svg>
-              </button>
             </div>
-
-            <div className={styles.filterWrapper}>
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className={styles.filterSelect}
-              >
-                {types.map(type => (
-                  <option key={type} value={type}>
-                    {type === 'any' ? 'All Types' : type}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={filterDistance}
-                onChange={(e) => setFilterDistance(e.target.value)}
-                className={styles.filterSelect}
-              >
-                <option value="any">Any Distance</option>
-                <option value="5">Within 5 miles</option>
-                <option value="10">Within 10 miles</option>
-                <option value="20">Within 20 miles</option>
-                <option value="50">Within 50 miles</option>
-                <option value="100">Within 100 miles</option>
-              </select>
-            </div>
+            <button
+              type="button"
+              aria-label="Search"
+              className="flex w-12 shrink-0 items-center justify-center bg-primary text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            >
+              <Search className="h-4 w-4" strokeWidth={2.25} />
+            </button>
           </div>
 
-          <div className={styles.sortWrapper}>
-            <span className={styles.resultsCount}>{filteredLocations.length} locations found</span>
-            <div className={styles.sortOptions}>
-              <span className={styles.sortLabel}>Sort by:</span>
-              <button
-                className={`${styles.sortBtn} ${sortBy === 'name' ? styles.activeSort : ''}`}
-                onClick={() => setSortBy('name')}
-              >
-                Name
-              </button>
-              <button
-                className={`${styles.sortBtn} ${sortBy === 'city' ? styles.activeSort : ''}`}
-                onClick={() => setSortBy('city')}
-              >
-                City
-              </button>
-              <button
-                className={`${styles.sortBtn} ${sortBy === 'distance' ? styles.activeSort : ''}`}
-                onClick={() => setSortBy('distance')}
-              >
-                Distance
-              </button>
-            </div>
-          </div>
+          {/* Filters */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:gap-3">
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="min-h-[48px] border border-hairline bg-white px-4 py-2 text-sm text-body focus:border-primary focus:outline-none"
+            >
+              {types.map((type) => (
+                <option key={type} value={type}>
+                  {type === 'any' ? 'All Types' : type}
+                </option>
+              ))}
+            </select>
 
-          <div className={styles.locationList}>
-            {filteredLocations.length > 0 ? (
-              filteredLocations.map((location) => (
-                <div key={location.id} className={styles.locationCard}>
-                  <div className={styles.locationInfo}>
-                    <div className={styles.locationHeader}>
-                      <h3 className={styles.locationName}>{location.name}</h3>
-                      <span className={styles.locationType}>{location.type}</span>
-                      <span className={styles.locationDistanceBadge}>{location.distance} miles</span>
-                    </div>
-                    <p className={styles.locationAddress}>
-                      {location.address}<br />
-                      {location.city}, {location.state} {location.zip}
-                    </p>
-                    {location.phone && (
-                      <p className={styles.locationPhone}>{location.phone}</p>
-                    )}
-                    {location.lobbyHours && (
-                      <p className={styles.locationHours}>
-                        <strong>Lobby Hours</strong><br />
-                        {location.lobbyHours}
-                      </p>
-                    )}
-                    {location.driveUpHours && (
-                      <p className={styles.locationHours}>
-                        <strong>Drive Up Hours</strong><br />
-                        {location.driveUpHours}
-                      </p>
-                    )}
-                    {location.atm && (
-                      <p className={styles.locationAtm}>
-                        <strong>ATM</strong><br />
-                        {location.atm}
-                      </p>
-                    )}
-                    {location.services.length > 0 && (
-                      <div className={styles.locationServices}>
-                        {location.services.map((service, idx) => (
-                          <span key={idx} className={styles.serviceTag}>{service}</span>
-                        ))}
+            <select
+              value={filterDistance}
+              onChange={(e) => setFilterDistance(e.target.value)}
+              className="min-h-[48px] border border-hairline bg-white px-4 py-2 text-sm text-body focus:border-primary focus:outline-none"
+            >
+              <option value="any">Any Distance</option>
+              <option value="5">Within 5 miles</option>
+              <option value="10">Within 10 miles</option>
+              <option value="20">Within 20 miles</option>
+              <option value="50">Within 50 miles</option>
+              <option value="100">Within 100 miles</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Sort */}
+        <div className="mb-6 flex flex-col gap-3 border-b border-hairline py-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="inline-flex items-center gap-2 text-sm text-muted">
+            <SlidersHorizontal
+              className="h-3.5 w-3.5 shrink-0"
+              strokeWidth={1.75}
+            />
+            {filteredLocations.length} location
+            {filteredLocations.length === 1 ? '' : 's'} found
+          </span>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs uppercase tracking-wide text-muted">
+              Sort by:
+            </span>
+            {[
+              { key: 'name', label: 'Name' },
+              { key: 'city', label: 'City' },
+              { key: 'distance', label: 'Distance' },
+            ].map(({ key, label }) => {
+              const active = sortBy === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setSortBy(key)}
+                  className={`min-h-[30px] border px-3 py-1 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm ${
+                    active
+                      ? 'border-primary bg-primary text-white'
+                      : 'border-hairline bg-white text-body hover:border-primary hover:text-primary'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Location List */}
+        <div className="flex flex-col gap-4">
+          {filteredLocations.length > 0 ? (
+            filteredLocations.map((location) => {
+              const isATM = location.type === 'ATM';
+              return (
+                <div
+                  key={location.id}
+                  className="border border-hairline bg-white p-5 transition-colors hover:bg-faint sm:p-6"
+                >
+                  {/* Header */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <h3 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
+                      {location.name}
+                    </h3>
+
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white ${
+                        isATM ? 'bg-[#b8860b]' : 'bg-primary'
+                      }`}
+                    >
+                      {isATM ? (
+                        <CreditCard className="h-3 w-3" strokeWidth={2.25} />
+                      ) : (
+                        <Building2 className="h-3 w-3" strokeWidth={2.25} />
+                      )}
+                      {location.type}
+                    </span>
+
+                    <span className="inline-flex items-center gap-1 border border-hairline bg-faint px-2.5 py-0.5 text-xs font-medium text-muted">
+                      <MapPin className="h-3 w-3" strokeWidth={2} />
+                      {location.distance} miles
+                    </span>
+                  </div>
+
+                  {/* Body */}
+                  <div className="mt-4 grid grid-cols-1 gap-x-8 gap-y-3 text-sm text-body md:grid-cols-2">
+                    {/* Left column: address, phone, hours */}
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-start gap-2">
+                        <MapPin
+                          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary"
+                          strokeWidth={1.75}
+                        />
+                        <div>
+                          <p className="text-sm text-body">{location.address}</p>
+                          <p className="text-sm text-body">
+                            {location.city}, {location.state} {location.zip}
+                          </p>
+                        </div>
                       </div>
-                    )}
+
+                      {location.phone && (
+                        <div className="flex items-center gap-2">
+                          <Phone
+                            className="h-3.5 w-3.5 shrink-0 text-primary"
+                            strokeWidth={1.75}
+                          />
+                          <a
+                            href={`tel:${location.phone.replace(/[^0-9]/g, '')}`}
+                            className="text-sm text-primary hover:underline"
+                          >
+                            {location.phone}
+                          </a>
+                        </div>
+                      )}
+
+                      {location.lobbyHours && (
+                        <div className="flex items-start gap-2">
+                          <Clock
+                            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary"
+                            strokeWidth={1.75}
+                          />
+                          <div>
+                            <div className="text-xs font-semibold uppercase tracking-wide text-deep-accent">
+                              {isATM ? 'ATM Hours' : 'Lobby Hours'}
+                            </div>
+                            <p className="text-xs text-body sm:text-sm">
+                              {location.lobbyHours}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right column: drive-up, ATM, services */}
+                    <div className="flex flex-col gap-3">
+                      {location.driveUpHours && (
+                        <div className="flex items-start gap-2">
+                          <Car
+                            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary"
+                            strokeWidth={1.75}
+                          />
+                          <div>
+                            <div className="text-xs font-semibold uppercase tracking-wide text-deep-accent">
+                              Drive Up Hours
+                            </div>
+                            <p className="text-xs text-body sm:text-sm">
+                              {location.driveUpHours}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {location.atm && (
+                        <div className="flex items-start gap-2">
+                          <CreditCard
+                            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary"
+                            strokeWidth={1.75}
+                          />
+                          <div>
+                            <div className="text-xs font-semibold uppercase tracking-wide text-deep-accent">
+                              ATM
+                            </div>
+                            <p className="text-xs text-body sm:text-sm">
+                              {location.atm}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {location.services.length > 0 && (
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {location.services.map((service, idx) => {
+                            const Icon = getServiceIcon(service);
+                            return (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center gap-1.5 border border-hairline bg-faint px-2.5 py-1 text-[11px] font-medium text-body"
+                              >
+                                <Icon
+                                  className="h-3 w-3 shrink-0 text-primary"
+                                  strokeWidth={2}
+                                />
+                                {service}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              ))
-            ) : (
-              <p className={styles.noResults}>No locations found matching your search.</p>
-            )}
-          </div>
+              );
+            })
+          ) : (
+            <div className="border border-hairline bg-faint py-12 text-center">
+              <Search
+                className="mx-auto h-8 w-8 text-muted"
+                strokeWidth={1.5}
+              />
+              <p className="mt-3 text-sm text-body">
+                No locations found matching your search.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,12 +1,26 @@
 // src/pages/Transfers.jsx
 import React, { useState } from 'react';
 import {
+  ArrowLeftRight,
+  Landmark,
+  Repeat,
+  Plus,
+  CheckCircle2,
+  ShieldCheck,
+  ArrowRight,
+  ChevronRight,
+  CalendarClock,
+  Send,
+  Phone,
+  MessageCircle,
+  HelpCircle,
+  Building2,
+} from 'lucide-react';
+import {
   mockTransferAccounts,
   mockScheduledTransfers,
   mockTransferHistory,
-  transferLimits,
 } from '../data/mockTransfersData';
-import styles from './Transfers.module.css';
 
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('en-US', {
@@ -18,7 +32,15 @@ const formatCurrency = (amount) => {
 
 // Helper to get account by ID
 const getAccountById = (id) => {
-  return mockTransferAccounts.find(acc => acc.id === id);
+  return mockTransferAccounts.find((acc) => acc.id === id);
+};
+
+// Status color mapping used in history
+const statusColor = (status) => {
+  const s = status.toLowerCase();
+  if (s === 'completed') return 'text-primary';
+  if (s === 'failed' || s === 'canceled') return 'text-[#d9534f]';
+  return 'text-[#b8860b]'; // scheduled / processing
 };
 
 const Transfers = () => {
@@ -37,13 +59,12 @@ const Transfers = () => {
     isRecurring: false,
   });
 
-  const [confirmationNumber, setConfirmationNumber] = useState('TRX-482193');
+  const [confirmationNumber] = useState('TRX-482193');
 
   // Handlers
   const handleTypeSelect = (type) => {
     setSelectedType(type);
     setCurrentStep('form');
-    // Reset form fields for new transfer
     setFormData({
       fromAccountId: '',
       toAccountId: '',
@@ -57,7 +78,7 @@ const Transfers = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = (e) => {
@@ -66,7 +87,6 @@ const Transfers = () => {
   };
 
   const handleConfirm = () => {
-    // In real app, would call API
     setCurrentStep('success');
   };
 
@@ -87,32 +107,33 @@ const Transfers = () => {
   const getFromAccount = () => getAccountById(formData.fromAccountId);
   const getToAccount = () => getAccountById(formData.toAccountId);
 
-  // Helper to get frequency label
-  const getFrequencyLabel = (freq) => {
-    if (freq === 'One time') return 'One time';
-    return freq;
-  };
-
   return (
-    <div className={styles.transfersPage}>
+    <div className="mx-auto max-w-[1000px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Page Header */}
-      <div className={styles.pageHeader}>
-        <div className={styles.headerLeft}>
-          <h1 className={styles.pageTitle}>Transfers</h1>
-          <p className={styles.pageSubtitle}>Move money securely between your accounts or to another bank.</p>
+      <div className="mb-8 flex flex-col gap-4 border-b border-hairline pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="font-serif text-2xl font-bold leading-tight text-deep-accent sm:text-3xl">
+            Transfers
+          </h1>
+          <p className="mt-1 text-sm text-body sm:text-base">
+            Move money securely between your accounts or to another bank.
+          </p>
         </div>
         {currentStep !== 'type' && (
-          <button className={styles.primaryAction} onClick={handleNewTransfer}>
-            + New Transfer
+          <button
+            type="button"
+            onClick={handleNewTransfer}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.25} />
+            New Transfer
           </button>
         )}
       </div>
 
       {/* Main Content */}
-      <div className={styles.transferContainer}>
-        {currentStep === 'type' && (
-          <TransferTypeSelection onSelect={handleTypeSelect} />
-        )}
+      <div className="mb-12">
+        {currentStep === 'type' && <TransferTypeSelection onSelect={handleTypeSelect} />}
 
         {currentStep === 'form' && (
           <TransferForm
@@ -146,23 +167,57 @@ const Transfers = () => {
         )}
       </div>
 
+      {/* Security reminder */}
+      <div className="mb-10 flex items-start gap-3 border border-hairline bg-faint px-4 py-3">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
+        <p className="text-xs text-body sm:text-sm">
+          Transfers are encrypted end-to-end. We will never ask for your password by
+          email or phone.
+        </p>
+      </div>
+
       {/* Upcoming / Scheduled Transfers */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Upcoming Transfers</h2>
-        <div className={styles.scheduledList}>
+      <section className="mb-12 border-t border-hairline pt-8">
+        <div className="mb-4 flex items-center gap-2">
+          <CalendarClock className="h-4 w-4 text-primary" strokeWidth={1.75} />
+          <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
+            Upcoming Transfers
+          </h2>
+        </div>
+
+        <div className="flex flex-col gap-3">
           {mockScheduledTransfers.map((t) => (
-            <div key={t.id} className={styles.scheduledItem}>
-              <div className={styles.schedInfo}>
-                <span className={styles.schedDetail}>
-                  {t.from} → {t.to}
+            <div
+              key={t.id}
+              className="flex flex-col gap-3 border border-hairline bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+                <span className="inline-flex items-center gap-2 text-sm font-semibold text-deep-accent">
+                  <ArrowLeftRight className="h-3.5 w-3.5 text-primary" strokeWidth={2} />
+                  {t.from}
+                  <ArrowRight className="h-3 w-3 text-muted" strokeWidth={2} />
+                  {t.to}
                 </span>
-                <span className={styles.schedAmount}>{formatCurrency(t.amount)}</span>
-                <span className={styles.schedDate}>{t.date}</span>
-                <span className={styles.schedFrequency}>{t.frequency}</span>
+                <span className="text-sm font-semibold text-deep-accent">
+                  {formatCurrency(t.amount)}
+                </span>
+                <span className="text-xs text-body sm:text-sm">{t.date}</span>
+                <span className="text-xs text-muted sm:text-sm">{t.frequency}</span>
               </div>
-              <div className={styles.schedActions}>
-                <button className={styles.schedAction}>Edit</button>
-                <button className={styles.schedAction}>Cancel</button>
+
+              <div className="flex gap-3 sm:gap-4">
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-primary hover:underline sm:text-sm"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-[#d9534f] hover:underline sm:text-sm"
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           ))}
@@ -170,23 +225,40 @@ const Transfers = () => {
       </section>
 
       {/* Transfer History */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Transfer History</h2>
-        <div className={styles.historyList}>
-          <div className={styles.historyHeader}>
+      <section className="mb-12 border-t border-hairline pt-8">
+        <h2 className="mb-4 font-serif text-lg font-bold text-deep-accent sm:text-xl">
+          Transfer History
+        </h2>
+
+        <div className="overflow-hidden border border-hairline bg-white">
+          {/* Header (desktop) */}
+          <div className="hidden grid-cols-[1fr_2fr_1fr_1fr] gap-4 border-b border-hairline bg-faint px-4 py-3 text-xs font-bold uppercase tracking-wide text-deep-accent sm:grid">
             <span>Date</span>
             <span>From → To</span>
-            <span>Amount</span>
-            <span>Status</span>
+            <span className="text-right">Amount</span>
+            <span className="text-right">Status</span>
           </div>
+
           {mockTransferHistory.map((t) => (
-            <div key={t.id} className={styles.historyItem}>
-              <span className={styles.historyDate}>{t.date}</span>
-              <span className={styles.historyRoute}>
-                {t.from} → {t.to}
+            <div
+              key={t.id}
+              className="grid grid-cols-1 gap-1 border-b border-faint px-4 py-3 last:border-b-0 sm:grid-cols-[1fr_2fr_1fr_1fr] sm:items-center sm:gap-4"
+            >
+              <span className="text-xs text-muted sm:text-sm">{t.date}</span>
+              <span className="flex items-center gap-2 text-sm font-medium text-ink">
+                <ArrowLeftRight className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2} />
+                {t.from}
+                <ArrowRight className="h-3 w-3 text-muted" strokeWidth={2} />
+                {t.to}
               </span>
-              <span className={styles.historyAmount}>{formatCurrency(t.amount)}</span>
-              <span className={`${styles.historyStatus} ${styles[t.status.toLowerCase()]}`}>
+              <span className="text-sm font-semibold text-deep-accent sm:text-right">
+                {formatCurrency(t.amount)}
+              </span>
+              <span
+                className={`text-xs font-bold uppercase tracking-wide sm:text-right sm:text-sm sm:normal-case ${statusColor(
+                  t.status
+                )}`}
+              >
                 {t.status}
               </span>
             </div>
@@ -194,16 +266,6 @@ const Transfers = () => {
         </div>
       </section>
 
-
-      {/* Help */}
-      <section className={styles.supportSection}>
-        <h3 className={styles.supportTitle}>Need help?</h3>
-        <div className={styles.supportOptions}>
-          <button>Message Us</button>
-          <button>Call Us</button>
-          <button>Help Center</button>
-        </div>
-      </section>
     </div>
   );
 };
@@ -211,90 +273,144 @@ const Transfers = () => {
 // ----- Subcomponents -----
 
 const TransferTypeSelection = ({ onSelect }) => {
+  const options = [
+    {
+      key: 'internal',
+      icon: ArrowLeftRight,
+      label: 'Between My Accounts',
+      desc: 'Move money between your checking and savings accounts.',
+    },
+    {
+      key: 'external',
+      icon: Landmark,
+      label: 'To Another Bank',
+      desc: 'Send money to an external bank account.',
+    },
+    {
+      key: 'recurring',
+      icon: Repeat,
+      label: 'Recurring Transfer',
+      desc: 'Automatically move money on a schedule.',
+    },
+  ];
+
   return (
-    <div className={styles.typeSelection}>
-      <h2 className={styles.typeTitle}>Choose transfer type</h2>
-      <div className={styles.typeOptions}>
-        <button className={styles.typeOption} onClick={() => onSelect('internal')}>
-          <span className={styles.typeIcon}>↔</span>
-          <span className={styles.typeLabel}>Between My Accounts</span>
-          <span className={styles.typeDesc}>Move money between your checking and savings accounts.</span>
-        </button>
-        <button className={styles.typeOption} onClick={() => onSelect('external')}>
-          <span className={styles.typeIcon}>🏦</span>
-          <span className={styles.typeLabel}>To Another Bank</span>
-          <span className={styles.typeDesc}>Send money to an external bank account.</span>
-        </button>
-        <button className={styles.typeOption} onClick={() => onSelect('recurring')}>
-          <span className={styles.typeIcon}>🔄</span>
-          <span className={styles.typeLabel}>Recurring Transfer</span>
-          <span className={styles.typeDesc}>Automatically move money on a schedule.</span>
-        </button>
+    <div className="border border-hairline bg-faint p-6 sm:p-8">
+      <h2 className="mb-6 font-serif text-xl font-bold text-deep-accent sm:text-2xl">
+        Choose transfer type
+      </h2>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {options.map(({ key, icon: Icon, label, desc }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onSelect(key)}
+            className="group flex flex-col gap-3 border border-hairline bg-white p-5 text-left transition-colors hover:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          >
+            <span className="flex h-10 w-10 items-center justify-center bg-[#e7f3f5] text-primary">
+              <Icon className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            <span className="text-sm font-bold text-deep-accent sm:text-base">{label}</span>
+            <span className="text-xs text-body sm:text-sm">{desc}</span>
+            <span className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+              Continue
+              <ChevronRight
+                className="h-3 w-3 transition-transform group-hover:translate-x-0.5"
+                strokeWidth={2.25}
+              />
+            </span>
+          </button>
+        ))}
       </div>
     </div>
   );
 };
 
 const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, onCancel }) => {
-  const fromAccount = accounts.find(a => a.id === formData.fromAccountId);
-  const toAccount = accounts.find(a => a.id === formData.toAccountId);
+  const fromAccount = accounts.find((a) => a.id === formData.fromAccountId);
 
   // Filter "to" accounts: exclude the selected "from" account
-  const availableToAccounts = accounts.filter(a => a.id !== formData.fromAccountId);
+  const availableToAccounts = accounts.filter((a) => a.id !== formData.fromAccountId);
 
   return (
-    <form className={styles.transferForm} onSubmit={onSubmit}>
-      <h2 className={styles.formTitle}>New Transfer</h2>
+    <form
+      onSubmit={onSubmit}
+      className="border border-hairline bg-faint p-6 sm:p-8"
+    >
+      <h2 className="mb-6 font-serif text-xl font-bold text-deep-accent sm:text-2xl">
+        New Transfer
+      </h2>
 
-      <div className={styles.formGroup}>
-        <label htmlFor="fromAccountId">From</label>
+      <div className="mb-5">
+        <label
+          htmlFor="fromAccountId"
+          className="mb-1.5 block text-sm font-semibold text-deep-accent"
+        >
+          From
+        </label>
         <select
           id="fromAccountId"
           name="fromAccountId"
           value={formData.fromAccountId}
           onChange={onChange}
           required
-          className={styles.select}
+          className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
         >
           <option value="">Select account</option>
-          {accounts.map(acc => (
+          {accounts.map((acc) => (
             <option key={acc.id} value={acc.id}>
-              {acc.name} •••• {acc.lastFour} {acc.available !== null ? `(Available: ${formatCurrency(acc.available)})` : ''}
+              {acc.name} •••• {acc.lastFour}{' '}
+              {acc.available !== null ? `(Available: ${formatCurrency(acc.available)})` : ''}
             </option>
           ))}
         </select>
         {fromAccount && fromAccount.available !== null && (
-          <div className={styles.helperText}>Available: {formatCurrency(fromAccount.available)}</div>
+          <div className="mt-1.5 text-xs text-muted">
+            Available: {formatCurrency(fromAccount.available)}
+          </div>
         )}
       </div>
 
-      <div className={styles.formGroup}>
-        <label htmlFor="toAccountId">To</label>
+      <div className="mb-5">
+        <label
+          htmlFor="toAccountId"
+          className="mb-1.5 block text-sm font-semibold text-deep-accent"
+        >
+          To
+        </label>
         <select
           id="toAccountId"
           name="toAccountId"
           value={formData.toAccountId}
           onChange={onChange}
           required
-          className={styles.select}
           disabled={!formData.fromAccountId}
+          className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:bg-faint disabled:text-muted"
         >
           <option value="">Select account</option>
-          {availableToAccounts.map(acc => (
+          {availableToAccounts.map((acc) => (
             <option key={acc.id} value={acc.id}>
               {acc.name} •••• {acc.lastFour}
             </option>
           ))}
         </select>
         {selectedType === 'external' && (
-          <button className={styles.addExternalBtn}>+ Add External Account</button>
+          <button
+            type="button"
+            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
+            Add External Account
+          </button>
         )}
       </div>
 
-      <div className={styles.formGroup}>
-        <label htmlFor="amount">Amount</label>
-        <div className={styles.amountInput}>
-          <span className={styles.currencySymbol}>$</span>
+      <div className="mb-5">
+        <label htmlFor="amount" className="mb-1.5 block text-sm font-semibold text-deep-accent">
+          Amount
+        </label>
+        <div className="flex items-center border border-hairline bg-white focus-within:border-primary">
+          <span className="pl-3 pr-1 text-base font-bold text-body">$</span>
           <input
             type="number"
             id="amount"
@@ -305,14 +421,16 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
             min="0.01"
             step="0.01"
             required
-            className={styles.amountField}
+            className="min-h-[44px] w-full border-none bg-transparent px-2 py-2 text-lg font-semibold text-deep-accent outline-none placeholder:text-muted/60"
           />
         </div>
       </div>
 
-      <div className={styles.formRow}>
-        <div className={styles.formGroup}>
-          <label htmlFor="date">Transfer Date</label>
+      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="date" className="mb-1.5 block text-sm font-semibold text-deep-accent">
+            Transfer Date
+          </label>
           <input
             type="date"
             id="date"
@@ -320,18 +438,24 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
             value={formData.date}
             onChange={onChange}
             required
-            className={styles.input}
+            className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
           />
         </div>
+
         {selectedType === 'recurring' && (
-          <div className={styles.formGroup}>
-            <label htmlFor="frequency">Frequency</label>
+          <div>
+            <label
+              htmlFor="frequency"
+              className="mb-1.5 block text-sm font-semibold text-deep-accent"
+            >
+              Frequency
+            </label>
             <select
               id="frequency"
               name="frequency"
               value={formData.frequency}
               onChange={onChange}
-              className={styles.select}
+              className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
             >
               <option value="One time">One time</option>
               <option value="Weekly">Weekly</option>
@@ -342,8 +466,10 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
         )}
       </div>
 
-      <div className={styles.formGroup}>
-        <label htmlFor="memo">Memo (optional)</label>
+      <div className="mb-6">
+        <label htmlFor="memo" className="mb-1.5 block text-sm font-semibold text-deep-accent">
+          Memo <span className="font-normal text-muted">(optional)</span>
+        </label>
         <input
           type="text"
           id="memo"
@@ -351,13 +477,25 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
           value={formData.memo}
           onChange={onChange}
           placeholder="e.g. Transfer to savings"
-          className={styles.input}
+          className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent placeholder:text-muted/70 focus:border-primary focus:outline-none"
         />
       </div>
 
-      <div className={styles.formActions}>
-        <button type="button" className={styles.cancelBtn} onClick={onCancel}>Cancel</button>
-        <button type="submit" className={styles.submitBtn}>Review Transfer</button>
+      <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-6 sm:flex-row sm:justify-end">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="min-h-[44px] border border-hairline bg-white px-6 py-2.5 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        >
+          Review Transfer
+          <ArrowRight className="h-4 w-4" strokeWidth={2.25} />
+        </button>
       </div>
     </form>
   );
@@ -365,44 +503,68 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
 
 const TransferReview = ({ formData, fromAccount, toAccount, onConfirm, onBack }) => {
   return (
-    <div className={styles.reviewPanel}>
-      <h2 className={styles.reviewTitle}>Review Transfer</h2>
-      <div className={styles.reviewDetails}>
-        <div className={styles.reviewRow}>
-          <span className={styles.reviewLabel}>From</span>
-          <span className={styles.reviewValue}>
+    <div className="border border-hairline bg-faint p-6 sm:p-8">
+      <h2 className="mb-6 font-serif text-xl font-bold text-deep-accent sm:text-2xl">
+        Review Transfer
+      </h2>
+
+      <div className="mb-6 divide-y divide-hairline border-y border-hairline">
+        <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-sm text-body">From</span>
+          <span className="text-sm font-semibold text-deep-accent sm:text-right">
             {fromAccount ? `${fromAccount.name} •••• ${fromAccount.lastFour}` : '—'}
           </span>
         </div>
-        <div className={styles.reviewRow}>
-          <span className={styles.reviewLabel}>To</span>
-          <span className={styles.reviewValue}>
+        <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-sm text-body">To</span>
+          <span className="text-sm font-semibold text-deep-accent sm:text-right">
             {toAccount ? `${toAccount.name} •••• ${toAccount.lastFour}` : '—'}
           </span>
         </div>
-        <div className={styles.reviewRow}>
-          <span className={styles.reviewLabel}>Amount</span>
-          <span className={styles.reviewValue}>{formatCurrency(parseFloat(formData.amount) || 0)}</span>
+        <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-sm text-body">Amount</span>
+          <span className="font-serif text-lg font-bold text-deep-accent sm:text-right">
+            {formatCurrency(parseFloat(formData.amount) || 0)}
+          </span>
         </div>
-        <div className={styles.reviewRow}>
-          <span className={styles.reviewLabel}>Date</span>
-          <span className={styles.reviewValue}>{formData.date}</span>
+        <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-sm text-body">Date</span>
+          <span className="text-sm font-semibold text-deep-accent sm:text-right">
+            {formData.date}
+          </span>
         </div>
-        <div className={styles.reviewRow}>
-          <span className={styles.reviewLabel}>Frequency</span>
-          <span className={styles.reviewValue}>{formData.frequency}</span>
+        <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-sm text-body">Frequency</span>
+          <span className="text-sm font-semibold text-deep-accent sm:text-right">
+            {formData.frequency}
+          </span>
         </div>
         {formData.memo && (
-          <div className={styles.reviewRow}>
-            <span className={styles.reviewLabel}>Memo</span>
-            <span className={styles.reviewValue}>{formData.memo}</span>
+          <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-sm text-body">Memo</span>
+            <span className="text-sm font-semibold text-deep-accent sm:text-right">
+              {formData.memo}
+            </span>
           </div>
         )}
       </div>
 
-      <div className={styles.reviewActions}>
-        <button className={styles.backBtn} onClick={onBack}>Back</button>
-        <button className={styles.confirmBtn} onClick={onConfirm}>Confirm Transfer</button>
+      <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-6 sm:flex-row sm:justify-end">
+        <button
+          type="button"
+          onClick={onBack}
+          className="min-h-[44px] border border-hairline bg-white px-6 py-2.5 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        >
+          <Send className="h-4 w-4" strokeWidth={2.25} />
+          Confirm Transfer
+        </button>
       </div>
     </div>
   );
@@ -410,25 +572,45 @@ const TransferReview = ({ formData, fromAccount, toAccount, onConfirm, onBack })
 
 const TransferSuccess = ({ confirmationNumber, formData, fromAccount, toAccount, onNewTransfer }) => {
   return (
-    <div className={styles.successPanel}>
-      <div className={styles.successIcon}>✓</div>
-      <h2 className={styles.successTitle}>Transfer Scheduled</h2>
-      <p className={styles.successMessage}>
-        Your {formatCurrency(parseFloat(formData.amount) || 0)} transfer from {fromAccount?.name} to {toAccount?.name} has been scheduled.
+    <div className="border border-hairline bg-faint p-6 text-center sm:p-10">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center bg-[#e7f3f5]">
+        <CheckCircle2 className="h-8 w-8 text-primary" strokeWidth={1.75} />
+      </div>
+
+      <h2 className="mt-4 font-serif text-2xl font-bold text-deep-accent sm:text-3xl">
+        Transfer Scheduled
+      </h2>
+      <p className="mx-auto mt-2 max-w-xl text-sm text-body sm:text-base">
+        Your {formatCurrency(parseFloat(formData.amount) || 0)} transfer from{' '}
+        {fromAccount?.name} to {toAccount?.name} has been scheduled.
       </p>
-      <div className={styles.successDetails}>
-        <div className={styles.successRow}>
-          <span className={styles.successLabel}>Transfer Date</span>
-          <span className={styles.successValue}>{formData.date}</span>
+
+      <div className="mx-auto mt-6 max-w-md border border-hairline bg-white p-5 text-left">
+        <div className="flex items-center justify-between py-1.5">
+          <span className="text-xs text-muted sm:text-sm">Transfer Date</span>
+          <span className="text-sm font-semibold text-deep-accent">{formData.date}</span>
         </div>
-        <div className={styles.successRow}>
-          <span className={styles.successLabel}>Confirmation Number</span>
-          <span className={styles.successValue}>{confirmationNumber}</span>
+        <div className="flex items-center justify-between py-1.5">
+          <span className="text-xs text-muted sm:text-sm">Confirmation Number</span>
+          <span className="text-sm font-semibold text-deep-accent">{confirmationNumber}</span>
         </div>
       </div>
-      <div className={styles.successActions}>
-        <button className={styles.successAction}>View Transfer</button>
-        <button className={styles.successActionSecondary} onClick={onNewTransfer}>Make Another Transfer</button>
+
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+        <button
+          type="button"
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 border border-primary bg-white px-6 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        >
+          View Transfer
+        </button>
+        <button
+          type="button"
+          onClick={onNewTransfer}
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        >
+          <Plus className="h-4 w-4" strokeWidth={2.25} />
+          Make Another Transfer
+        </button>
       </div>
     </div>
   );

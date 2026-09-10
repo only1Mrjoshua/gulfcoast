@@ -1,12 +1,29 @@
 // src/pages/Deposits.jsx
 import React, { useState } from 'react';
 import {
+  Plus,
+  Camera,
+  CheckCircle2,
+  Check,
+  X,
+  Image as ImageIcon,
+  ShieldCheck,
+  MessageCircle,
+  Phone,
+  HelpCircle,
+  ArrowRight,
+  Wallet,
+  Landmark,
+  Clock,
+  BadgeCheck,
+  Upload,
+  Send,
+  ChevronRight,
+} from 'lucide-react';
+import {
   mockDepositAccounts,
   mockRecentDeposits,
-  depositLimits,
-  depositAvailability,
 } from '../data/mockDepositsData';
-import styles from './Deposits.module.css';
 
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('en-US', {
@@ -14,6 +31,14 @@ const formatCurrency = (amount) => {
     currency: 'USD',
     minimumFractionDigits: 2,
   }).format(amount);
+};
+
+// Deposit status color helper (mirrors old CSS module classes)
+const statusColor = (status) => {
+  const s = status.toLowerCase();
+  if (s === 'completed') return 'text-primary';
+  if (s === 'rejected' || s === 'canceled') return 'text-[#d9534f]';
+  return 'text-[#b8860b]'; // processing / pending
 };
 
 const Deposits = () => {
@@ -25,7 +50,7 @@ const Deposits = () => {
   const [backImage, setBackImage] = useState(null);
   const [filterType, setFilterType] = useState('all');
   const [filterDate, setFilterDate] = useState('');
-  const [confirmationNumber, setConfirmationNumber] = useState('DEP-482193');
+  const [confirmationNumber] = useState('DEP-482193');
 
   // Handlers
   const handleStartDeposit = () => {
@@ -69,44 +94,74 @@ const Deposits = () => {
     setSelectedAccountId('chk1');
   };
 
-  const getAccount = (id) => mockDepositAccounts.find(a => a.id === id);
+  const getAccount = (id) => mockDepositAccounts.find((a) => a.id === id);
 
   // Filter deposits
-  const filteredDeposits = mockRecentDeposits.filter(dep => {
-    if (filterType === 'all') return true;
-    if (filterType === 'mobile') return dep.type === 'Mobile Check Deposit';
-    if (filterType === 'direct') return dep.type === 'Direct Deposit';
-    if (filterType === 'other') return !['Mobile Check Deposit', 'Direct Deposit'].includes(dep.type);
-    return true;
-  }).filter(dep => {
-    if (!filterDate) return true;
-    return dep.date === filterDate;
-  });
+  const filteredDeposits = mockRecentDeposits
+    .filter((dep) => {
+      if (filterType === 'all') return true;
+      if (filterType === 'mobile') return dep.type === 'Mobile Check Deposit';
+      if (filterType === 'direct') return dep.type === 'Direct Deposit';
+      if (filterType === 'other')
+        return !['Mobile Check Deposit', 'Direct Deposit'].includes(dep.type);
+      return true;
+    })
+    .filter((dep) => {
+      if (!filterDate) return true;
+      return dep.date === filterDate;
+    });
 
   // Summary
   const totalDeposited = mockRecentDeposits
-    .filter(d => d.status === 'Completed')
+    .filter((d) => d.status === 'Completed')
     .reduce((sum, d) => sum + d.amount, 0);
 
   const pendingDeposits = mockRecentDeposits
-    .filter(d => d.status === 'Processing' || d.status === 'Pending')
+    .filter((d) => d.status === 'Processing' || d.status === 'Pending')
     .reduce((sum, d) => sum + d.amount, 0);
 
   const availableDeposits = mockRecentDeposits
-    .filter(d => d.status === 'Completed' && new Date(d.date) >= new Date(new Date().setDate(new Date().getDate() - 30)))
+    .filter(
+      (d) =>
+        d.status === 'Completed' &&
+        new Date(d.date) >= new Date(new Date().setDate(new Date().getDate() - 30))
+    )
     .reduce((sum, d) => sum + d.amount, 0);
 
+  const overviewCards = [
+    { label: 'Deposited This Month', value: totalDeposited, icon: BadgeCheck },
+    { label: 'Pending Deposits', value: pendingDeposits, icon: Clock },
+    { label: 'Available Deposits', value: availableDeposits, icon: Wallet },
+  ];
+
+  const depositSteps = [
+    'Endorse your check',
+    'Capture the front',
+    'Capture the back',
+    'Enter the amount',
+    'Review and submit',
+  ];
+
   return (
-    <div className={styles.depositsPage}>
+    <div className="mx-auto max-w-[1000px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Page Header */}
-      <div className={styles.pageHeader}>
-        <div className={styles.headerLeft}>
-          <h1 className={styles.pageTitle}>Deposits</h1>
-          <p className={styles.pageSubtitle}>Deposit checks and manage your recent deposits securely.</p>
+      <div className="mb-8 flex flex-col gap-4 border-b border-hairline pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="font-serif text-2xl font-bold leading-tight text-deep-accent sm:text-3xl">
+            Deposits
+          </h1>
+          <p className="mt-1 text-sm text-body sm:text-base">
+            Deposit checks and manage your recent deposits securely.
+          </p>
         </div>
         {currentStep === 'overview' && (
-          <button className={styles.primaryAction} onClick={handleStartDeposit}>
-            + Deposit a Check
+          <button
+            type="button"
+            onClick={handleStartDeposit}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.25} />
+            Deposit a Check
           </button>
         )}
       </div>
@@ -114,66 +169,80 @@ const Deposits = () => {
       {/* Deposit Overview */}
       {currentStep === 'overview' && (
         <>
-          <section className={styles.overviewSection}>
-            <div className={styles.overviewCard}>
-              <span className={styles.overviewLabel}>Deposited This Month</span>
-              <span className={styles.overviewValue}>{formatCurrency(totalDeposited)}</span>
-            </div>
-            <div className={styles.overviewCard}>
-              <span className={styles.overviewLabel}>Pending Deposits</span>
-              <span className={styles.overviewValue}>{formatCurrency(pendingDeposits)}</span>
-            </div>
-            <div className={styles.overviewCard}>
-              <span className={styles.overviewLabel}>Available Deposits</span>
-              <span className={styles.overviewValue}>{formatCurrency(availableDeposits)}</span>
-            </div>
+          {/* Overview stats */}
+          <section className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {overviewCards.map(({ label, value, icon: Icon }) => (
+              <div key={label} className="border border-hairline bg-faint p-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-muted sm:text-xs">
+                    {label}
+                  </span>
+                  <Icon className="h-4 w-4 text-primary" strokeWidth={1.75} />
+                </div>
+                <div className="mt-2 font-serif text-2xl font-bold text-deep-accent sm:text-3xl">
+                  {formatCurrency(value)}
+                </div>
+              </div>
+            ))}
           </section>
 
           {/* Mobile Check Deposit CTA */}
-          <section className={styles.mobileDepositSection}>
-            <h2 className={styles.sectionTitle}>Deposit a Check</h2>
-            <p className={styles.sectionSubtitle}>
+          <section className="mb-10 border border-hairline bg-faint p-6 sm:p-8">
+            <div className="flex items-center gap-2">
+              <Camera className="h-5 w-5 text-primary" strokeWidth={1.75} />
+              <h2 className="font-serif text-xl font-bold text-deep-accent sm:text-2xl">
+                Deposit a Check
+              </h2>
+            </div>
+            <p className="mt-1 text-sm text-body">
               Deposit a check securely using your mobile device.
             </p>
-            <div className={styles.depositSteps}>
-              <div className={styles.stepItem}>
-                <span className={styles.stepNumber}>1</span>
-                <span>Endorse your check</span>
-              </div>
-              <div className={styles.stepItem}>
-                <span className={styles.stepNumber}>2</span>
-                <span>Capture the front</span>
-              </div>
-              <div className={styles.stepItem}>
-                <span className={styles.stepNumber}>3</span>
-                <span>Capture the back</span>
-              </div>
-              <div className={styles.stepItem}>
-                <span className={styles.stepNumber}>4</span>
-                <span>Enter the amount</span>
-              </div>
-              <div className={styles.stepItem}>
-                <span className={styles.stepNumber}>5</span>
-                <span>Review and submit</span>
-              </div>
+
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {depositSteps.map((step, idx) => (
+                <div
+                  key={step}
+                  className="flex items-center gap-3 border border-hairline bg-white px-3 py-2.5"
+                >
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center bg-primary text-[11px] font-bold text-white">
+                    {idx + 1}
+                  </span>
+                  <span className="text-xs font-medium text-deep-accent sm:text-sm">
+                    {step}
+                  </span>
+                </div>
+              ))}
             </div>
-            <button className={styles.startDepositBtn} onClick={handleStartDeposit}>
+
+            <button
+              type="button"
+              onClick={handleStartDeposit}
+              className="mt-6 inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            >
               Start Deposit
+              <ArrowRight className="h-4 w-4" strokeWidth={2.25} />
             </button>
-            <p className={styles.securityNote}>
-              Make sure your check is properly endorsed and placed on a flat, well-lit surface.
-            </p>
+
+            <div className="mt-4 flex items-start gap-2.5 border-t border-hairline pt-4">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
+              <p className="text-xs text-body sm:text-sm">
+                Make sure your check is properly endorsed and placed on a flat, well-lit
+                surface.
+              </p>
+            </div>
           </section>
 
           {/* Recent Deposits */}
-          <section className={styles.recentSection}>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>Recent Deposits</h2>
-              <div className={styles.filterGroup}>
+          <section className="mb-10">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
+                Recent Deposits
+              </h2>
+              <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
-                  className={styles.filterSelect}
+                  className="min-h-[38px] border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
                 >
                   <option value="all">All</option>
                   <option value="mobile">Mobile Check</option>
@@ -184,33 +253,58 @@ const Deposits = () => {
                   type="date"
                   value={filterDate}
                   onChange={(e) => setFilterDate(e.target.value)}
-                  className={styles.filterDate}
+                  className="min-h-[38px] border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
                 />
                 {filterDate && (
                   <button
-                    className={styles.clearFilter}
+                    type="button"
                     onClick={() => setFilterDate('')}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
                   >
+                    <X className="h-3.5 w-3.5" strokeWidth={2.25} />
                     Clear
                   </button>
                 )}
               </div>
             </div>
 
-            <div className={styles.depositList}>
+            <div className="border-t border-hairline">
               {filteredDeposits.length === 0 ? (
-                <p className={styles.noDeposits}>No deposits found.</p>
+                <p className="py-8 text-center text-sm text-muted">No deposits found.</p>
               ) : (
                 filteredDeposits.map((dep) => (
-                  <div key={dep.id} className={styles.depositItem}>
-                    <div className={styles.depositInfo}>
-                      <span className={styles.depositType}>{dep.type}</span>
-                      <span className={styles.depositAccount}>{dep.accountName}</span>
+                  <div
+                    key={dep.id}
+                    className="flex flex-col gap-2 border-b border-faint py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                  >
+                    <div className="flex min-w-0 flex-col">
+                      <span className="truncate text-sm font-semibold text-ink">
+                        {dep.type}
+                      </span>
+                      <span className="truncate text-xs text-muted">{dep.accountName}</span>
                     </div>
-                    <div className={styles.depositRight}>
-                      <span className={styles.depositDate}>{dep.date}</span>
-                      <span className={styles.depositAmount}>+{formatCurrency(dep.amount)}</span>
-                      <span className={`${styles.depositStatus} ${styles[dep.status.toLowerCase()]}`}>
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:justify-end">
+                      <span className="text-xs text-muted">{dep.date}</span>
+                      <span className="text-sm font-semibold text-primary">
+                        +{formatCurrency(dep.amount)}
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide ${statusColor(
+                          dep.status
+                        )}`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 ${
+                            dep.status.toLowerCase() === 'completed'
+                              ? 'bg-primary'
+                              : dep.status.toLowerCase() === 'rejected' ||
+                                dep.status.toLowerCase() === 'canceled'
+                              ? 'bg-[#d9534f]'
+                              : 'bg-[#b8860b]'
+                          }`}
+                          aria-hidden="true"
+                        />
                         {dep.status}
                       </span>
                     </div>
@@ -219,37 +313,50 @@ const Deposits = () => {
               )}
             </div>
           </section>
-
         </>
       )}
 
       {/* Deposit Form */}
       {currentStep === 'form' && (
-        <div className={styles.formContainer}>
-          <h2 className={styles.formTitle}>Deposit a Check</h2>
-          <form onSubmit={handleSubmit} className={styles.depositForm}>
-            {/* Step 1: Select Account */}
-            <div className={styles.formGroup}>
-              <label htmlFor="depositAccount">Deposit to</label>
+        <div className="mb-10 border border-hairline bg-faint p-6 sm:p-8">
+          <h2 className="mb-6 font-serif text-xl font-bold text-deep-accent sm:text-2xl">
+            Deposit a Check
+          </h2>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+            {/* Step 1: Deposit to account */}
+            <div>
+              <label
+                htmlFor="depositAccount"
+                className="mb-1.5 block text-sm font-semibold text-deep-accent"
+              >
+                Deposit to
+              </label>
               <select
                 id="depositAccount"
                 value={selectedAccountId}
                 onChange={handleAccountChange}
-                className={styles.select}
+                className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
               >
-                {mockDepositAccounts.map(acc => (
+                {mockDepositAccounts.map((acc) => (
                   <option key={acc.id} value={acc.id}>
-                    {acc.name} •••• {acc.lastFour} (Available: {formatCurrency(acc.available)})
+                    {acc.name} •••• {acc.lastFour} (Available:{' '}
+                    {formatCurrency(acc.available)})
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Step 2: Enter Amount */}
-            <div className={styles.formGroup}>
-              <label htmlFor="depositAmount">Check Amount</label>
-              <div className={styles.amountInput}>
-                <span className={styles.currencySymbol}>$</span>
+            {/* Step 2: Amount */}
+            <div>
+              <label
+                htmlFor="depositAmount"
+                className="mb-1.5 block text-sm font-semibold text-deep-accent"
+              >
+                Check Amount
+              </label>
+              <div className="flex items-center border border-hairline bg-white focus-within:border-primary">
+                <span className="pl-3 pr-1 text-base font-bold text-body">$</span>
                 <input
                   type="number"
                   id="depositAmount"
@@ -259,55 +366,100 @@ const Deposits = () => {
                   min="0.01"
                   step="0.01"
                   required
-                  className={styles.amountField}
+                  className="min-h-[44px] w-full border-none bg-transparent px-2 py-2 text-lg font-semibold text-deep-accent outline-none placeholder:text-muted/60"
                 />
               </div>
-              <div className={styles.helperText}>Enter the exact amount written on the check.</div>
+              <p className="mt-1.5 text-xs text-muted">
+                Enter the exact amount written on the check.
+              </p>
             </div>
 
-            {/* Step 3: Check Images */}
-            <div className={styles.formGroup}>
-              <label>Check Images</label>
-              <div className={styles.imageUploads}>
-                <div className={styles.imageUpload}>
-                  <p className={styles.uploadLabel}>Front of Check</p>
+            {/* Step 3: Check images */}
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-deep-accent">
+                Check Images
+              </label>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {/* Front */}
+                <div className="border border-hairline bg-white p-4 text-center">
+                  <p className="mb-3 text-sm font-semibold text-deep-accent">
+                    Front of Check
+                  </p>
                   <input
                     type="file"
+                    id="fileFront"
                     accept="image/*"
                     capture="environment"
                     onChange={handleImageUpload('front')}
-                    className={styles.fileInput}
+                    className="sr-only"
                   />
-                  {frontImage && <img src={frontImage} alt="Front of check" className={styles.uploadPreview} />}
-                  {!frontImage && <div className={styles.uploadPlaceholder}>Upload / Capture</div>}
+                  {frontImage ? (
+                    <img
+                      src={frontImage}
+                      alt="Front of check"
+                      className="mx-auto max-h-[140px] max-w-full object-contain"
+                    />
+                  ) : (
+                    <label
+                      htmlFor="fileFront"
+                      className="flex cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-hairline bg-faint px-6 py-8 text-xs font-medium text-body transition-colors hover:border-primary hover:text-primary"
+                    >
+                      <Camera className="h-5 w-5 text-primary" strokeWidth={1.75} />
+                      Upload / Capture
+                    </label>
+                  )}
                 </div>
-                <div className={styles.imageUpload}>
-                  <p className={styles.uploadLabel}>Back of Check</p>
+
+                {/* Back */}
+                <div className="border border-hairline bg-white p-4 text-center">
+                  <p className="mb-3 text-sm font-semibold text-deep-accent">
+                    Back of Check
+                  </p>
                   <input
                     type="file"
+                    id="fileBack"
                     accept="image/*"
                     capture="environment"
                     onChange={handleImageUpload('back')}
-                    className={styles.fileInput}
+                    className="sr-only"
                   />
-                  {backImage && <img src={backImage} alt="Back of check" className={styles.uploadPreview} />}
-                  {!backImage && <div className={styles.uploadPlaceholder}>Upload / Capture</div>}
+                  {backImage ? (
+                    <img
+                      src={backImage}
+                      alt="Back of check"
+                      className="mx-auto max-h-[140px] max-w-full object-contain"
+                    />
+                  ) : (
+                    <label
+                      htmlFor="fileBack"
+                      className="flex cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-hairline bg-faint px-6 py-8 text-xs font-medium text-body transition-colors hover:border-primary hover:text-primary"
+                    >
+                      <Camera className="h-5 w-5 text-primary" strokeWidth={1.75} />
+                      Upload / Capture
+                    </label>
+                  )}
                 </div>
               </div>
-              <div className={styles.helperText}>Ensure the entire check is visible and readable.</div>
+              <p className="mt-2 text-xs text-muted">
+                Ensure the entire check is visible and readable.
+              </p>
             </div>
 
-            {/* Review & Submit */}
-            <div className={styles.formActions}>
+            {/* Actions */}
+            <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-6 sm:flex-row sm:justify-end">
               <button
                 type="button"
-                className={styles.cancelBtn}
                 onClick={() => setCurrentStep('overview')}
+                className="min-h-[44px] border border-hairline bg-white px-6 py-2.5 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
                 Cancel
               </button>
-              <button type="submit" className={styles.submitBtn}>
+              <button
+                type="submit"
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              >
                 Review Deposit
+                <ArrowRight className="h-4 w-4" strokeWidth={2.25} />
               </button>
             </div>
           </form>
@@ -316,38 +468,71 @@ const Deposits = () => {
 
       {/* Review Step */}
       {currentStep === 'review' && (
-        <div className={styles.reviewPanel}>
-          <h2 className={styles.reviewTitle}>Review Deposit</h2>
-          <div className={styles.reviewDetails}>
-            <div className={styles.reviewRow}>
-              <span className={styles.reviewLabel}>Deposit To</span>
-              <span className={styles.reviewValue}>
-                {getAccount(selectedAccountId)?.name} •••• {getAccount(selectedAccountId)?.lastFour}
+        <div className="mb-10 border border-hairline bg-faint p-6 sm:p-8">
+          <h2 className="mb-6 font-serif text-xl font-bold text-deep-accent sm:text-2xl">
+            Review Deposit
+          </h2>
+
+          <div className="mb-6 divide-y divide-hairline border-y border-hairline">
+            <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-sm text-body">Deposit To</span>
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-deep-accent sm:text-right">
+                <Landmark className="h-3.5 w-3.5 text-primary" strokeWidth={1.75} />
+                {getAccount(selectedAccountId)?.name} ••••{' '}
+                {getAccount(selectedAccountId)?.lastFour}
               </span>
             </div>
-            <div className={styles.reviewRow}>
-              <span className={styles.reviewLabel}>Amount</span>
-              <span className={styles.reviewValue}>{formatCurrency(parseFloat(amount) || 0)}</span>
-            </div>
-            <div className={styles.reviewRow}>
-              <span className={styles.reviewLabel}>Images</span>
-              <span className={styles.reviewValue}>
-                Front: {frontImage ? '✓' : '✗'}, Back: {backImage ? '✓' : '✗'}
+            <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-sm text-body">Amount</span>
+              <span className="font-serif text-lg font-bold text-deep-accent sm:text-right">
+                {formatCurrency(parseFloat(amount) || 0)}
               </span>
             </div>
-            <div className={styles.reviewRow}>
-              <span className={styles.reviewLabel}>Estimated Availability</span>
-              <span className={styles.reviewValue}>See deposit availability</span>
+            <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-sm text-body">Images</span>
+              <span className="flex items-center gap-4 text-sm font-semibold text-deep-accent sm:justify-end">
+                <span className="inline-flex items-center gap-1.5">
+                  <ImageIcon className="h-3.5 w-3.5 text-primary" strokeWidth={1.75} />
+                  Front:
+                  {frontImage ? (
+                    <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />
+                  ) : (
+                    <X className="h-4 w-4 text-[#d9534f]" strokeWidth={2.5} />
+                  )}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <ImageIcon className="h-3.5 w-3.5 text-primary" strokeWidth={1.75} />
+                  Back:
+                  {backImage ? (
+                    <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />
+                  ) : (
+                    <X className="h-4 w-4 text-[#d9534f]" strokeWidth={2.5} />
+                  )}
+                </span>
+              </span>
+            </div>
+            <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-sm text-body">Estimated Availability</span>
+              <span className="text-sm font-semibold text-deep-accent sm:text-right">
+                See deposit availability
+              </span>
             </div>
           </div>
-          <div className={styles.reviewActions}>
+
+          <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-6 sm:flex-row sm:justify-end">
             <button
-              className={styles.backBtn}
+              type="button"
               onClick={() => setCurrentStep('form')}
+              className="min-h-[44px] border border-hairline bg-white px-6 py-2.5 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               Back
             </button>
-            <button className={styles.confirmBtn} onClick={handleConfirm}>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            >
+              <Send className="h-4 w-4" strokeWidth={2.25} />
               Submit Deposit
             </button>
           </div>
@@ -356,39 +541,67 @@ const Deposits = () => {
 
       {/* Success Step */}
       {currentStep === 'success' && (
-        <div className={styles.successPanel}>
-          <div className={styles.successIcon}>✓</div>
-          <h2 className={styles.successTitle}>Deposit Submitted</h2>
-          <p className={styles.successMessage}>
+        <div className="mb-10 border border-hairline bg-faint p-6 text-center sm:p-10">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center bg-[#e7f3f5]">
+            <CheckCircle2 className="h-8 w-8 text-primary" strokeWidth={1.75} />
+          </div>
+
+          <h2 className="mt-4 font-serif text-2xl font-bold text-deep-accent sm:text-3xl">
+            Deposit Submitted
+          </h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm text-body sm:text-base">
             Your check deposit has been submitted successfully.
           </p>
-          <div className={styles.successDetails}>
-            <div className={styles.successRow}>
-              <span className={styles.successLabel}>Amount</span>
-              <span className={styles.successValue}>{formatCurrency(parseFloat(amount) || 0)}</span>
-            </div>
-            <div className={styles.successRow}>
-              <span className={styles.successLabel}>Account</span>
-              <span className={styles.successValue}>
-                {getAccount(selectedAccountId)?.name} •••• {getAccount(selectedAccountId)?.lastFour}
+
+          <div className="mx-auto mt-6 max-w-lg border border-hairline bg-white p-5 text-left">
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-xs text-muted sm:text-sm">Amount</span>
+              <span className="text-sm font-semibold text-deep-accent">
+                {formatCurrency(parseFloat(amount) || 0)}
               </span>
             </div>
-            <div className={styles.successRow}>
-              <span className={styles.successLabel}>Submitted</span>
-              <span className={styles.successValue}>{new Date().toLocaleDateString()}</span>
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-xs text-muted sm:text-sm">Account</span>
+              <span className="text-sm font-semibold text-deep-accent">
+                {getAccount(selectedAccountId)?.name} ••••{' '}
+                {getAccount(selectedAccountId)?.lastFour}
+              </span>
             </div>
-            <div className={styles.successRow}>
-              <span className={styles.successLabel}>Status</span>
-              <span className={styles.successValue}>Processing</span>
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-xs text-muted sm:text-sm">Submitted</span>
+              <span className="text-sm font-semibold text-deep-accent">
+                {new Date().toLocaleDateString()}
+              </span>
             </div>
-            <div className={styles.successRow}>
-              <span className={styles.successLabel}>Confirmation Number</span>
-              <span className={styles.successValue}>{confirmationNumber}</span>
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-xs text-muted sm:text-sm">Status</span>
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#b8860b]">
+                <Clock className="h-3.5 w-3.5" strokeWidth={2} />
+                Processing
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-xs text-muted sm:text-sm">Confirmation Number</span>
+              <span className="text-sm font-semibold text-deep-accent">
+                {confirmationNumber}
+              </span>
             </div>
           </div>
-          <div className={styles.successActions}>
-            <button className={styles.successAction}>View Deposit</button>
-            <button className={styles.successActionSecondary} onClick={handleNewDeposit}>
+
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <button
+              type="button"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 border border-primary bg-white px-6 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              View Deposit
+              <ChevronRight className="h-4 w-4" strokeWidth={2.25} />
+            </button>
+            <button
+              type="button"
+              onClick={handleNewDeposit}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.25} />
               Make Another Deposit
             </button>
           </div>

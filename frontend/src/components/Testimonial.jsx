@@ -1,12 +1,13 @@
+// src/components/Testimonial.jsx
 import { useState, useEffect } from 'react';
-import styles from './Testimonial.module.css';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const testimonials = [
   {
     id: 1,
     quote: '"Thank you so much for your personal care toward me personally, not just my financial assets. What a wonderful display of humanity in an era of personal distance and impersonal online interaction."',
     name: 'Seth S.',
-    city: 'Boston Street', // now appears below name
+    city: 'Boston Street',
   },
   {
     id: 2,
@@ -64,44 +65,81 @@ function Testimonial() {
 
   return (
     <section
-      className={styles.testimonial}
+      className="relative bg-white py-10 text-center text-body md:py-12"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onFocus={() => setIsPaused(true)}
       onBlur={() => setIsPaused(false)}
     >
-      <div className="container">
-        <div className={styles.sliderWrapper}>
-          {testimonials.map((item, index) => (
-            <div
-              key={item.id}
-              className={`${styles.slide} ${index === current ? styles.active : ''}`}
-            >
-              <blockquote>{item.quote}</blockquote>
-              <cite>
-                <div className={styles.name}>{item.name}</div>
-                {item.city && <div className={styles.location}>{item.city}</div>}
-              </cite>
-            </div>
-          ))}
+      <div className="container-bank relative">
+        {/* Slides */}
+        <div className="relative min-h-[200px]">
+          {testimonials.map((item, index) => {
+            const isActive = index === current;
+            return (
+              <div
+                key={item.id}
+                className={`px-2 transition-opacity duration-700 ease-in-out sm:px-8 md:px-[60px] ${
+                  isActive
+                    ? 'relative opacity-100'
+                    : 'pointer-events-none absolute inset-x-0 top-0 opacity-0'
+                }`}
+              >
+                <blockquote className="mx-auto mb-4 max-w-[900px] font-sans text-lg italic leading-[30px] text-[#5295a0] sm:text-2xl sm:leading-[38px] md:text-[30px] md:leading-[48px]">
+                  {item.quote}
+                </blockquote>
+
+                <cite className="block not-italic">
+                  <div className="text-sm text-[#999999] sm:text-base md:text-[1.1rem]">
+                    {item.name}
+                  </div>
+                  {item.city && (
+                    <div className="mt-0.5 text-xs text-[#aaaaaa] sm:text-sm md:text-[0.95rem]">
+                      {item.city}
+                    </div>
+                  )}
+                </cite>
+              </div>
+            );
+          })}
         </div>
 
-        <button className={`${styles.control} ${styles.prev}`} onClick={prevSlide}>
-          ‹
-        </button>
-        <button className={`${styles.control} ${styles.next}`} onClick={nextSlide}>
-          ›
+        {/* Prev */}
+        <button
+          type="button"
+          onClick={prevSlide}
+          aria-label="Previous testimonial"
+          className="absolute left-1 top-1/2 z-10 inline-flex -translate-y-1/2 items-center justify-center bg-black/[0.08] p-1.5 text-[#333] transition-colors hover:bg-black/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:p-2 md:left-2.5"
+        >
+          <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={2} />
         </button>
 
-        <div className={styles.dots}>
-          {testimonials.map((_, index) => (
-            <button
-              key={index}
-              className={`${styles.dot} ${index === current ? styles.activeDot : ''}`}
-              onClick={() => goToSlide(index)}
-              aria-label={`Testimonial ${index + 1}`}
-            />
-          ))}
+        {/* Next */}
+        <button
+          type="button"
+          onClick={nextSlide}
+          aria-label="Next testimonial"
+          className="absolute right-1 top-1/2 z-10 inline-flex -translate-y-1/2 items-center justify-center bg-black/[0.08] p-1.5 text-[#333] transition-colors hover:bg-black/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:p-2 md:right-2.5"
+        >
+          <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={2} />
+        </button>
+
+        {/* Dots */}
+        <div className="mt-8 flex justify-center gap-3">
+          {testimonials.map((_, index) => {
+            const isActive = index === current;
+            return (
+              <button
+                key={index}
+                type="button"
+                aria-label={`Testimonial ${index + 1}`}
+                onClick={() => goToSlide(index)}
+                className={`h-3 w-3 border-2 border-[#5295a0] transition-colors ${
+                  isActive ? 'bg-[#5295a0]' : 'bg-transparent hover:bg-[#5295a0]/30'
+                }`}
+              />
+            );
+          })}
         </div>
       </div>
     </section>

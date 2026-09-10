@@ -1,20 +1,35 @@
 import React, { useState } from 'react';
 import {
+  Eye,
+  EyeOff,
+  Bell,
+  ArrowRight,
+  ArrowUpRight,
+  ArrowDownLeft,
+  ArrowLeftRight,
+  Receipt,
+  FileText,
+  Send,
+  Landmark,
+  CreditCard,
+  MoreHorizontal,
+  TrendingUp,
+  Wallet,
+  CalendarClock,
+} from 'lucide-react';
+import {
   mockAccounts,
   mockTransactions,
   mockUpcomingPayments,
   mockSpendingCategories,
   mockCashFlow,
   mockGoals,
-  mockMessages,
   mockCreditScore,
   mockAlerts,
-  mockRecommendations,
   totalBalance,
   availableBalance,
   pendingAmount,
 } from '../data/mockDashboardData';
-import styles from './Home.module.css';
 
 // Helper to format currency
 const formatCurrency = (amount) => {
@@ -24,6 +39,16 @@ const formatCurrency = (amount) => {
     minimumFractionDigits: 2,
   }).format(Math.abs(amount));
 };
+
+const quickActions = [
+  { label: 'Transfer Money', icon: ArrowLeftRight },
+  { label: 'Pay a Bill', icon: Receipt },
+  { label: 'Deposit a Check', icon: FileText },
+  { label: 'Send Money', icon: Send },
+  { label: 'Pay Loan', icon: Landmark },
+  { label: 'Manage Card', icon: CreditCard },
+  { label: 'More', icon: MoreHorizontal },
+];
 
 const Home = () => {
   const [showBalance, setShowBalance] = useState(true);
@@ -37,38 +62,55 @@ const Home = () => {
   const toggleBalance = () => setShowBalance(!showBalance);
 
   return (
-    <div className={styles.dashboard}>
+    <div className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Welcome Section */}
-      <section className={styles.welcomeSection}>
-        <div className={styles.welcomeLeft}>
-          <h1 className={styles.welcomeTitle}>Good morning, Joshua</h1>
-          <p className={styles.welcomeSub}>Here's your financial snapshot.</p>
+      <section className="mb-8 flex flex-col gap-2 border-b border-hairline pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="font-serif text-2xl font-bold leading-tight text-deep-accent sm:text-3xl">
+            Good morning, Joshua
+          </h1>
+          <p className="mt-1 text-sm text-body sm:text-base">
+            Here&rsquo;s your financial snapshot.
+          </p>
         </div>
-        <div className={styles.welcomeDate}>{currentDate}</div>
+        <div className="text-xs text-muted sm:text-sm">{currentDate}</div>
       </section>
 
       {/* Total Balance & Financial Snapshot */}
-      <section className={styles.balanceSection}>
-        <div className={styles.balanceCard}>
-          <div className={styles.balanceHeader}>
-            <span className={styles.balanceLabel}>Total Balance</span>
-            <button className={styles.eyeButton} onClick={toggleBalance}>
-              {showBalance ? '👁️' : '🔒'}
+      <section className="mb-10">
+        <div className="bg-deep-accent p-6 sm:p-8">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70 sm:text-xs">
+              Total Balance
+            </span>
+            <button
+              type="button"
+              onClick={toggleBalance}
+              aria-label={showBalance ? 'Hide balance' : 'Show balance'}
+              className="text-white/75 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            >
+              {showBalance ? (
+                <Eye className="h-5 w-5" strokeWidth={1.75} />
+              ) : (
+                <EyeOff className="h-5 w-5" strokeWidth={1.75} />
+              )}
             </button>
           </div>
-          <div className={styles.balanceAmount}>
+
+          <div className="mt-3 font-serif text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-[2.75rem]">
             {showBalance ? formatCurrency(totalBalance) : '•••••••'}
           </div>
-          <div className={styles.balanceDetails}>
-            <div className={styles.balanceDetailItem}>
-              <span className={styles.detailLabel}>Available</span>
-              <span className={styles.detailValue}>
+
+          <div className="mt-6 flex flex-col gap-4 border-t border-white/15 pt-5 sm:flex-row sm:gap-12">
+            <div className="flex items-baseline justify-between gap-3 sm:flex-col sm:items-start sm:gap-1">
+              <span className="text-xs uppercase tracking-wide text-white/60">Available</span>
+              <span className="text-sm font-semibold text-white sm:text-base">
                 {showBalance ? formatCurrency(availableBalance) : '•••••••'}
               </span>
             </div>
-            <div className={styles.balanceDetailItem}>
-              <span className={styles.detailLabel}>Pending</span>
-              <span className={styles.detailValue}>
+            <div className="flex items-baseline justify-between gap-3 sm:flex-col sm:items-start sm:gap-1">
+              <span className="text-xs uppercase tracking-wide text-white/60">Pending</span>
+              <span className="text-sm font-semibold text-white sm:text-base">
                 {showBalance ? formatCurrency(pendingAmount) : '•••••••'}
               </span>
             </div>
@@ -77,86 +119,183 @@ const Home = () => {
       </section>
 
       {/* Accounts */}
-      <section className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>Accounts</h2>
-          <a href="#" className={styles.sectionLink}>View all</a>
+      <section className="mb-10">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">Accounts</h2>
+          <a
+            href="#"
+            className="group inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+          >
+            View all
+            <ArrowRight
+              className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
+              strokeWidth={2}
+            />
+          </a>
         </div>
-        <div className={styles.accountGrid}>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {mockAccounts.map((account) => (
-            <div key={account.id} className={styles.accountCard}>
-              <div className={styles.accountCardHeader}>
-                <span className={styles.accountName}>{account.name}</span>
-                <span className={styles.accountLastFour}>•••• {account.lastFour}</span>
+            <div
+              key={account.id}
+              className="group flex flex-col border border-hairline bg-white p-5 transition-colors hover:border-primary"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  {account.type === 'credit' ? (
+                    <CreditCard className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
+                  ) : (
+                    <Wallet className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
+                  )}
+                  <span className="truncate text-sm font-semibold text-body">
+                    {account.name}
+                  </span>
+                </div>
+                <span className="shrink-0 text-xs text-muted">•••• {account.lastFour}</span>
               </div>
-              <div className={styles.accountBalance}>
+
+              <div className="mt-4 font-serif text-xl font-bold text-deep-accent">
                 {showBalance ? formatCurrency(account.balance) : '•••••••'}
               </div>
-              <div className={styles.accountType}>
+              <div className="mt-0.5 text-xs text-muted">
                 {account.type === 'credit' ? 'Credit Card' : 'Account'}
               </div>
-              <a href="#" className={styles.accountAction}>View account</a>
+
+              <a
+                href="#"
+                className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+              >
+                View account
+                <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+              </a>
             </div>
           ))}
         </div>
       </section>
 
       {/* Quick Actions */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Quick Actions</h2>
-        <div className={styles.quickActions}>
-          <button className={styles.actionBtn}>Transfer Money</button>
-          <button className={styles.actionBtn}>Pay a Bill</button>
-          <button className={styles.actionBtn}>Deposit a Check</button>
-          <button className={styles.actionBtn}>Send Money</button>
-          <button className={styles.actionBtn}>Pay Loan</button>
-          <button className={styles.actionBtn}>Manage Card</button>
-          <button className={styles.actionBtn}>More</button>
+      <section className="mb-10">
+        <h2 className="mb-4 font-serif text-lg font-bold text-deep-accent sm:text-xl">
+          Quick Actions
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {quickActions.map(({ label, icon: Icon }) => (
+            <button
+              key={label}
+              type="button"
+              className="flex min-h-[52px] items-center justify-center gap-2 border border-hairline bg-white px-3 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <Icon className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
+              <span className="truncate">{label}</span>
+            </button>
+          ))}
         </div>
       </section>
 
       {/* Two columns: Recent Transactions & Upcoming Payments */}
-      <div className={styles.twoCol}>
+      <div className="mb-10 grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Recent Transactions */}
-        <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>Recent Transactions</h2>
-            <a href="#" className={styles.sectionLink}>View all</a>
+        <section>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
+              Recent Transactions
+            </h2>
+            <a
+              href="#"
+              className="group inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+            >
+              View all
+              <ArrowRight
+                className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
+                strokeWidth={2}
+              />
+            </a>
           </div>
-          <div className={styles.transactionList}>
-            {mockTransactions.slice(0, 6).map((tx) => (
-              <div key={tx.id} className={styles.transactionItem}>
-                <div className={styles.txLeft}>
-                  <span className={styles.txDescription}>{tx.description}</span>
-                  <span className={styles.txCategory}>{tx.category}</span>
+
+          <div className="divide-y divide-faint border-t border-hairline">
+            {mockTransactions.slice(0, 6).map((tx) => {
+              const isPositive = tx.amount >= 0;
+              return (
+                <div key={tx.id} className="flex items-center justify-between gap-4 py-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center ${
+                        isPositive ? 'bg-[#e7f3f5] text-primary' : 'bg-faint text-body'
+                      }`}
+                    >
+                      {isPositive ? (
+                        <ArrowDownLeft className="h-4 w-4" strokeWidth={1.75} />
+                      ) : (
+                        <ArrowUpRight className="h-4 w-4" strokeWidth={1.75} />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-[#0b1b2b]">
+                        {tx.description}
+                      </div>
+                      <div className="truncate text-xs text-muted">{tx.category}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 flex-col items-end">
+                    <span
+                      className={`text-sm font-semibold ${
+                        isPositive ? 'text-primary' : 'text-[#d9534f]'
+                      }`}
+                    >
+                      {isPositive ? '+' : '-'}
+                      {formatCurrency(tx.amount)}
+                    </span>
+                    <span className="text-xs text-muted">{tx.date}</span>
+                  </div>
                 </div>
-                <div className={styles.txRight}>
-                  <span className={styles.txDate}>{tx.date}</span>
-                  <span className={`${styles.txAmount} ${tx.amount >= 0 ? styles.positive : styles.negative}`}>
-                    {tx.amount >= 0 ? '+' : ''}{formatCurrency(tx.amount)}
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
         {/* Upcoming Payments */}
-        <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>Upcoming Payments</h2>
-            <a href="#" className={styles.sectionLink}>View all</a>
+        <section>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
+              Upcoming Payments
+            </h2>
+            <a
+              href="#"
+              className="group inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+            >
+              View all
+              <ArrowRight
+                className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
+                strokeWidth={2}
+              />
+            </a>
           </div>
-          <div className={styles.paymentList}>
+
+          <div className="divide-y divide-faint border-t border-hairline">
             {mockUpcomingPayments.map((payment) => (
-              <div key={payment.id} className={styles.paymentItem}>
-                <div className={styles.paymentLeft}>
-                  <span className={styles.paymentPayee}>{payment.payee}</span>
-                  <span className={styles.paymentDue}>Due {payment.dueDate}</span>
+              <div key={payment.id} className="flex items-center justify-between gap-4 py-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center bg-faint text-body">
+                    <CalendarClock className="h-4 w-4" strokeWidth={1.75} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold text-[#0b1b2b]">
+                      {payment.payee}
+                    </div>
+                    <div className="truncate text-xs text-muted">Due {payment.dueDate}</div>
+                  </div>
                 </div>
-                <div className={styles.paymentRight}>
-                  <span className={styles.paymentAmount}>{formatCurrency(payment.amount)}</span>
-                  {payment.autopay && <span className={styles.autopayBadge}>Autopay ON</span>}
+
+                <div className="flex shrink-0 items-center gap-3">
+                  <span className="text-sm font-semibold text-[#0b1b2b]">
+                    {formatCurrency(payment.amount)}
+                  </span>
+                  {payment.autopay && (
+                    <span className="hidden bg-[#e7f3f5] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary sm:inline-block">
+                      Autopay ON
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
@@ -164,25 +303,36 @@ const Home = () => {
         </section>
       </div>
 
-      {/* Spending Overview & Cash Flow (two columns) */}
-      <div className={styles.twoCol}>
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Spending Overview</h2>
-          <div className={styles.spendingSummary}>
-            <div className={styles.spendingTotal}>
-              <span className={styles.spendingLabel}>Monthly Spending</span>
-              <span className={styles.spendingTotalAmount}>{formatCurrency(2480.36)}</span>
+      {/* Spending Overview & Cash Flow */}
+      <div className="mb-10 grid grid-cols-1 gap-8 lg:grid-cols-2">
+        <section>
+          <h2 className="mb-4 font-serif text-lg font-bold text-deep-accent sm:text-xl">
+            Spending Overview
+          </h2>
+          <div className="border border-hairline bg-[#f8f9fa] p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wide text-body">
+                Monthly Spending
+              </span>
+              <span className="font-serif text-lg font-bold text-deep-accent">
+                {formatCurrency(2480.36)}
+              </span>
             </div>
-            <div className={styles.categoryList}>
+
+            <div className="flex flex-col gap-3">
               {mockSpendingCategories.map((cat) => (
-                <div key={cat.category} className={styles.categoryItem}>
-                  <span className={styles.categoryName}>{cat.category}</span>
-                  <span className={styles.categoryAmount}>{formatCurrency(cat.amount)}</span>
-                  <div className={styles.categoryBar}>
+                <div key={cat.category} className="flex items-center gap-3">
+                  <span className="w-24 shrink-0 truncate text-sm text-body sm:w-32">
+                    {cat.category}
+                  </span>
+                  <span className="w-16 shrink-0 text-right text-sm font-semibold text-[#0b1b2b] sm:w-20">
+                    {formatCurrency(cat.amount)}
+                  </span>
+                  <div className="h-1.5 flex-1 bg-hairline">
                     <div
-                      className={styles.categoryBarFill}
+                      className="h-full bg-primary"
                       style={{ width: `${Math.min((cat.amount / 1000) * 100, 100)}%` }}
-                    ></div>
+                    />
                   </div>
                 </div>
               ))}
@@ -190,32 +340,46 @@ const Home = () => {
           </div>
         </section>
 
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Cash Flow</h2>
-          <div className={styles.cashFlow}>
-            <div className={styles.cashFlowItem}>
-              <span className={styles.cfLabel}>Money In</span>
-              <span className={styles.cfPositive}>+{formatCurrency(mockCashFlow.moneyIn)}</span>
+        <section>
+          <h2 className="mb-4 font-serif text-lg font-bold text-deep-accent sm:text-xl">
+            Cash Flow
+          </h2>
+          <div className="border border-hairline bg-[#f8f9fa] p-5">
+            <div className="flex flex-col gap-2.5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-body">Money In</span>
+                <span className="font-semibold text-primary">
+                  +{formatCurrency(mockCashFlow.moneyIn)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-body">Money Out</span>
+                <span className="font-semibold text-[#d9534f]">
+                  -{formatCurrency(mockCashFlow.moneyOut)}
+                </span>
+              </div>
+              <div className="mt-1 flex items-center justify-between border-t border-hairline pt-3 text-sm">
+                <span className="font-semibold text-deep-accent">Net</span>
+                <span
+                  className={`font-bold ${
+                    mockCashFlow.net >= 0 ? 'text-primary' : 'text-[#d9534f]'
+                  }`}
+                >
+                  {mockCashFlow.net >= 0
+                    ? `+${formatCurrency(mockCashFlow.net)}`
+                    : formatCurrency(mockCashFlow.net)}
+                </span>
+              </div>
             </div>
-            <div className={styles.cashFlowItem}>
-              <span className={styles.cfLabel}>Money Out</span>
-              <span className={styles.cfNegative}>-{formatCurrency(mockCashFlow.moneyOut)}</span>
-            </div>
-            <div className={`${styles.cashFlowItem} ${styles.net}`}>
-              <span className={styles.cfLabel}>Net</span>
-              <span className={mockCashFlow.net >= 0 ? styles.cfPositive : styles.cfNegative}>
-                {/* ✅ FIX: combined expression */}
-                {mockCashFlow.net >= 0 ? `+${formatCurrency(mockCashFlow.net)}` : formatCurrency(mockCashFlow.net)}
-              </span>
-            </div>
-          </div>
-          <div className={styles.cashFlowChartPlaceholder}>
-            {/* Simple chart placeholder – you can embed a simple SVG or use CSS bars */}
-            <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+
+            <div className="mt-5 flex items-end justify-between gap-1.5 sm:gap-2">
               {[40, 70, 50, 90, 60, 80, 45, 65, 55, 75].map((val, i) => (
-                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <div style={{ height: `${val}px`, width: '12px', background: '#008296' }}></div>
-                  <span style={{ fontSize: '0.6rem', color: '#666' }}>{i+1}</span>
+                <div key={i} className="flex flex-1 flex-col items-center gap-1">
+                  <div
+                    className="w-full max-w-[14px] bg-primary"
+                    style={{ height: `${val}px` }}
+                  />
+                  <span className="text-[10px] text-muted">{i + 1}</span>
                 </div>
               ))}
             </div>
@@ -224,80 +388,110 @@ const Home = () => {
       </div>
 
       {/* Alerts & Security */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Alerts & Security</h2>
-        <div className={styles.alertList}>
+      <section className="mb-10">
+        <h2 className="mb-4 font-serif text-lg font-bold text-deep-accent sm:text-xl">
+          Alerts &amp; Security
+        </h2>
+        <div className="divide-y divide-faint border-t border-hairline">
           {mockAlerts.map((alert) => (
-            <div key={alert.id} className={styles.alertItem}>
-              <span className={styles.alertIcon}>🔔</span>
-              <span className={styles.alertMessage}>{alert.message}</span>
-              <span className={styles.alertDate}>{alert.date}</span>
+            <div key={alert.id} className="flex items-center gap-3 py-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#e7f3f5] text-primary">
+                <Bell className="h-4 w-4" strokeWidth={1.75} />
+              </div>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#0b1b2b]">
+                {alert.message}
+              </span>
+              <span className="shrink-0 text-xs text-muted">{alert.date}</span>
             </div>
           ))}
         </div>
       </section>
 
       {/* Credit Score */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Credit Score</h2>
-        <div className={styles.creditScore}>
-          <div className={styles.scoreNumber}>{mockCreditScore.score}</div>
-          <div className={styles.scoreDetails}>
-            <div className={styles.scoreRating}>{mockCreditScore.rating}</div>
-            <div className={styles.scoreChange}>+{mockCreditScore.change} this month</div>
-            <div className={styles.scoreUpdated}>Updated {mockCreditScore.updated}</div>
+      <section className="mb-10">
+        <h2 className="mb-4 font-serif text-lg font-bold text-deep-accent sm:text-xl">
+          Credit Score
+        </h2>
+        <div className="flex flex-col gap-4 border border-hairline bg-[#f8f9fa] p-5 sm:flex-row sm:items-center sm:gap-8 sm:p-6">
+          <div className="font-serif text-4xl font-bold leading-none text-deep-accent sm:text-5xl">
+            {mockCreditScore.score}
+          </div>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1.5">
+              <TrendingUp className="h-4 w-4 text-primary" strokeWidth={2} />
+              <span className="text-base font-bold text-primary">{mockCreditScore.rating}</span>
+            </div>
+            <div className="text-sm font-semibold text-deep-accent">
+              +{mockCreditScore.change} this month
+            </div>
+            <div className="text-xs text-muted">Updated {mockCreditScore.updated}</div>
           </div>
         </div>
       </section>
 
       {/* Cards */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Cards</h2>
-        <div className={styles.cardGrid}>
-          <div className={styles.cardItem}>
-            <span>Visa •••• 2208</span>
-            <div className={styles.cardActions}>
-              <button>View</button>
-              <button>Freeze</button>
-              <button>Pay</button>
-              <button>Manage</button>
+      <section className="mb-10">
+        <h2 className="mb-4 font-serif text-lg font-bold text-deep-accent sm:text-xl">Cards</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="flex flex-col gap-4 border border-hairline bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2.5">
+              <CreditCard className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
+              <span className="text-sm font-semibold text-[#0b1b2b]">Visa •••• 2208</span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              <button
+                type="button"
+                className="px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-[#e7f3f5]"
+              >
+                View
+              </button>
+              <button
+                type="button"
+                className="px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-[#e7f3f5]"
+              >
+                Freeze
+              </button>
+              <button
+                type="button"
+                className="px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-[#e7f3f5]"
+              >
+                Pay
+              </button>
+              <button
+                type="button"
+                className="px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-[#e7f3f5]"
+              >
+                Manage
+              </button>
             </div>
           </div>
-          {/* Add more if needed */}
         </div>
       </section>
 
       {/* Financial Goals */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Financial Goals</h2>
-        <div className={styles.goalList}>
+      <section className="mb-4">
+        <h2 className="mb-4 font-serif text-lg font-bold text-deep-accent sm:text-xl">
+          Financial Goals
+        </h2>
+        <div className="flex flex-col gap-4 border-t border-hairline pt-4">
           {mockGoals.map((goal) => {
             const progress = Math.min((goal.current / goal.target) * 100, 100);
             return (
-              <div key={goal.id} className={styles.goalItem}>
-                <div className={styles.goalInfo}>
-                  <span className={styles.goalName}>{goal.name}</span>
-                  <span className={styles.goalAmount}>
+              <div key={goal.id} className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="truncate text-sm font-semibold text-[#0b1b2b]">
+                    {goal.name}
+                  </span>
+                  <span className="shrink-0 text-sm text-body">
                     {formatCurrency(goal.current)} / {formatCurrency(goal.target)}
                   </span>
                 </div>
-                <div className={styles.goalBar}>
-                  <div className={styles.goalBarFill} style={{ width: `${progress}%` }}></div>
+                <div className="h-2 w-full bg-hairline">
+                  <div className="h-full bg-primary" style={{ width: `${progress}%` }} />
                 </div>
               </div>
             );
           })}
-        </div>
-      </section>
-
-      {/* Customer Support */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Customer Support</h2>
-        <div className={styles.supportOptions}>
-          <button>Message Us</button>
-          <button>Call Us</button>
-          <button>Visit a Branch</button>
-          <button>Help Center</button>
         </div>
       </section>
     </div>

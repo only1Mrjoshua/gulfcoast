@@ -1,5 +1,4 @@
-import styles from './FeatureCards.module.css';
-
+// src/components/FeatureCards.jsx
 const features = [
   {
     title: 'Interest Checking',
@@ -26,26 +25,49 @@ const features = [
 
 function FeatureCards() {
   return (
-    <section className={`section-padding ${styles.features}`}>
-      <div className="container">
-        <div className={styles.grid}>
+    <section className="bg-[#313538] py-10 md:py-14 lg:py-[60px]">
+      <div className="container-bank">
+        {/* Card grid */}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-7 lg:grid-cols-3 lg:gap-9">
           {features.map((item, index) => (
-            <div className={styles.card} key={index}>
-              <div className={styles.imageWrapper}>
-                <img src={item.image} alt={item.title} />
-                <div className={styles.tealLine}></div>
+            <div
+              key={index}
+              className="flex h-full flex-col overflow-hidden bg-canvas shadow-[0_4px_12px_rgba(0,0,0,0.18)]"
+            >
+              {/* Image with teal underline */}
+              <div className="relative mx-[13px] mt-[15px] h-[180px] overflow-hidden bg-black sm:h-[220px] lg:h-[307px]">
+                <img
+                  src={item.image}
+                  alt={item.title}
+                  className="block h-full w-full object-cover"
+                />
+                <div
+                  className="absolute inset-x-0 bottom-0 h-2 bg-[#008a99]"
+                  aria-hidden="true"
+                />
               </div>
-              <div className={styles.cardContent}>
-                <h3>{item.title}</h3>
-                <p>{item.description}</p>
+
+              {/* Content */}
+              <div className="flex flex-1 flex-col px-[25px] pb-[26px] pt-[17px]">
+                <h3 className="mb-[7px] font-serif text-[17px] font-bold leading-tight text-muted sm:text-[19px] lg:text-[22px]">
+                  {item.title}
+                </h3>
+                <p className="mb-5 flex-1 text-[14px] leading-relaxed text-muted sm:text-[15px] lg:text-[17px]">
+                  {item.description}
+                </p>
               </div>
             </div>
           ))}
         </div>
 
-        <div className={styles.localBanner}>
-          <h2>LOCALLY OWNED AND OPERATED</h2>
-          <p>Helping our customers achieve their financial goals</p>
+        {/* Locally Owned banner */}
+        <div className="mt-8 flex min-h-[90px] flex-col items-center justify-center py-[30px] text-center sm:min-h-[110px] sm:py-10 lg:min-h-[140px] lg:py-[60px]">
+          <h2 className="font-serif text-[20px] font-bold leading-tight text-[#E9682A] sm:text-[26px] lg:text-[32px]">
+            LOCALLY OWNED AND OPERATED
+          </h2>
+          <p className="mt-1 whitespace-normal text-[20px] font-light leading-tight text-[#F1F1F1] sm:whitespace-nowrap sm:text-[28px] lg:text-[36px]">
+            Helping our customers achieve their financial goals
+          </p>
         </div>
       </div>
     </section>
