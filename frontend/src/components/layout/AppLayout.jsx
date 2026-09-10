@@ -32,7 +32,6 @@ const Icon = ({ name, className }) => {
 
 // Sidebar component
 const Sidebar = ({ isOpen, toggleDrawer, onLogoutRequest }) => {
-  const navigate = useNavigate();
   const location = useLocation();
 
   const navItems = [
@@ -55,8 +54,13 @@ const Sidebar = ({ isOpen, toggleDrawer, onLogoutRequest }) => {
   const handleNavClick = (item) => (e) => {
     if (item.key === 'logout') {
       e.preventDefault();
+      // Close the drawer first, then trigger the logout confirmation
+      toggleDrawer();
       onLogoutRequest();
+      return;
     }
+    // Close the drawer on any nav item click
+    toggleDrawer();
   };
 
   return (
@@ -123,7 +127,8 @@ const AppLayout = () => {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const navigate = useNavigate();
 
-  const toggleDrawer = () => setDrawerOpen(!drawerOpen);
+  const toggleDrawer = () => setDrawerOpen((prev) => !prev);
+  const closeDrawer = () => setDrawerOpen(false);
 
   const handleLogoutRequest = () => {
     setShowLogoutModal(true);
@@ -140,20 +145,22 @@ const AppLayout = () => {
 
   return (
     <div className={styles.layout}>
-      {/* Floating Hamburger Button for Mobile */}
-      <button
-        className={styles.floatingHamburger}
-        onClick={toggleDrawer}
-        aria-label="Open menu"
-      >
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
+      {/* Floating Hamburger Button for Mobile — hidden while drawer is open */}
+      {!drawerOpen && (
+        <button
+          className={styles.floatingHamburger}
+          onClick={toggleDrawer}
+          aria-label="Open menu"
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      )}
 
       <Sidebar
         isOpen={drawerOpen}
-        toggleDrawer={toggleDrawer}
+        toggleDrawer={closeDrawer}
         onLogoutRequest={handleLogoutRequest}
       />
 
