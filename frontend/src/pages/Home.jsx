@@ -47,7 +47,6 @@ const quickActions = [
   { label: 'Send Money', icon: Send },
   { label: 'Pay Loan', icon: Landmark },
   { label: 'Manage Card', icon: CreditCard },
-  { label: 'More', icon: MoreHorizontal },
 ];
 
 const Home = () => {
@@ -161,13 +160,6 @@ const Home = () => {
                 {account.type === 'credit' ? 'Credit Card' : 'Account'}
               </div>
 
-              <a
-                href="#"
-                className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-              >
-                View account
-                <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
-              </a>
             </div>
           ))}
         </div>
@@ -303,89 +295,7 @@ const Home = () => {
         </section>
       </div>
 
-      {/* Spending Overview & Cash Flow */}
-      <div className="mb-10 grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <section>
-          <h2 className="mb-4 font-serif text-lg font-bold text-deep-accent sm:text-xl">
-            Spending Overview
-          </h2>
-          <div className="border border-hairline bg-[#f8f9fa] p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-body">
-                Monthly Spending
-              </span>
-              <span className="font-serif text-lg font-bold text-deep-accent">
-                {formatCurrency(2480.36)}
-              </span>
-            </div>
 
-            <div className="flex flex-col gap-3">
-              {mockSpendingCategories.map((cat) => (
-                <div key={cat.category} className="flex items-center gap-3">
-                  <span className="w-24 shrink-0 truncate text-sm text-body sm:w-32">
-                    {cat.category}
-                  </span>
-                  <span className="w-16 shrink-0 text-right text-sm font-semibold text-[#0b1b2b] sm:w-20">
-                    {formatCurrency(cat.amount)}
-                  </span>
-                  <div className="h-1.5 flex-1 bg-hairline">
-                    <div
-                      className="h-full bg-primary"
-                      style={{ width: `${Math.min((cat.amount / 1000) * 100, 100)}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section>
-          <h2 className="mb-4 font-serif text-lg font-bold text-deep-accent sm:text-xl">
-            Cash Flow
-          </h2>
-          <div className="border border-hairline bg-[#f8f9fa] p-5">
-            <div className="flex flex-col gap-2.5">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-body">Money In</span>
-                <span className="font-semibold text-primary">
-                  +{formatCurrency(mockCashFlow.moneyIn)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-body">Money Out</span>
-                <span className="font-semibold text-[#d9534f]">
-                  -{formatCurrency(mockCashFlow.moneyOut)}
-                </span>
-              </div>
-              <div className="mt-1 flex items-center justify-between border-t border-hairline pt-3 text-sm">
-                <span className="font-semibold text-deep-accent">Net</span>
-                <span
-                  className={`font-bold ${
-                    mockCashFlow.net >= 0 ? 'text-primary' : 'text-[#d9534f]'
-                  }`}
-                >
-                  {mockCashFlow.net >= 0
-                    ? `+${formatCurrency(mockCashFlow.net)}`
-                    : formatCurrency(mockCashFlow.net)}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-5 flex items-end justify-between gap-1.5 sm:gap-2">
-              {[40, 70, 50, 90, 60, 80, 45, 65, 55, 75].map((val, i) => (
-                <div key={i} className="flex flex-1 flex-col items-center gap-1">
-                  <div
-                    className="w-full max-w-[14px] bg-primary"
-                    style={{ height: `${val}px` }}
-                  />
-                  <span className="text-[10px] text-muted">{i + 1}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      </div>
 
       {/* Alerts & Security */}
       <section className="mb-10">
@@ -429,44 +339,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Cards */}
-      <section className="mb-10">
-        <h2 className="mb-4 font-serif text-lg font-bold text-deep-accent sm:text-xl">Cards</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <div className="flex flex-col gap-4 border border-hairline bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2.5">
-              <CreditCard className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
-              <span className="text-sm font-semibold text-[#0b1b2b]">Visa •••• 2208</span>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              <button
-                type="button"
-                className="px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-[#e7f3f5]"
-              >
-                View
-              </button>
-              <button
-                type="button"
-                className="px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-[#e7f3f5]"
-              >
-                Freeze
-              </button>
-              <button
-                type="button"
-                className="px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-[#e7f3f5]"
-              >
-                Pay
-              </button>
-              <button
-                type="button"
-                className="px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-[#e7f3f5]"
-              >
-                Manage
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
+
 
       {/* Financial Goals */}
       <section className="mb-4">
