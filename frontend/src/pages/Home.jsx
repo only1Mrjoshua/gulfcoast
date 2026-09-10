@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Eye,
   EyeOff,
@@ -12,7 +13,6 @@ import {
   Send,
   Landmark,
   CreditCard,
-  MoreHorizontal,
   TrendingUp,
   Wallet,
   CalendarClock,
@@ -41,12 +41,12 @@ const formatCurrency = (amount) => {
 };
 
 const quickActions = [
-  { label: 'Transfer Money', icon: ArrowLeftRight },
-  { label: 'Pay a Bill', icon: Receipt },
-  { label: 'Deposit a Check', icon: FileText },
-  { label: 'Send Money', icon: Send },
-  { label: 'Pay Loan', icon: Landmark },
-  { label: 'Manage Card', icon: CreditCard },
+  { label: 'Transfer Money', icon: ArrowLeftRight, to: '/transfers' },
+  { label: 'Pay a Bill', icon: Receipt, to: '/payments' },
+  { label: 'Deposit a Check', icon: FileText, to: '/deposits' },
+  { label: 'Send Money', icon: Send }, // no destination — stays as button
+  { label: 'Pay Loan', icon: Landmark, to: '/loans' },
+  { label: 'Manage Card', icon: CreditCard, to: '/cards' },
 ];
 
 const Home = () => {
@@ -59,6 +59,10 @@ const Home = () => {
   });
 
   const toggleBalance = () => setShowBalance(!showBalance);
+
+  // Shared className for quick-action items (button or link)
+  const quickActionClass =
+    'flex min-h-[52px] items-center justify-center gap-2 border border-hairline bg-white px-3 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40';
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -121,8 +125,8 @@ const Home = () => {
       <section className="mb-10">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">Accounts</h2>
-          <a
-            href="#"
+          <Link
+            to="/accounts"
             className="group inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
           >
             View all
@@ -130,7 +134,7 @@ const Home = () => {
               className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
               strokeWidth={2}
             />
-          </a>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -159,7 +163,6 @@ const Home = () => {
               <div className="mt-0.5 text-xs text-muted">
                 {account.type === 'credit' ? 'Credit Card' : 'Account'}
               </div>
-
             </div>
           ))}
         </div>
@@ -171,16 +174,19 @@ const Home = () => {
           Quick Actions
         </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {quickActions.map(({ label, icon: Icon }) => (
-            <button
-              key={label}
-              type="button"
-              className="flex min-h-[52px] items-center justify-center gap-2 border border-hairline bg-white px-3 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              <Icon className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
-              <span className="truncate">{label}</span>
-            </button>
-          ))}
+          {quickActions.map(({ label, icon: Icon, to }) =>
+            to ? (
+              <Link key={label} to={to} className={quickActionClass}>
+                <Icon className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
+                <span className="truncate">{label}</span>
+              </Link>
+            ) : (
+              <button key={label} type="button" className={quickActionClass}>
+                <Icon className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
+                <span className="truncate">{label}</span>
+              </button>
+            )
+          )}
         </div>
       </section>
 
@@ -192,8 +198,8 @@ const Home = () => {
             <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
               Recent Transactions
             </h2>
-            <a
-              href="#"
+            <Link
+              to="/transactions"
               className="group inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
             >
               View all
@@ -201,7 +207,7 @@ const Home = () => {
                 className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
                 strokeWidth={2}
               />
-            </a>
+            </Link>
           </div>
 
           <div className="divide-y divide-faint border-t border-hairline">
@@ -252,8 +258,8 @@ const Home = () => {
             <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
               Upcoming Payments
             </h2>
-            <a
-              href="#"
+            <Link
+              to="/payments"
               className="group inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
             >
               View all
@@ -261,7 +267,7 @@ const Home = () => {
                 className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
                 strokeWidth={2}
               />
-            </a>
+            </Link>
           </div>
 
           <div className="divide-y divide-faint border-t border-hairline">
@@ -294,8 +300,6 @@ const Home = () => {
           </div>
         </section>
       </div>
-
-
 
       {/* Alerts & Security */}
       <section className="mb-10">
@@ -338,8 +342,6 @@ const Home = () => {
           </div>
         </div>
       </section>
-
-
 
       {/* Financial Goals */}
       <section className="mb-4">

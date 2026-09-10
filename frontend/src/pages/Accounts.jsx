@@ -115,14 +115,6 @@ const AccountCard = ({ account, showBalance, onView }) => {
         <div className="mt-1 text-xs text-body">{getSecondaryInfo()}</div>
       )}
 
-      <button
-        type="button"
-        onClick={onView}
-        className="mt-4 inline-flex items-center gap-1 self-start border border-primary px-3.5 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-      >
-        View Account
-        <ChevronRight className="h-3 w-3" strokeWidth={2.25} />
-      </button>
     </div>
   );
 };
@@ -199,13 +191,6 @@ const Accounts = () => {
             View and manage all your accounts in one place.
           </p>
         </div>
-        <button
-          type="button"
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-        >
-          <Plus className="h-4 w-4" strokeWidth={2.25} />
-          Open an Account
-        </button>
       </div>
 
       {/* Total Balance Summary */}
@@ -415,50 +400,7 @@ const Accounts = () => {
             )}
           </div>
 
-          {/* Statements & Documents */}
-          <div className="mb-8 border-t border-hairline pt-6">
-            <div className="mb-4 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-primary" strokeWidth={1.75} />
-              <h3 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
-                Statements &amp; Documents
-              </h3>
-            </div>
 
-            <div className="divide-y divide-faint border-t border-hairline">
-              {mockStatements.map((stmt, idx) => (
-                <div
-                  key={idx}
-                  className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-6"
-                >
-                  <span className="text-sm font-semibold text-deep-accent sm:w-40">
-                    {stmt.month}
-                  </span>
-                  <span className="text-sm text-body sm:w-44">{stmt.type}</span>
-                  <span
-                    className={`text-xs font-semibold uppercase tracking-wide sm:w-28 ${
-                      stmt.available ? 'text-primary' : 'text-muted'
-                    }`}
-                  >
-                    {stmt.available ? 'Available' : 'Not available'}
-                  </span>
-                  <div className="flex gap-4 sm:ml-auto">
-                    <button
-                      type="button"
-                      className="text-sm font-semibold text-primary hover:underline"
-                    >
-                      View
-                    </button>
-                    <button
-                      type="button"
-                      className="text-sm font-semibold text-primary hover:underline"
-                    >
-                      Download PDF
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
 
           {/* Account Alerts */}
           <div className="mb-8 border-t border-hairline pt-6">
@@ -492,31 +434,7 @@ const Accounts = () => {
         </section>
       )}
 
-      {/* Quick Actions */}
-      <section className="mb-12 border-t border-hairline pt-8">
-        <h2 className="mb-4 font-serif text-lg font-bold text-deep-accent sm:text-xl">
-          Quick Actions
-        </h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            'Transfer Money',
-            'Pay a Bill',
-            'Deposit a Check',
-            'View Statements',
-            'Manage Alerts',
-            'Open an Account',
-          ].map((label) => (
-            <button
-              key={label}
-              type="button"
-              className="flex min-h-[48px] items-center justify-between border border-hairline bg-white px-4 py-3 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              <span>{label}</span>
-              <ArrowRight className="h-4 w-4 text-primary" strokeWidth={2} />
-            </button>
-          ))}
-        </div>
-      </section>
+
 
     </div>
   );
