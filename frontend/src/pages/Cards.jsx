@@ -1,5 +1,6 @@
 // src/pages/Cards.jsx
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Plus,
   CreditCard,
@@ -198,13 +199,6 @@ const Cards = () => {
             settings.
           </p>
         </div>
-        <button
-          type="button"
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-        >
-          <Plus className="h-4 w-4" strokeWidth={2.25} />
-          Manage Cards
-        </button>
       </div>
 
       {/* Card Overview */}
@@ -380,24 +374,6 @@ const Cards = () => {
                   <Eye className="h-3.5 w-3.5" strokeWidth={2} />
                   View Full Details
                 </button>
-                {selectedCard.type === 'Credit' && (
-                  <button
-                    type="button"
-                    onClick={handleMakePayment}
-                    className="inline-flex min-h-[36px] items-center gap-1.5 bg-primary px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 sm:text-sm"
-                  >
-                    <CircleDollarSign className="h-3.5 w-3.5" strokeWidth={2} />
-                    Make Payment
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleReplaceCard}
-                  className="inline-flex min-h-[36px] items-center gap-1.5 border border-hairline bg-white px-4 py-1.5 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" strokeWidth={2} />
-                  Replace Card
-                </button>
               </div>
             </div>
 
@@ -544,13 +520,13 @@ const Cards = () => {
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  className="mt-3 inline-flex items-center gap-1 self-start text-sm font-semibold text-primary hover:underline"
+                <Link
+                  to="/transactions"
+                  className="mt-3 inline-flex items-center gap-1 self-start text-sm font-semibold text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 >
                   View All Transactions
                   <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.25} />
-                </button>
+                </Link>
               </div>
             </div>
 
@@ -587,20 +563,7 @@ const Cards = () => {
               </div>
             </div>
 
-            {/* Statements link */}
-            <div className="mt-6 flex flex-col items-start gap-2 border-t border-hairline pt-4 sm:flex-row sm:items-center sm:gap-3">
-              <FileText className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
-              <span className="text-sm text-body">
-                View your card statements
-              </span>
-              <a
-                href="/statements"
-                className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
-              >
-                Go to Statements
-                <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.25} />
-              </a>
-            </div>
+
           </div>
         </section>
       )}

@@ -16,8 +16,7 @@ import Statements from './pages/Statements';
 import Cards from './pages/Cards';
 import Loans from './pages/Loans';
 import Goals from './pages/Goals';
-import Insights from './pages/Insights';
-import Messages from './pages/Messages';
+import Notifications from './pages/Notifications';
 import Help from './pages/Help';
 import Settings from './pages/Settings';
 import LandingPage from './pages/LandingPage';
@@ -69,8 +68,7 @@ const router = createBrowserRouter([
       { path: 'cards', element: <Cards /> },
       { path: 'loans', element: <Loans /> },
       { path: 'goals', element: <Goals /> },
-      { path: 'insights', element: <Insights /> },
-      { path: 'messages', element: <Messages /> },
+      { path: 'notifications', element: <Notifications /> },
       { path: 'help', element: <Help /> },
       { path: 'settings', element: <Settings /> },
     ],

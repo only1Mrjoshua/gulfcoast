@@ -21,21 +21,27 @@ import {
   Landmark,
   Info,
 } from 'lucide-react';
-import {
-  mockGoals,
-  mockGoalActivities,
-  mockCompletedGoals,
-} from '../data/mockGoalsData';
+
+const ACCOUNTS = [
+  { value: 'chk1', label: 'Checking •••• 4821' },
+  { value: 'sav1', label: 'Savings •••• 9134' },
+];
+
+const accountLabel = (value) =>
+  ACCOUNTS.find((a) => a.value === value)?.label ?? value;
+
+const todayISO = () => new Date().toISOString().split('T')[0];
 
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
-  }).format(amount);
+  }).format(amount || 0);
 };
 
 const formatDate = (dateStr) => {
+  if (!dateStr) return '—';
   const date = new Date(dateStr + 'T00:00:00');
   return date.toLocaleDateString('en-US', {
     month: 'short',
@@ -45,6 +51,7 @@ const formatDate = (dateStr) => {
 };
 
 const formatDateLong = (dateStr) => {
+  if (!dateStr) return '—';
   const date = new Date(dateStr + 'T00:00:00');
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
@@ -53,9 +60,41 @@ const formatDateLong = (dateStr) => {
   });
 };
 
+// Next contribution date based on a frequency, starting from today.
+const getNextContributionDate = (frequency) => {
+  const d = new Date();
+  if (frequency === 'Weekly') d.setDate(d.getDate() + 7);
+  else if (frequency === 'Biweekly') d.setDate(d.getDate() + 14);
+  else d.setMonth(d.getMonth() + 1);
+  return d.toISOString().split('T')[0];
+};
+
+const getProgress = (current, target) => {
+  if (!target || target <= 0) return 0;
+  return Math.min(100, Math.round((current / target) * 100));
+};
+
+const emptyCreateForm = {
+  name: '',
+  category: 'General Savings',
+  targetAmount: '',
+  targetDate: '',
+  startingAmount: '',
+  linkedAccount: 'chk1',
+  autoContribution: false,
+  contributionAmount: '',
+  contributionFrequency: 'Monthly',
+};
+
 const Goals = () => {
-  // State
-  const [selectedGoalId, setSelectedGoalId] = useState(mockGoals[0]?.id || null);
+  // ---------------------------------------------------------------------------
+  // State — the user has not set any goals yet, so everything starts empty.
+  // ---------------------------------------------------------------------------
+  const [goals, setGoals] = useState([]);
+  const [goalActivities, setGoalActivities] = useState({});
+  const [completedGoals, setCompletedGoals] = useState([]);
+
+  const [selectedGoalId, setSelectedGoalId] = useState(null);
   const [showCreateGoal, setShowCreateGoal] = useState(false);
   const [showEditGoal, setShowEditGoal] = useState(false);
   const [showAddMoney, setShowAddMoney] = useState(false);
@@ -63,17 +102,7 @@ const Goals = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Create goal form state
-  const [createForm, setCreateForm] = useState({
-    name: '',
-    category: 'General Savings',
-    targetAmount: '',
-    targetDate: '',
-    startingAmount: '',
-    linkedAccount: 'chk1',
-    autoContribution: false,
-    contributionAmount: '',
-    contributionFrequency: 'Monthly',
-  });
+  const [createForm, setCreateForm] = useState(emptyCreateForm);
 
   // Edit goal form state
   const [editForm, setEditForm] = useState({
@@ -96,63 +125,134 @@ const Goals = () => {
     amount: '',
     fromAccount: 'chk1',
     frequency: 'Monthly',
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: todayISO(),
   });
 
-  const selectedGoal = mockGoals.find((g) => g.id === selectedGoalId);
-  const goalActivities = selectedGoal
-    ? mockGoalActivities[selectedGoal.id] || []
+  const selectedGoal = goals.find((g) => g.id === selectedGoalId) || null;
+  const goalActivitiesForSelected = selectedGoal
+    ? goalActivities[selectedGoal.id] || []
     : [];
 
   // Totals
-  const totalSaved = mockGoals.reduce((sum, goal) => sum + goal.currentAmount, 0);
-  const activeGoals = mockGoals.length;
-  const goalsOnTrack = mockGoals.filter((g) => g.status === 'On Track').length;
+  const totalSaved = goals.reduce((sum, goal) => sum + goal.currentAmount, 0);
+  const activeGoals = goals.length;
+  const goalsOnTrack = goals.filter((g) => g.status === 'On Track').length;
 
-  // Handlers
+  // Soonest upcoming target date
+  const upcomingGoal =
+    goals.length > 0
+      ? goals.reduce(
+          (soonest, g) => (g.targetDate < soonest.targetDate ? g : soonest),
+          goals[0]
+        )
+      : null;
+
+  // ---------------------------------------------------------------------------
+  // Create goal
+  // ---------------------------------------------------------------------------
   const handleCreateGoal = () => setShowCreateGoal(true);
 
   const closeCreateGoal = () => {
     setShowCreateGoal(false);
-    setCreateForm({
-      name: '',
-      category: 'General Savings',
-      targetAmount: '',
-      targetDate: '',
-      startingAmount: '',
-      linkedAccount: 'chk1',
-      autoContribution: false,
-      contributionAmount: '',
-      contributionFrequency: 'Monthly',
-    });
+    setCreateForm(emptyCreateForm);
   };
 
-  const handleSubmitCreateGoal = () => {
-    alert(`Goal "${createForm.name}" created successfully!`);
+  const handleSubmitCreateGoal = (e) => {
+    e.preventDefault();
+
+    const targetAmount = parseFloat(createForm.targetAmount) || 0;
+    const startingAmount = parseFloat(createForm.startingAmount) || 0;
+    const id = `goal-${Date.now()}`;
+
+    const newGoal = {
+      id,
+      name: createForm.name.trim(),
+      category: createForm.category,
+      currentAmount: startingAmount,
+      targetAmount,
+      progress: getProgress(startingAmount, targetAmount),
+      targetDate: createForm.targetDate,
+      linkedAccount: accountLabel(createForm.linkedAccount),
+      contributionAmount: createForm.autoContribution
+        ? parseFloat(createForm.contributionAmount) || 0
+        : 0,
+      contributionFrequency: createForm.autoContribution
+        ? createForm.contributionFrequency
+        : 'Monthly',
+      nextContributionDate: createForm.autoContribution
+        ? getNextContributionDate(createForm.contributionFrequency)
+        : null,
+      status: 'On Track',
+    };
+
+    setGoals((prev) => [...prev, newGoal]);
+
+    if (startingAmount > 0) {
+      setGoalActivities((prev) => ({
+        ...prev,
+        [id]: [
+          {
+            id: `act-${Date.now()}`,
+            date: todayISO(),
+            description: 'Starting balance',
+            amount: startingAmount,
+            balance: startingAmount,
+          },
+        ],
+      }));
+    }
+
+    setSelectedGoalId(id);
     closeCreateGoal();
   };
 
+  // ---------------------------------------------------------------------------
+  // Edit goal
+  // ---------------------------------------------------------------------------
   const handleEditGoal = () => {
-    if (selectedGoal) {
-      setEditForm({
-        name: selectedGoal.name,
-        targetAmount: selectedGoal.targetAmount,
-        targetDate: selectedGoal.targetDate,
-        contributionAmount: selectedGoal.contributionAmount,
-        contributionFrequency: selectedGoal.contributionFrequency,
-        linkedAccount: selectedGoal.linkedAccount,
-      });
-      setShowEditGoal(true);
-    }
+    if (!selectedGoal) return;
+    setEditForm({
+      name: selectedGoal.name,
+      targetAmount: selectedGoal.targetAmount,
+      targetDate: selectedGoal.targetDate,
+      contributionAmount: selectedGoal.contributionAmount,
+      contributionFrequency: selectedGoal.contributionFrequency,
+      linkedAccount: selectedGoal.linkedAccount,
+    });
+    setShowEditGoal(true);
   };
 
   const closeEditGoal = () => setShowEditGoal(false);
 
-  const handleSubmitEditGoal = () => {
-    alert(`Goal "${editForm.name}" updated successfully!`);
+  const handleSubmitEditGoal = (e) => {
+    e.preventDefault();
+    if (!selectedGoal) return;
+
+    const targetAmount = parseFloat(editForm.targetAmount) || 0;
+
+    setGoals((prev) =>
+      prev.map((g) =>
+        g.id === selectedGoal.id
+          ? {
+              ...g,
+              name: editForm.name.trim(),
+              targetAmount,
+              targetDate: editForm.targetDate,
+              contributionAmount: parseFloat(editForm.contributionAmount) || 0,
+              contributionFrequency: editForm.contributionFrequency,
+              linkedAccount: editForm.linkedAccount,
+              progress: getProgress(g.currentAmount, targetAmount),
+            }
+          : g
+      )
+    );
+
     closeEditGoal();
   };
 
+  // ---------------------------------------------------------------------------
+  // Add money
+  // ---------------------------------------------------------------------------
   const handleAddMoney = () => setShowAddMoney(true);
 
   const closeAddMoney = () => {
@@ -160,15 +260,66 @@ const Goals = () => {
     setAddMoneyForm({ amount: '', fromAccount: 'chk1' });
   };
 
-  const handleSubmitAddMoney = () => {
-    alert(
-      `Added ${formatCurrency(parseFloat(addMoneyForm.amount) || 0)} to ${
-        selectedGoal?.name
-      }`
-    );
+  const handleSubmitAddMoney = (e) => {
+    e.preventDefault();
+    if (!selectedGoal) return;
+
+    const amount = parseFloat(addMoneyForm.amount) || 0;
+    if (amount <= 0) return;
+
+    const goalId = selectedGoal.id;
+    const newAmount = selectedGoal.currentAmount + amount;
+    const isComplete = newAmount >= selectedGoal.targetAmount;
+    const today = todayISO();
+
+    setGoalActivities((prev) => ({
+      ...prev,
+      [goalId]: [
+        {
+          id: `act-${Date.now()}`,
+          date: today,
+          description: 'Manual contribution',
+          amount,
+          balance: newAmount,
+        },
+        ...(prev[goalId] || []),
+      ],
+    }));
+
+    if (isComplete) {
+      const remaining = goals.filter((g) => g.id !== goalId);
+      setGoals(remaining);
+      setCompletedGoals((prev) => [
+        ...prev,
+        {
+          id: goalId,
+          name: selectedGoal.name,
+          category: selectedGoal.category,
+          targetAmount: selectedGoal.targetAmount,
+          completionDate: today,
+        },
+      ]);
+      setSelectedGoalId(remaining[0]?.id ?? null);
+    } else {
+      setGoals((prev) =>
+        prev.map((g) =>
+          g.id === goalId
+            ? {
+                ...g,
+                currentAmount: newAmount,
+                progress: getProgress(newAmount, g.targetAmount),
+              }
+            : g
+        )
+      );
+    }
+
     closeAddMoney();
   };
 
+  // ---------------------------------------------------------------------------
+  // Auto-save
+  // ---------------------------------------------------------------------------
   const handleAutoSave = () => setShowAutoSave(true);
 
   const closeAutoSave = () => {
@@ -177,28 +328,51 @@ const Goals = () => {
       amount: '',
       fromAccount: 'chk1',
       frequency: 'Monthly',
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: todayISO(),
     });
   };
 
-  const handleSubmitAutoSave = () => {
-    alert(
-      `Auto-save of ${formatCurrency(
-        parseFloat(autoSaveForm.amount) || 0
-      )} set up for ${selectedGoal?.name}`
+  const handleSubmitAutoSave = (e) => {
+    e.preventDefault();
+    if (!selectedGoal) return;
+
+    const amount = parseFloat(autoSaveForm.amount) || 0;
+    const { frequency, startDate } = autoSaveForm;
+    const baseDate = startDate && startDate > todayISO() ? startDate : todayISO();
+
+    setGoals((prev) =>
+      prev.map((g) =>
+        g.id === selectedGoal.id
+          ? {
+              ...g,
+              contributionAmount: amount,
+              contributionFrequency: frequency,
+              nextContributionDate: baseDate,
+            }
+          : g
+      )
     );
+
     closeAutoSave();
   };
 
+  // ---------------------------------------------------------------------------
+  // Delete goal
+  // ---------------------------------------------------------------------------
   const handleDeleteGoal = () => setShowDeleteConfirm(true);
   const closeDeleteConfirm = () => setShowDeleteConfirm(false);
 
   const confirmDeleteGoal = () => {
-    alert(`Goal "${selectedGoal?.name}" has been deleted.`);
+    if (!selectedGoal) return;
+    const remaining = goals.filter((g) => g.id !== selectedGoal.id);
+    setGoals(remaining);
+    setSelectedGoalId(remaining[0]?.id ?? null);
     setShowDeleteConfirm(false);
-    setSelectedGoalId(null);
   };
 
+  // ---------------------------------------------------------------------------
+  // Form change handlers
+  // ---------------------------------------------------------------------------
   const handleCreateFormChange = (e) => {
     const { name, value, type, checked } = e.target;
     setCreateForm((prev) => ({
@@ -253,7 +427,7 @@ const Goals = () => {
     { label: 'On Track', value: goalsOnTrack, icon: TrendingUp },
     {
       label: 'Upcoming Target',
-      value: mockGoals.length > 0 ? formatDate(mockGoals[0].targetDate) : 'N/A',
+      value: upcomingGoal ? formatDate(upcomingGoal.targetDate) : '—',
       icon: Calendar,
     },
   ];
@@ -305,14 +479,17 @@ const Goals = () => {
         </h2>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {mockGoals.length === 0 ? (
-            <div className="col-span-full border border-hairline bg-faint py-12 text-center">
-              <Target className="mx-auto h-8 w-8 text-muted" strokeWidth={1.5} />
-              <p className="mt-3 text-sm font-semibold text-deep-accent">
-                Start your first financial goal
+          {goals.length === 0 ? (
+            <div className="col-span-full border border-hairline bg-faint px-6 py-14 text-center">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center bg-[#e7f3f5] text-primary">
+                <PiggyBank className="h-6 w-6" strokeWidth={1.5} />
+              </span>
+              <p className="mt-4 font-serif text-base font-bold text-deep-accent sm:text-lg">
+                You haven&rsquo;t set any goals yet
               </p>
-              <p className="mx-auto mt-1 max-w-md text-xs text-muted">
-                Set a target, choose a date, and track your progress as you save.
+              <p className="mx-auto mt-1.5 max-w-md text-xs text-muted sm:text-sm">
+                Set a target, choose a date, and track your progress as you save
+                toward the things that matter to you.
               </p>
               <button
                 type="button"
@@ -320,11 +497,11 @@ const Goals = () => {
                 className="mt-5 inline-flex min-h-[40px] items-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               >
                 <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
-                Create a Goal
+                Create your first goal
               </button>
             </div>
           ) : (
-            mockGoals.map((goal) => {
+            goals.map((goal) => {
               const isSelected = selectedGoalId === goal.id;
               return (
                 <div
@@ -389,7 +566,8 @@ const Goals = () => {
                         {goal.progress}% complete
                       </span>
                       <span className="text-muted">
-                        {formatCurrency(goal.targetAmount - goal.currentAmount)} remaining
+                        {formatCurrency(goal.targetAmount - goal.currentAmount)}{' '}
+                        remaining
                       </span>
                     </div>
                   </div>
@@ -536,9 +714,13 @@ const Goals = () => {
                   />
                   <DetailRow
                     label="Contribution"
-                    value={`${formatCurrency(
-                      selectedGoal.contributionAmount
-                    )} / ${selectedGoal.contributionFrequency}`}
+                    value={
+                      selectedGoal.contributionAmount > 0
+                        ? `${formatCurrency(
+                            selectedGoal.contributionAmount
+                          )} / ${selectedGoal.contributionFrequency}`
+                        : 'Not set'
+                    }
                   />
                   <DetailRow
                     label="Next Contribution"
@@ -557,10 +739,10 @@ const Goals = () => {
                 </div>
 
                 <div className="flex flex-col border-t border-hairline">
-                  {goalActivities.length === 0 ? (
+                  {goalActivitiesForSelected.length === 0 ? (
                     <p className="py-4 text-sm text-muted">No activity yet.</p>
                   ) : (
-                    goalActivities.slice(0, 5).map((activity) => (
+                    goalActivitiesForSelected.slice(0, 5).map((activity) => (
                       <div
                         key={activity.id}
                         className="flex flex-col gap-2 border-b border-faint py-3 sm:flex-row sm:items-center sm:justify-between"
@@ -590,16 +772,6 @@ const Goals = () => {
                     ))
                   )}
                 </div>
-
-                {goalActivities.length > 5 && (
-                  <button
-                    type="button"
-                    className="mt-3 inline-flex items-center gap-1 self-start text-sm font-semibold text-primary hover:underline"
-                  >
-                    View All Activity
-                    <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.25} />
-                  </button>
-                )}
               </div>
             </div>
           </div>
@@ -616,12 +788,22 @@ const Goals = () => {
         </div>
 
         <div className="overflow-hidden border border-hairline bg-white">
-          {mockCompletedGoals.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted">
-              No completed goals yet.
-            </p>
+          {completedGoals.length === 0 ? (
+            <div className="px-6 py-10 text-center">
+              <CheckCircle2
+                className="mx-auto h-6 w-6 text-muted"
+                strokeWidth={1.5}
+              />
+              <p className="mt-2.5 text-sm font-semibold text-deep-accent">
+                No completed goals yet
+              </p>
+              <p className="mx-auto mt-1 max-w-sm text-xs text-muted">
+                Goals you finish will show up here so you can look back on your
+                progress.
+              </p>
+            </div>
           ) : (
-            mockCompletedGoals.map((goal) => (
+            completedGoals.map((goal) => (
               <div
                 key={goal.id}
                 className="flex flex-col gap-2 border-b border-faint px-4 py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
@@ -791,8 +973,11 @@ const Goals = () => {
                 onChange={handleCreateFormChange}
                 className="min-h-[40px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
               >
-                <option value="chk1">Checking •••• 4821</option>
-                <option value="sav1">Savings •••• 9134</option>
+                {ACCOUNTS.map((account) => (
+                  <option key={account.value} value={account.value}>
+                    {account.label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -1033,7 +1218,7 @@ const Goals = () => {
             Add funds to {selectedGoal.name}
           </p>
 
-          <div className="mt-6 flex flex-col gap-5">
+          <form onSubmit={handleSubmitAddMoney} className="mt-6 flex flex-col gap-5">
             <div className="flex flex-col gap-1.5">
               <label
                 htmlFor="addAmount"
@@ -1072,8 +1257,11 @@ const Goals = () => {
                 onChange={handleAddMoneyChange}
                 className="min-h-[40px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
               >
-                <option value="chk1">Checking •••• 4821</option>
-                <option value="sav1">Savings •••• 9134</option>
+                {ACCOUNTS.map((account) => (
+                  <option key={account.value} value={account.value}>
+                    {account.label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -1086,15 +1274,14 @@ const Goals = () => {
                 Cancel
               </button>
               <button
-                type="button"
-                onClick={handleSubmitAddMoney}
+                type="submit"
                 className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               >
                 <Wallet className="h-4 w-4" strokeWidth={2.25} />
                 Add Money
               </button>
             </div>
-          </div>
+          </form>
         </ModalShell>
       )}
 
@@ -1108,7 +1295,10 @@ const Goals = () => {
             Schedule automatic contributions to {selectedGoal.name}
           </p>
 
-          <div className="mt-6 flex flex-col gap-5">
+          <form
+            onSubmit={handleSubmitAutoSave}
+            className="mt-6 flex flex-col gap-5"
+          >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <label
@@ -1169,8 +1359,11 @@ const Goals = () => {
                 onChange={handleAutoSaveChange}
                 className="min-h-[40px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
               >
-                <option value="chk1">Checking •••• 4821</option>
-                <option value="sav1">Savings •••• 9134</option>
+                {ACCOUNTS.map((account) => (
+                  <option key={account.value} value={account.value}>
+                    {account.label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -1200,15 +1393,14 @@ const Goals = () => {
                 Cancel
               </button>
               <button
-                type="button"
-                onClick={handleSubmitAutoSave}
+                type="submit"
                 className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               >
                 <RefreshCw className="h-4 w-4" strokeWidth={2.25} />
                 Review Contribution
               </button>
             </div>
-          </div>
+          </form>
         </ModalShell>
       )}
 

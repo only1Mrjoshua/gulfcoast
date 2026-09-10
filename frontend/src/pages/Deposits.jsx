@@ -511,12 +511,6 @@ const Deposits = () => {
                 </span>
               </span>
             </div>
-            <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-sm text-body">Estimated Availability</span>
-              <span className="text-sm font-semibold text-deep-accent sm:text-right">
-                See deposit availability
-              </span>
-            </div>
           </div>
 
           <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-6 sm:flex-row sm:justify-end">
@@ -589,21 +583,14 @@ const Deposits = () => {
           </div>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <button
-              type="button"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 border border-primary bg-white px-6 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              View Deposit
-              <ChevronRight className="h-4 w-4" strokeWidth={2.25} />
-            </button>
-            <button
-              type="button"
-              onClick={handleNewDeposit}
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-            >
-              <Plus className="h-4 w-4" strokeWidth={2.25} />
-              Make Another Deposit
-            </button>
+<button
+  type="button"
+  onClick={handleNewDeposit}
+  className="inline-flex min-h-[44px] items-center justify-center gap-2 border border-primary bg-white px-6 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+>
+  View Deposit
+  <ChevronRight className="h-4 w-4" strokeWidth={2.25} />
+</button>            
           </div>
         </div>
       )}

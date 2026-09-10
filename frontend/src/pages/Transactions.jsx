@@ -686,13 +686,6 @@ const Transactions = () => {
                 <AlertCircle className="h-3.5 w-3.5" strokeWidth={2.25} />
                 Report a Problem
               </button>
-              <button
-                type="button"
-                className="inline-flex min-h-[40px] items-center justify-center gap-1.5 border border-hairline bg-white px-4 py-2 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              >
-                <Tag className="h-3.5 w-3.5" strokeWidth={2.25} />
-                Change Category
-              </button>
             </div>
           </div>
         </div>

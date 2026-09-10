@@ -23,11 +23,12 @@ import {
   AlertCircle,
   X,
   Save,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import {
   mockUserProfile,
   mockSecuritySettings,
-  mockNotificationSettings,
   mockCommunicationPreferences,
   mockPaperlessStatus,
   mockAccountPreferences,
@@ -40,16 +41,30 @@ const humanizeKey = (key) =>
     .replace(/([A-Z])/g, ' $1')
     .replace(/^./, (str) => str.toUpperCase());
 
+const emptyPasswordForm = {
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+};
+
 const Settings = () => {
   const [profile, setProfile] = useState(mockUserProfile);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ ...profile });
   const [twoStep, setTwoStep] = useState(mockSecuritySettings.twoStepVerification);
-  const [notifications, setNotifications] = useState(mockNotificationSettings);
   const [comms, setComms] = useState(mockCommunicationPreferences);
   const [paperless, setPaperless] = useState(mockPaperlessStatus);
   const [preferences, setPreferences] = useState(mockAccountPreferences);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Change password modal state
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState(emptyPasswordForm);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleEditToggle = () => {
     if (isEditing) {
@@ -74,16 +89,6 @@ const Settings = () => {
     setEditForm({ ...profile });
   };
 
-  const handleToggle = (category, key) => {
-    setNotifications((prev) => ({
-      ...prev,
-      [category]: {
-        ...prev[category],
-        [key]: !prev[category][key],
-      },
-    }));
-  };
-
   const handleCommToggle = (key) => {
     setComms((prev) => ({ ...prev, [key]: !prev[key] }));
   };
@@ -97,6 +102,65 @@ const Settings = () => {
     setPaperless((prev) => ({ ...prev, enrolled: !prev.enrolled }));
   };
 
+  // ---------------------------------------------------------------------------
+  // Change password handlers
+  // ---------------------------------------------------------------------------
+  const openChangePassword = () => {
+    setPasswordForm(emptyPasswordForm);
+    setPasswordError('');
+    setPasswordSuccess(false);
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+    setShowChangePassword(true);
+  };
+
+  const closeChangePassword = () => {
+    setShowChangePassword(false);
+    setPasswordForm(emptyPasswordForm);
+    setPasswordError('');
+    setPasswordSuccess(false);
+  };
+
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordForm((prev) => ({ ...prev, [name]: value }));
+    if (passwordError) setPasswordError('');
+  };
+
+  const handleSubmitPassword = (e) => {
+    e.preventDefault();
+
+    const { currentPassword, newPassword, confirmPassword } = passwordForm;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Please fill in all fields.');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordError('New password must be at least 8 characters long.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New password and confirmation do not match.');
+      return;
+    }
+
+    if (newPassword === currentPassword) {
+      setPasswordError('New password must be different from your current password.');
+      return;
+    }
+
+    // Success — in a real app this would call your API
+    setPasswordError('');
+    setPasswordSuccess(true);
+    setTimeout(() => {
+      closeChangePassword();
+    }, 1600);
+  };
+
   return (
     <div className="mx-auto max-w-[900px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Page Header */}
@@ -105,7 +169,7 @@ const Settings = () => {
           Settings
         </h1>
         <p className="mt-1 text-sm text-body sm:text-base">
-          Manage your personal information, security preferences, notifications, and
+          Manage your personal information, security preferences, and
           account settings.
         </p>
       </div>
@@ -295,6 +359,7 @@ const Settings = () => {
             </span>
             <button
               type="button"
+              onClick={openChangePassword}
               className="inline-flex min-h-[30px] items-center border border-primary bg-white px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               Change
@@ -360,121 +425,6 @@ const Settings = () => {
         </div>
       </section>
 
-      {/* Notifications */}
-      <section className="mb-8 border-t border-hairline pt-6">
-        <div className="mb-4 flex items-center gap-2">
-          <Bell className="h-4 w-4 text-primary" strokeWidth={1.75} />
-          <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
-            Notifications
-          </h2>
-        </div>
-
-        <div className="border border-hairline bg-white p-5">
-          <NotificationGroup
-            title="Account Alerts"
-            data={notifications.accountAlerts}
-            onToggle={(key) => handleToggle('accountAlerts', key)}
-          />
-          <NotificationGroup
-            title="Card Alerts"
-            data={notifications.cardAlerts}
-            onToggle={(key) => handleToggle('cardAlerts', key)}
-          />
-          <NotificationGroup
-            title="Security Alerts"
-            data={notifications.securityAlerts}
-            onToggle={(key) => handleToggle('securityAlerts', key)}
-          />
-          <NotificationGroup
-            title="Notification Channels"
-            data={notifications.channels}
-            onToggle={(key) => handleToggle('channels', key)}
-            humanize={(k) => k.charAt(0).toUpperCase() + k.slice(1)}
-          />
-        </div>
-      </section>
-
-      {/* Communication Preferences */}
-      <section className="mb-8 border-t border-hairline pt-6">
-        <div className="mb-4 flex items-center gap-2">
-          <MessageSquare className="h-4 w-4 text-primary" strokeWidth={1.75} />
-          <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
-            Communication Preferences
-          </h2>
-        </div>
-
-        <div className="border border-hairline bg-white p-5">
-          <div className="flex flex-col divide-y divide-faint">
-            {Object.entries(comms).map(([key, value]) => (
-              <div
-                key={key}
-                className="flex items-center gap-3 py-3"
-              >
-                <span
-                  className={`h-1.5 w-1.5 shrink-0 ${
-                    value ? 'bg-primary' : 'bg-muted'
-                  }`}
-                  aria-hidden="true"
-                />
-                <span className="min-w-0 flex-1 truncate text-sm text-deep-accent">
-                  {humanizeKey(key)}
-                </span>
-                <span
-                  className={`shrink-0 text-xs font-bold uppercase tracking-wide ${
-                    value ? 'text-primary' : 'text-muted'
-                  }`}
-                >
-                  {value ? 'ON' : 'OFF'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleCommToggle(key)}
-                  className="shrink-0 border border-hairline bg-white px-3 py-1 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                >
-                  {value ? 'Turn Off' : 'Turn On'}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Paperless Statements */}
-      <section className="mb-8 border-t border-hairline pt-6">
-        <div className="mb-4 flex items-center gap-2">
-          <FileText className="h-4 w-4 text-primary" strokeWidth={1.75} />
-          <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
-            Paperless Statements
-          </h2>
-        </div>
-
-        <div className="flex flex-col gap-3 border border-hairline bg-white p-5 sm:flex-row sm:items-center sm:gap-4">
-          <span
-            className={`inline-flex items-center gap-1.5 text-sm font-bold ${
-              paperless.enrolled ? 'text-primary' : 'text-muted'
-            }`}
-          >
-            {paperless.enrolled && (
-              <CheckCircle2 className="h-4 w-4" strokeWidth={2.25} />
-            )}
-            {paperless.enrolled ? 'Enrolled' : 'Not Enrolled'}
-          </span>
-          <button
-            type="button"
-            onClick={handlePaperlessToggle}
-            className="inline-flex min-h-[36px] items-center border border-primary bg-white px-4 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
-          >
-            {paperless.enrolled ? 'Unenroll' : 'Enroll'}
-          </button>
-          <p className="text-xs text-body sm:text-sm">
-            Manage your paperless statement preferences.{' '}
-            {paperless.enrolled
-              ? 'You are currently enrolled.'
-              : 'You are not currently enrolled.'}
-          </p>
-        </div>
-      </section>
-
       {/* Account Preferences */}
       <section className="mb-8 border-t border-hairline pt-6">
         <div className="mb-4 flex items-center gap-2">
@@ -513,28 +463,6 @@ const Settings = () => {
                       <option value="Rewards Visa •••• 2208">
                         Rewards Visa •••• 2208
                       </option>
-                    </select>
-                  </div>
-                );
-              }
-              if (key === 'dateFormat') {
-                return (
-                  <div
-                    key={key}
-                    className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4"
-                  >
-                    <span className="min-w-[180px] text-sm font-semibold text-deep-accent">
-                      Date Format
-                    </span>
-                    <select
-                      name={key}
-                      value={value}
-                      onChange={handlePreferenceChange}
-                      className="min-h-[36px] flex-1 border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
-                    >
-                      <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                      <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                      <option value="YYYY-MM-DD">YYYY-MM-DD</option>
                     </select>
                   </div>
                 );
@@ -592,12 +520,6 @@ const Settings = () => {
                 {acc.status}
               </span>
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="inline-flex min-h-[32px] items-center gap-1.5 border border-hairline bg-white px-3 py-1 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                >
-                  Manage
-                </button>
                 <button
                   type="button"
                   className="inline-flex min-h-[32px] items-center gap-1.5 border border-[#d9534f] bg-white px-3 py-1 text-xs font-semibold text-[#d9534f] transition-colors hover:bg-[#fdf2f2] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d9534f]/40"
@@ -660,6 +582,192 @@ const Settings = () => {
           sensitive account information.
         </p>
       </div>
+
+      {/* Change Password Modal */}
+      {showChangePassword && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4"
+          onClick={closeChangePassword}
+        >
+          <div
+            className="relative max-h-[90vh] w-full max-w-[480px] overflow-y-auto border border-hairline bg-white p-6 sm:p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={closeChangePassword}
+              aria-label="Close"
+              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <X className="h-4 w-4" strokeWidth={2.25} />
+            </button>
+
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#e7f3f5] text-primary">
+                <KeyRound className="h-5 w-5" strokeWidth={1.75} />
+              </span>
+              <div>
+                <h2 className="font-serif text-xl font-bold text-deep-accent sm:text-2xl">
+                  Change Password
+                </h2>
+                <p className="mt-1 text-sm text-body">
+                  Choose a strong password you haven&rsquo;t used before.
+                </p>
+              </div>
+            </div>
+
+            {passwordSuccess ? (
+              <div className="mt-6 flex items-start gap-2 border border-[#c3e6cb] bg-[#d4edda] px-4 py-3">
+                <CheckCircle2
+                  className="mt-0.5 h-4 w-4 shrink-0 text-[#155724]"
+                  strokeWidth={2}
+                />
+                <span className="text-sm text-[#155724]">
+                  Your password has been updated successfully.
+                </span>
+              </div>
+            ) : (
+              <form
+                onSubmit={handleSubmitPassword}
+                className="mt-6 flex flex-col gap-5"
+              >
+                {/* Current password */}
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="currentPassword"
+                    className="text-sm font-semibold text-deep-accent"
+                  >
+                    Current Password
+                  </label>
+                  <div className="flex items-center border border-hairline bg-white focus-within:border-primary">
+                    <input
+                      type={showCurrentPassword ? 'text' : 'password'}
+                      id="currentPassword"
+                      name="currentPassword"
+                      value={passwordForm.currentPassword}
+                      onChange={handlePasswordChange}
+                      autoComplete="current-password"
+                      placeholder="Enter current password"
+                      className="min-h-[40px] w-full border-none bg-transparent px-3 py-2 text-sm text-deep-accent outline-none placeholder:text-muted/60"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword((v) => !v)}
+                      aria-label={showCurrentPassword ? 'Hide password' : 'Show password'}
+                      className="mr-2 inline-flex h-7 w-7 shrink-0 items-center justify-center text-muted hover:text-deep-accent"
+                    >
+                      {showCurrentPassword ? (
+                        <EyeOff className="h-4 w-4" strokeWidth={2} />
+                      ) : (
+                        <Eye className="h-4 w-4" strokeWidth={2} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* New password */}
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="newPassword"
+                    className="text-sm font-semibold text-deep-accent"
+                  >
+                    New Password
+                  </label>
+                  <div className="flex items-center border border-hairline bg-white focus-within:border-primary">
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      id="newPassword"
+                      name="newPassword"
+                      value={passwordForm.newPassword}
+                      onChange={handlePasswordChange}
+                      autoComplete="new-password"
+                      placeholder="Enter new password"
+                      className="min-h-[40px] w-full border-none bg-transparent px-3 py-2 text-sm text-deep-accent outline-none placeholder:text-muted/60"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword((v) => !v)}
+                      aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                      className="mr-2 inline-flex h-7 w-7 shrink-0 items-center justify-center text-muted hover:text-deep-accent"
+                    >
+                      {showNewPassword ? (
+                        <EyeOff className="h-4 w-4" strokeWidth={2} />
+                      ) : (
+                        <Eye className="h-4 w-4" strokeWidth={2} />
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted">
+                    Must be at least 8 characters.
+                  </p>
+                </div>
+
+                {/* Confirm new password */}
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="confirmPassword"
+                    className="text-sm font-semibold text-deep-accent"
+                  >
+                    Confirm New Password
+                  </label>
+                  <div className="flex items-center border border-hairline bg-white focus-within:border-primary">
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      value={passwordForm.confirmPassword}
+                      onChange={handlePasswordChange}
+                      autoComplete="new-password"
+                      placeholder="Re-enter new password"
+                      className="min-h-[40px] w-full border-none bg-transparent px-3 py-2 text-sm text-deep-accent outline-none placeholder:text-muted/60"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword((v) => !v)}
+                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      className="mr-2 inline-flex h-7 w-7 shrink-0 items-center justify-center text-muted hover:text-deep-accent"
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" strokeWidth={2} />
+                      ) : (
+                        <Eye className="h-4 w-4" strokeWidth={2} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Error */}
+                {passwordError && (
+                  <div className="flex items-start gap-2 border border-[#f5c6cb] bg-[#f8d7da] px-4 py-2.5">
+                    <AlertCircle
+                      className="mt-0.5 h-4 w-4 shrink-0 text-[#721c24]"
+                      strokeWidth={2}
+                    />
+                    <span className="text-sm text-[#721c24]">{passwordError}</span>
+                  </div>
+                )}
+
+                <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={closeChangePassword}
+                    className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                  >
+                    <Save className="h-4 w-4" strokeWidth={2.25} />
+                    Update Password
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

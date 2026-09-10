@@ -1,5 +1,5 @@
 // src/pages/Payments.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Plus,
   Calendar,
@@ -21,6 +21,9 @@ import {
   Send,
   ChevronRight,
   CircleDollarSign,
+  Loader2,
+  X,
+  Power,
 } from 'lucide-react';
 import {
   mockPayees,
@@ -52,6 +55,19 @@ const Payments = () => {
   const [currentStep, setCurrentStep] = useState('overview'); // 'overview' | 'form' | 'review' | 'success'
   const [selectedPayeeId, setSelectedPayeeId] = useState(null);
 
+  // Quick-pay state for Upcoming Payments
+  const [payingId, setPayingId] = useState(null); // id of the payment currently processing
+  const [completedPayment, setCompletedPayment] = useState(null); // drives the success popup
+  const payTimerRef = useRef(null);
+  const dismissTimerRef = useRef(null);
+
+  // Autopay management
+  // Map of autopay.id -> boolean (enabled). Defaults to each item's `enabled` field or true.
+  const [autopayEnabledMap, setAutopayEnabledMap] = useState(() =>
+    Object.fromEntries(mockAutopay.map((a) => [a.id, a.enabled ?? true]))
+  );
+  const [managingAutopayId, setManagingAutopayId] = useState(null);
+
   // Form state
   const [formData, setFormData] = useState({
     fromAccountId: 'chk1',
@@ -65,6 +81,14 @@ const Payments = () => {
   });
 
   const [confirmationNumber] = useState('PAY-729481');
+
+  // Cleanup any pending timers on unmount
+  useEffect(() => {
+    return () => {
+      if (payTimerRef.current) clearTimeout(payTimerRef.current);
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+    };
+  }, []);
 
   // Handlers
   const handlePayBill = () => {
@@ -80,6 +104,32 @@ const Payments = () => {
       isRecurring: false,
       endDate: '',
     });
+  };
+
+  // Quick-pay from Upcoming Payments (only when autopay is OFF)
+  const handleQuickPay = (payment) => {
+    if (payingId) return; // ignore clicks while another is processing
+    setPayingId(payment.id);
+
+    payTimerRef.current = setTimeout(() => {
+      setPayingId(null);
+      setCompletedPayment(payment);
+
+      // Auto-dismiss the popup
+      dismissTimerRef.current = setTimeout(() => {
+        setCompletedPayment(null);
+      }, 2600);
+    }, 1800);
+  };
+
+  // Autopay handlers
+  const handleOpenManage = (autopayId) => {
+    setManagingAutopayId(autopayId);
+  };
+
+  const handleSaveAutopay = (autopayId, enabled) => {
+    setAutopayEnabledMap((prev) => ({ ...prev, [autopayId]: enabled }));
+    setManagingAutopayId(null);
   };
 
   const handlePayeeSelect = (payeeId) => {
@@ -119,6 +169,7 @@ const Payments = () => {
   const getPayee = (id) => mockPayees.find((p) => p.id === parseInt(id));
   const getFromAccount = () => paymentAccounts.find((a) => a.id === formData.fromAccountId);
   const selectedPayee = getPayee(formData.payeeId);
+  const managingAutopay = mockAutopay.find((a) => a.id === managingAutopayId);
 
   const overviewCards = [
     {
@@ -153,16 +204,6 @@ const Payments = () => {
             Pay your bills, manage scheduled payments, and keep track of your payment activity.
           </p>
         </div>
-        {currentStep === 'overview' && (
-          <button
-            type="button"
-            onClick={handlePayBill}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2.25} />
-            Pay a Bill
-          </button>
-        )}
       </div>
 
       {/* Payment Overview */}
@@ -199,115 +240,66 @@ const Payments = () => {
               </div>
 
               <div className="flex flex-col gap-3">
-                {mockUpcomingPayments.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex flex-col gap-3 border border-hairline bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
-                      <span className="text-sm font-semibold text-deep-accent">{p.payee}</span>
-                      <span className="inline-flex items-center gap-1.5 text-xs text-muted sm:text-sm">
-                        <Calendar className="h-3.5 w-3.5 text-primary" strokeWidth={1.75} />
-                        Due {p.dueDate}
-                      </span>
-                      <span className="text-sm font-semibold text-deep-accent">
-                        {formatCurrency(p.amount)}
-                      </span>
-                      <span
-                        className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide ${
-                          p.autopay ? 'text-primary' : 'text-[#d9534f]'
-                        }`}
-                      >
-                        <span
-                          className={`h-1.5 w-1.5 ${
-                            p.autopay ? 'bg-primary' : 'bg-[#d9534f]'
-                          }`}
-                          aria-hidden="true"
-                        />
-                        {p.autopay ? 'Autopay ON' : 'Autopay OFF'}
-                      </span>
-                    </div>
+                {mockUpcomingPayments.map((p) => {
+                  const isPaying = payingId === p.id;
+                  const isAnyPaying = payingId !== null;
+                  const showPayNow = !p.autopay;
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handlePayBill();
-                        const payee = mockPayees.find((pp) => pp.name === p.payee);
-                        if (payee) {
-                          setFormData((prev) => ({
-                            ...prev,
-                            payeeId: String(payee.id),
-                            amount: String(p.amount),
-                          }));
-                          setSelectedPayeeId(String(payee.id));
-                        }
-                      }}
-                      className="inline-flex min-h-[36px] items-center gap-1.5 border border-primary bg-white px-4 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex flex-col gap-3 border border-hairline bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
                     >
-                      Pay Now
-                      <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.25} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* Saved Payees */}
-            <section className="mb-10">
-              <div className="mb-4 flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-primary" strokeWidth={1.75} />
-                <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
-                  Saved Payees
-                </h2>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {mockPayees.map((payee) => (
-                  <div
-                    key={payee.id}
-                    className="flex flex-col gap-2 border border-hairline bg-white p-5"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-[#e7f3f5] text-primary">
-                        <CircleDollarSign className="h-4 w-4" strokeWidth={1.75} />
-                      </span>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-bold text-deep-accent">
-                          {payee.name}
-                        </div>
-                        <div className="truncate text-xs text-muted">{payee.category}</div>
+                      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+                        <span className="text-sm font-semibold text-deep-accent">{p.payee}</span>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-muted sm:text-sm">
+                          <Calendar className="h-3.5 w-3.5 text-primary" strokeWidth={1.75} />
+                          Due {p.dueDate}
+                        </span>
+                        <span className="text-sm font-semibold text-deep-accent">
+                          {formatCurrency(p.amount)}
+                        </span>
+                        <span
+                          className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide ${
+                            p.autopay ? 'text-primary' : 'text-[#d9534f]'
+                          }`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 ${
+                              p.autopay ? 'bg-primary' : 'bg-[#d9534f]'
+                            }`}
+                            aria-hidden="true"
+                          />
+                          {p.autopay ? 'Autopay ON' : 'Autopay OFF'}
+                        </span>
                       </div>
-                    </div>
 
-                    <div className="mt-2 flex flex-wrap items-center gap-4 border-t border-faint pt-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handlePayBill();
-                          setFormData((prev) => ({ ...prev, payeeId: String(payee.id) }));
-                          setSelectedPayeeId(String(payee.id));
-                        }}
-                        className="text-xs font-semibold text-primary hover:underline sm:text-sm"
-                      >
-                        Pay
-                      </button>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-body hover:text-primary hover:underline sm:text-sm"
-                      >
-                        <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} />
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-[#d9534f] hover:underline sm:text-sm"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-                        Remove
-                      </button>
+                      {showPayNow && (
+                        <button
+                          type="button"
+                          onClick={() => handleQuickPay(p)}
+                          disabled={isAnyPaying}
+                          className="inline-flex min-h-[36px] items-center justify-center gap-1.5 border border-primary bg-white px-4 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:border-hairline disabled:bg-faint disabled:text-muted sm:text-sm"
+                        >
+                          {isPaying ? (
+                            <>
+                              <Loader2
+                                className="h-3.5 w-3.5 animate-spin"
+                                strokeWidth={2.25}
+                              />
+                              Processing…
+                            </>
+                          ) : (
+                            <>
+                              Pay Now
+                              <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.25} />
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
 
@@ -321,35 +313,53 @@ const Payments = () => {
               </div>
 
               <div className="flex flex-col gap-3">
-                {mockAutopay.map((a) => (
-                  <div
-                    key={a.id}
-                    className="flex flex-col gap-3 border border-hairline bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
-                      <span className="text-sm font-semibold text-deep-accent">{a.payee}</span>
-                      <span className="inline-flex items-center gap-1.5 text-xs text-body sm:text-sm">
-                        <Repeat className="h-3.5 w-3.5 text-primary" strokeWidth={1.75} />
-                        {a.frequency}
-                      </span>
-                      <span className="text-sm font-semibold text-deep-accent">
-                        {formatCurrency(a.nextAmount)}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 text-xs text-muted sm:text-sm">
-                        <Calendar className="h-3.5 w-3.5" strokeWidth={1.75} />
-                        Next: {a.nextDate}
-                      </span>
-                    </div>
+                {mockAutopay.map((a) => {
+                  const isEnabled = autopayEnabledMap[a.id] ?? true;
 
-                    <button
-                      type="button"
-                      className="inline-flex min-h-[36px] items-center gap-1.5 border border-hairline bg-white px-4 py-1.5 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
+                  return (
+                    <div
+                      key={a.id}
+                      className="flex flex-col gap-3 border border-hairline bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
                     >
-                      <Settings2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      Manage
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+                        <span className="text-sm font-semibold text-deep-accent">{a.payee}</span>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-body sm:text-sm">
+                          <Repeat className="h-3.5 w-3.5 text-primary" strokeWidth={1.75} />
+                          {a.frequency}
+                        </span>
+                        <span className="text-sm font-semibold text-deep-accent">
+                          {formatCurrency(a.nextAmount)}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-muted sm:text-sm">
+                          <Calendar className="h-3.5 w-3.5" strokeWidth={1.75} />
+                          Next: {a.nextDate}
+                        </span>
+                        <span
+                          className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide ${
+                            isEnabled ? 'text-primary' : 'text-[#d9534f]'
+                          }`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 ${
+                              isEnabled ? 'bg-primary' : 'bg-[#d9534f]'
+                            }`}
+                            aria-hidden="true"
+                          />
+                          {isEnabled ? 'Autopay ON' : 'Autopay OFF'}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenManage(a.id)}
+                        className="inline-flex min-h-[36px] items-center gap-1.5 border border-hairline bg-white px-4 py-1.5 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
+                      >
+                        <Settings2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        Manage
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </section>
 
@@ -440,214 +450,229 @@ const Payments = () => {
         </p>
       </div>
 
+      {/* Quick-pay success popup */}
+      {completedPayment && (
+        <QuickPaySuccessPopup
+          payment={completedPayment}
+          onClose={() => setCompletedPayment(null)}
+        />
+      )}
+
+      {/* Manage Autopay popup */}
+      {managingAutopay && (
+        <ManageAutopayModal
+          item={managingAutopay}
+          initialEnabled={autopayEnabledMap[managingAutopay.id] ?? true}
+          onSave={(enabled) => handleSaveAutopay(managingAutopay.id, enabled)}
+          onClose={() => setManagingAutopayId(null)}
+        />
+      )}
     </div>
   );
 };
 
 // ----- Subcomponents -----
 
-const PaymentForm = ({
-  formData,
-  onChange,
-  onSubmit,
-  payees,
-  accounts,
-  selectedPayeeId,
-  onPayeeSelect,
-  onCancel,
-}) => {
-  const fromAccount = accounts.find((a) => a.id === formData.fromAccountId);
+// Popup shown after a quick "Pay Now" payment completes. Auto-dismisses.
+const QuickPaySuccessPopup = ({ payment, onClose }) => {
+  // Lock body scroll + close on Escape while visible
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
 
   return (
-    <form onSubmit={onSubmit} className="border border-hairline bg-faint p-6 sm:p-8">
-      <h2 className="mb-6 font-serif text-xl font-bold text-deep-accent sm:text-2xl">
-        Pay a Bill
-      </h2>
-
-      <div className="mb-5">
-        <label className="mb-2 block text-sm font-semibold text-deep-accent">
-          Select Payee
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {payees.map((payee) => {
-            const isSelected = formData.payeeId === String(payee.id);
-            return (
-              <button
-                key={payee.id}
-                type="button"
-                onClick={() => onPayeeSelect(String(payee.id))}
-                className={`flex min-h-[48px] flex-col justify-center border px-4 py-2 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
-                  isSelected
-                    ? 'border-primary bg-[#e7f3f5]'
-                    : 'border-hairline bg-white hover:border-primary'
-                }`}
-              >
-                <span className="text-sm font-semibold text-deep-accent">{payee.name}</span>
-                <span className="text-xs text-muted">{payee.category}</span>
-              </button>
-            );
-          })}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="quickpay-title"
+        className="w-full max-w-sm border border-hairline bg-white p-6 text-center shadow-2xl sm:p-8"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto flex h-14 w-14 items-center justify-center bg-[#e7f3f5]">
+          <CheckCircle2 className="h-8 w-8 text-primary" strokeWidth={1.75} />
         </div>
+
+        <h2
+          id="quickpay-title"
+          className="mt-4 font-serif text-xl font-bold text-deep-accent sm:text-2xl"
+        >
+          Payment Completed
+        </h2>
+        <p className="mt-2 text-sm text-body">
+          Your {formatCurrency(payment.amount)} payment to{' '}
+          <span className="font-semibold text-deep-accent">{payment.payee}</span> was
+          successful.
+        </p>
+
         <button
           type="button"
-          className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline sm:text-sm"
+          onClick={onClose}
+          className="mt-5 inline-flex min-h-[40px] w-full items-center justify-center bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         >
-          <UserPlus className="h-3.5 w-3.5" strokeWidth={2.25} />
-          Add a Payee
+          Done
         </button>
       </div>
+    </div>
+  );
+};
 
-      {formData.payeeId && (
-        <>
-          <div className="mb-5">
-            <label
-              htmlFor="fromAccountId"
-              className="mb-1.5 block text-sm font-semibold text-deep-accent"
+// Modal that lets the user toggle autopay on/off for a single automatic payment.
+const ManageAutopayModal = ({ item, initialEnabled, onSave, onClose }) => {
+  const [enabled, setEnabled] = useState(initialEnabled);
+
+  // Lock body scroll + close on Escape while open
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
+
+  const handleSave = () => onSave(enabled);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="manage-autopay-title"
+        className="w-full max-w-md border border-hairline bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 border-b border-hairline px-5 py-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Repeat className="h-4 w-4 text-primary" strokeWidth={2} />
+              <span className="text-[11px] font-bold uppercase tracking-wide text-muted">
+                Automatic Payment
+              </span>
+            </div>
+            <h3
+              id="manage-autopay-title"
+              className="mt-1 truncate font-serif text-lg font-bold text-deep-accent"
             >
-              Pay From
-            </label>
-            <select
-              id="fromAccountId"
-              name="fromAccountId"
-              value={formData.fromAccountId}
-              onChange={onChange}
-              className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
-            >
-              {accounts.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.name} •••• {acc.lastFour} (Available:{' '}
-                  {formatCurrency(acc.available)})
-                </option>
-              ))}
-            </select>
-            {fromAccount && (
-              <div className="mt-1.5 text-xs text-muted">
-                Available: {formatCurrency(fromAccount.available)}
+              {item.payee}
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close autopay settings"
+            className="flex h-9 w-9 shrink-0 items-center justify-center border border-hairline text-body transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          >
+            <X className="h-4 w-4" strokeWidth={2} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-5">
+          {/* Current schedule summary */}
+          <div className="mb-5 border border-hairline bg-faint px-4 py-3">
+            <div className="flex items-center justify-between py-1">
+              <span className="text-xs text-muted sm:text-sm">Frequency</span>
+              <span className="text-sm font-semibold text-deep-accent">
+                {item.frequency}
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-1">
+              <span className="text-xs text-muted sm:text-sm">Next payment</span>
+              <span className="text-sm font-semibold text-deep-accent">
+                {formatCurrency(item.nextAmount)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-1">
+              <span className="text-xs text-muted sm:text-sm">Scheduled for</span>
+              <span className="text-sm font-semibold text-deep-accent">
+                {item.nextDate}
+              </span>
+            </div>
+          </div>
+
+          {/* Toggle row */}
+          <div className="flex items-center justify-between gap-4 border border-hairline bg-white px-4 py-4">
+            <div className="flex min-w-0 items-start gap-3">
+              <Power
+                className={`mt-0.5 h-4 w-4 shrink-0 ${
+                  enabled ? 'text-primary' : 'text-muted'
+                }`}
+                strokeWidth={2}
+              />
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-deep-accent">
+                  {enabled ? 'Autopay is ON' : 'Autopay is OFF'}
+                </div>
+                <div className="mt-0.5 text-xs text-body">
+                  {enabled
+                    ? 'Payments will be made automatically on the scheduled date.'
+                    : 'You’ll need to pay this bill manually before the due date.'}
+                </div>
               </div>
-            )}
-          </div>
-
-          <div className="mb-5">
-            <label
-              htmlFor="amount"
-              className="mb-1.5 block text-sm font-semibold text-deep-accent"
-            >
-              Amount
-            </label>
-            <div className="flex items-center border border-hairline bg-white focus-within:border-primary">
-              <span className="pl-3 pr-1 text-base font-bold text-body">$</span>
-              <input
-                type="number"
-                id="amount"
-                name="amount"
-                value={formData.amount}
-                onChange={onChange}
-                placeholder="0.00"
-                min="0.01"
-                step="0.01"
-                required
-                className="min-h-[44px] w-full border-none bg-transparent px-2 py-2 text-lg font-semibold text-deep-accent outline-none placeholder:text-muted/60"
-              />
             </div>
-          </div>
 
-          <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="date"
-                className="mb-1.5 block text-sm font-semibold text-deep-accent"
-              >
-                Payment Date
-              </label>
-              <input
-                type="date"
-                id="date"
-                name="date"
-                value={formData.date}
-                onChange={onChange}
-                required
-                className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="frequency"
-                className="mb-1.5 block text-sm font-semibold text-deep-accent"
-              >
-                Frequency
-              </label>
-              <select
-                id="frequency"
-                name="frequency"
-                value={formData.frequency}
-                onChange={onChange}
-                className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
-              >
-                <option value="One time">One time</option>
-                <option value="Weekly">Weekly</option>
-                <option value="Every 2 weeks">Every 2 weeks</option>
-                <option value="Monthly">Monthly</option>
-                <option value="Quarterly">Quarterly</option>
-              </select>
-            </div>
-          </div>
-
-          {formData.frequency !== 'One time' && (
-            <div className="mb-5">
-              <label
-                htmlFor="endDate"
-                className="mb-1.5 block text-sm font-semibold text-deep-accent"
-              >
-                End Date <span className="font-normal text-muted">(optional)</span>
-              </label>
-              <input
-                type="date"
-                id="endDate"
-                name="endDate"
-                value={formData.endDate}
-                onChange={onChange}
-                className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
-              />
-            </div>
-          )}
-
-          <div className="mb-6">
-            <label
-              htmlFor="memo"
-              className="mb-1.5 block text-sm font-semibold text-deep-accent"
-            >
-              Memo <span className="font-normal text-muted">(optional)</span>
-            </label>
-            <input
-              type="text"
-              id="memo"
-              name="memo"
-              value={formData.memo}
-              onChange={onChange}
-              placeholder="e.g. September payment"
-              className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent placeholder:text-muted/70 focus:border-primary focus:outline-none"
-            />
-          </div>
-
-          <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-6 sm:flex-row sm:justify-end">
             <button
               type="button"
-              onClick={onCancel}
-              className="min-h-[44px] border border-hairline bg-white px-6 py-2.5 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              role="switch"
+              aria-checked={enabled}
+              aria-label="Toggle autopay"
+              onClick={() => setEnabled((v) => !v)}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                enabled ? 'bg-primary' : 'bg-[#d1d5db]'
+              }`}
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-            >
-              Review Payment
-              <ArrowRight className="h-4 w-4" strokeWidth={2.25} />
+              <span
+                className={`inline-block h-4 w-4 transform bg-white transition-transform ${
+                  enabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
             </button>
           </div>
-        </>
-      )}
-    </form>
+        </div>
+
+        {/* Footer */}
+        <div className="flex flex-col-reverse gap-2 border-t border-hairline px-5 py-4 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-[44px] border border-hairline bg-white px-5 py-2.5 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          >
+            <CheckCircle2 className="h-4 w-4" strokeWidth={2.25} />
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 

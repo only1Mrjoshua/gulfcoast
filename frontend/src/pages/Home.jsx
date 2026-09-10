@@ -44,7 +44,6 @@ const quickActions = [
   { label: 'Transfer Money', icon: ArrowLeftRight, to: '/transfers' },
   { label: 'Pay a Bill', icon: Receipt, to: '/payments' },
   { label: 'Deposit a Check', icon: FileText, to: '/deposits' },
-  { label: 'Send Money', icon: Send }, // no destination — stays as button
   { label: 'Pay Loan', icon: Landmark, to: '/loans' },
   { label: 'Manage Card', icon: CreditCard, to: '/cards' },
 ];

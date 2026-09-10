@@ -1,55 +1,4 @@
-// src/data/mockHelpData.js
 
-export const mockHelpTopics = [
-  {
-    id: 'accounts',
-    title: 'Accounts',
-    description: 'Manage balances, account details, and account access.',
-    icon: '💰',
-  },
-  {
-    id: 'transfers',
-    title: 'Transfers',
-    description: 'Learn about transferring money between accounts.',
-    icon: '↔️',
-  },
-  {
-    id: 'payments',
-    title: 'Payments',
-    description: 'Get help with bills and scheduled payments.',
-    icon: '💳',
-  },
-  {
-    id: 'cards',
-    title: 'Cards',
-    description: 'Manage cards, locks, replacements, and transactions.',
-    icon: '💳',
-  },
-  {
-    id: 'deposits',
-    title: 'Deposits',
-    description: 'Learn about check deposits and deposit availability.',
-    icon: '📥',
-  },
-  {
-    id: 'statements',
-    title: 'Statements',
-    description: 'Find and download account statements.',
-    icon: '📄',
-  },
-  {
-    id: 'loans',
-    title: 'Loans',
-    description: 'Manage loan payments and loan information.',
-    icon: '🏦',
-  },
-  {
-    id: 'security',
-    title: 'Security',
-    description: 'Protect your account and personal information.',
-    icon: '🔒',
-  },
-];
 
 export const mockHelpFAQs = [
   {
@@ -92,14 +41,4 @@ export const mockHelpFAQs = [
 export const mockSupportChannels = [
   { label: 'Secure Message', description: 'Send a private message to the bank.', icon: '💬', action: 'messages' },
   { label: 'Call Us', description: 'Contact customer support.', icon: '📞', action: 'call' },
-  { label: 'Find a Branch', description: 'Locate a nearby branch.', icon: '🏛️', action: 'branch' },
-  { label: 'Find an ATM', description: 'Find an available ATM.', icon: '🏧', action: 'atm' },
-];
-
-export const mockSecurityResources = [
-  { label: 'Protect Your Account', icon: '🛡️' },
-  { label: 'Report Suspicious Activity', icon: '🚨' },
-  { label: 'Lost or Stolen Card', icon: '💳' },
-  { label: 'Password & Sign-In Help', icon: '🔑' },
-  { label: 'Security Alerts', icon: '🔔' },
 ];

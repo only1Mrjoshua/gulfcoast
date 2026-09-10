@@ -1,5 +1,6 @@
 // src/pages/Accounts.jsx
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Eye,
   EyeOff,
@@ -300,14 +301,18 @@ const Accounts = () => {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {['Transfer', 'Pay', 'Deposit', 'More'].map((label) => (
-                <button
+              {[
+                { label: 'Transfer', path: '/transfers' },
+                { label: 'Pay', path: '/payments' },
+                { label: 'Deposit', path: '/deposits' },
+              ].map(({ label, path }) => (
+                <Link
                   key={label}
-                  type="button"
-                  className="min-h-[40px] border border-hairline bg-white px-4 py-2 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                  to={path}
+                  className="inline-flex min-h-[40px] items-center justify-center border border-hairline bg-white px-4 py-2 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 >
                   {label}
-                </button>
+                </Link>
               ))}
             </div>
           </div>
@@ -348,13 +353,6 @@ const Accounts = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
-              <button
-                type="button"
-                className="inline-flex min-h-[38px] items-center gap-1.5 bg-primary px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-              >
-                <Search className="h-3.5 w-3.5" strokeWidth={2.25} />
-                Search
-              </button>
               <button
                 type="button"
                 className="inline-flex min-h-[38px] items-center gap-1.5 border border-hairline bg-white px-4 py-1.5 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"

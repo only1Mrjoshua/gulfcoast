@@ -15,7 +15,6 @@ const Icon = ({ name, className }) => {
     cards: 'M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z',
     loans: 'M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z',
     goals: 'M12 4v16m0 0l-4-4m4 4l4-4',
-    insights: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
     messages: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
     help: 'M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
     settings: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M12 15a3 3 0 100-6 3 3 0 000 6z',
@@ -32,7 +31,7 @@ const Icon = ({ name, className }) => {
 };
 
 // Sidebar component
-const Sidebar = ({ isOpen, toggleDrawer }) => {
+const Sidebar = ({ isOpen, toggleDrawer, onLogoutRequest }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -47,8 +46,7 @@ const Sidebar = ({ isOpen, toggleDrawer }) => {
     { key: 'cards', label: 'Cards', icon: 'cards', path: '/cards' },
     { key: 'loans', label: 'Loans', icon: 'loans', path: '/loans' },
     { key: 'goals', label: 'Financial Goals', icon: 'goals', path: '/goals' },
-    { key: 'insights', label: 'Insights', icon: 'insights', path: '/insights' },
-    { key: 'messages', label: 'Messages', icon: 'messages', path: '/messages' },
+    { key: 'notifications', label: 'Notifications', icon: 'bell', path: '/notifications' },
     { key: 'help', label: 'Help', icon: 'help', path: '/help' },
     { key: 'settings', label: 'Settings', icon: 'settings', path: '/settings' },
     { key: 'logout', label: 'Log Out', icon: 'logout', path: '/' },
@@ -57,7 +55,7 @@ const Sidebar = ({ isOpen, toggleDrawer }) => {
   const handleNavClick = (item) => (e) => {
     if (item.key === 'logout') {
       e.preventDefault();
-      navigate('/');
+      onLogoutRequest();
     }
   };
 
@@ -90,27 +88,28 @@ const Sidebar = ({ isOpen, toggleDrawer }) => {
 };
 
 // Top Header component
-const TopHeader = () => {
+const TopHeader = ({ onLogoutRequest }) => {
   return (
     <header className={styles.topHeader}>
       <div className={styles.headerLeft}>
         <img src="/logo.svg" alt="Gulf Coast Trust" className={styles.headerLogoImage} />
       </div>
       <div className={styles.headerRight}>
-        <div className={styles.headerSearch}>
-          <Icon name="search" className={styles.headerIcon} />
-          <input type="text" placeholder="Search" className={styles.searchInput} />
-        </div>
-        <button className={styles.headerIconBtn} aria-label="Notifications">
+        <Link
+          to="/notifications"
+          className={styles.headerIconBtn}
+          aria-label="Notifications"
+        >
           <Icon name="bell" className={styles.headerIcon} />
-        </button>
-        <button className={styles.headerIconBtn} aria-label="Help">
+        </Link>
+        <Link
+          to="/help"
+          className={styles.headerIconBtn}
+          aria-label="Help"
+        >
           <Icon name="help" className={styles.headerIcon} />
-        </button>
-        <button className={styles.headerIconBtn} aria-label="Profile">
-          <Icon name="user" className={styles.headerIcon} />
-        </button>
-        <button className={styles.headerLogout} onClick={() => window.location.href = '/'}>
+        </Link>
+        <button className={styles.headerLogout} onClick={onLogoutRequest}>
           Log Out
         </button>
       </div>
@@ -121,7 +120,23 @@ const TopHeader = () => {
 // Main AppLayout
 const AppLayout = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const navigate = useNavigate();
+
   const toggleDrawer = () => setDrawerOpen(!drawerOpen);
+
+  const handleLogoutRequest = () => {
+    setShowLogoutModal(true);
+  };
+
+  const handleConfirmLogout = () => {
+    setShowLogoutModal(false);
+    navigate('/');
+  };
+
+  const handleCancelLogout = () => {
+    setShowLogoutModal(false);
+  };
 
   return (
     <div className={styles.layout}>
@@ -133,14 +148,57 @@ const AppLayout = () => {
         <img src="/logo.svg" alt="Gulf Coast Trust" className={styles.mobileLogoImage} />
       </div>
 
-      <Sidebar isOpen={drawerOpen} toggleDrawer={toggleDrawer} />
+      <Sidebar
+        isOpen={drawerOpen}
+        toggleDrawer={toggleDrawer}
+        onLogoutRequest={handleLogoutRequest}
+      />
 
       <div className={styles.contentWrapper}>
-        <TopHeader />
+        <TopHeader onLogoutRequest={handleLogoutRequest} />
         <main className={styles.content}>
           <Outlet />
         </main>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4"
+          onClick={handleCancelLogout}
+        >
+          <div
+            className="relative w-full max-w-[400px] border border-hairline bg-white p-6 text-center sm:p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="mx-auto flex h-12 w-12 items-center justify-center bg-[#fdf2f2] text-[#d9534f]">
+              <Icon name="logout" className="h-6 w-6" />
+            </span>
+            <h2 className="mt-4 font-serif text-xl font-bold text-deep-accent sm:text-2xl">
+              Log Out
+            </h2>
+            <p className="mt-2 text-sm text-body">
+              Are you sure you want to log out?
+            </p>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
+              <button
+                type="button"
+                onClick={handleCancelLogout}
+                className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                No, stay
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmLogout}
+                className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-[#d9534f] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#c9302c] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d9534f]/50"
+              >
+                Yes, log out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
