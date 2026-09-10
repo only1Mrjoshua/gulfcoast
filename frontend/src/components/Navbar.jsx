@@ -163,7 +163,7 @@ function Navbar() {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required
-                    className="flex-1 border-none bg-transparent px-2.5 text-sm text-body outline-none placeholder:font-light placeholder:text-[#999] sm:text-[15px] md:px-3 md:text-base"
+                    className="flex-1 border-none bg-transparent px-2.5 text-base text-body outline-none placeholder:font-light placeholder:text-[#999] md:px-3"
                   />
                 </div>
 
@@ -181,7 +181,7 @@ function Navbar() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="flex-1 border-none bg-transparent px-2.5 text-sm text-body outline-none placeholder:font-light placeholder:text-[#999] sm:text-[15px] md:px-3 md:text-base"
+                    className="flex-1 border-none bg-transparent px-2.5 text-base text-body outline-none placeholder:font-light placeholder:text-[#999] md:px-3"
                   />
                 </div>
 
