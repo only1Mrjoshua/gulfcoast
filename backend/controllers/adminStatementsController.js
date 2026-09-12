@@ -174,7 +174,7 @@ export const adminGenerateStatement = async (req, res) => {
           status: 'Available',
         },
       },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
+      { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true }
     ).lean();
 
     res.status(201).json({
@@ -262,7 +262,7 @@ export const adminRevokeStatement = async (req, res) => {
     const statement = await Statement.findByIdAndUpdate(
       req.params.id,
       { $set: { status: 'Revoked' } },
-      { new: true }
+      { returnDocument: 'after' }
     ).lean();
 
     if (!statement) return res.status(404).json({ error: 'Statement not found' });

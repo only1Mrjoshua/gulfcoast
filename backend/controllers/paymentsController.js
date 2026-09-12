@@ -311,7 +311,7 @@ export const updateAutopay = async (req, res) => {
     const autopay = await Autopay.findOneAndUpdate(
       { _id: id, userId },
       { $set: { enabled } },
-      { new: true }
+      { returnDocument: 'after' }
     ).lean();
 
     if (!autopay) {

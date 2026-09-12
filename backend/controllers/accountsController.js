@@ -127,7 +127,7 @@ export const updateAlertPreferences = async (req, res) => {
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { $set: updates },
-      { new: true, select: 'alertPreferences' }
+      { returnDocument: 'after', select: 'alertPreferences' }
     );
 
     if (!updatedUser) {

@@ -183,7 +183,7 @@ export const updateCardControl = async (req, res) => {
     const card = await Card.findOneAndUpdate(
       { _id: id, userId },
       { $set: update },
-      { new: true }
+      { returnDocument: 'after' }
     ).lean();
 
     if (!card) return res.status(404).json({ error: 'Card not found' });
@@ -230,7 +230,7 @@ export const updateCardAlerts = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       userId,
       { $set: updates },
-      { new: true, select: 'cardAlertPreferences' }
+      { returnDocument: 'after', select: 'cardAlertPreferences' }
     );
 
     if (!user) return res.status(404).json({ error: 'User not found' });
