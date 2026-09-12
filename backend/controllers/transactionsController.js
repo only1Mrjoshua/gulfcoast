@@ -56,6 +56,33 @@ const getReference = (tx) =>
 const accountLabel = (acc) =>
   acc ? (acc.subType ? `${acc.subType} ${acc.type}` : acc.type) : 'Account';
 
+// ----------------------------------------------------------------
+// Shared account-scope resolver.
+//
+// Mirrors the rule used by homeController: credit accounts are NOT
+// treated as deposit accounts for the "Account Balance" figure.
+//
+//   - If a specific accountId is passed, honour it (the user is
+//     deliberately drilling into one account, credit or not).
+//   - Otherwise, restrict to non-credit accounts so the summary
+//     on the transactions page matches the balance on Home.
+// ----------------------------------------------------------------
+async function resolveAccountScope(userId, accountId) {
+  if (accountId && accountId !== 'all') {
+    return accountId;
+  }
+
+  const scopedAccounts = await Account.find({ userId })
+    .select('_id type')
+    .lean();
+
+  const depositAccountIds = scopedAccounts
+    .filter((a) => normalizeType(a.type) !== 'credit')
+    .map((a) => a._id);
+
+  return { $in: depositAccountIds };
+}
+
 async function buildBalanceMap(userId) {
   const [accounts, allTxs] = await Promise.all([
     Account.find({ userId }).select('_id totalBalance').lean(),
@@ -112,12 +139,12 @@ export const getMonthsOverview = async (req, res) => {
     const userId = req.user._id;
 
     const txs = await Transaction.find({
-    userId,
-    status: 'Completed',
-    date: { $lte: new Date() },
+      userId,
+      status: 'Completed',
+      date: { $lte: new Date() },
     })
-    .select('date amount')
-    .lean();
+      .select('date amount')
+      .lean();
 
     const map = new Map();
 
@@ -193,6 +220,10 @@ export const getFilterOptions = async (req, res) => {
 //   fromDate, toDate     → optional custom range
 //   accountId, search, type, category, minAmount, maxAmount
 //   page (default 1), limit (default 15, max 100)
+//
+// Default account scope matches homeController: only non-credit
+// (deposit) accounts are included unless a specific accountId is
+// supplied, in which case the user is drilling into that account.
 // ================================================================
 export const getTransactions = async (req, res) => {
   try {
@@ -229,7 +260,9 @@ export const getTransactions = async (req, res) => {
       filter.date = { $gte: new Date(y, m - 1, 1), $lt: new Date(y, m, 1) };
     }
 
-    if (accountId && accountId !== 'all') filter.accountId = accountId;
+    // ── Account scope (mirrors homeController classification) ──
+    filter.accountId = await resolveAccountScope(userId, accountId);
+
     if (category && category !== 'All') filter.category = category;
     if (type && type !== 'all') {
       const aliases = TYPE_ALIASES[type] || [type];
@@ -312,6 +345,9 @@ export const getTransactions = async (req, res) => {
 // ================================================================
 // GET /api/transactions/download
 // (Always includes ALL matching transactions — no pagination)
+//
+// Same account-scope rule as getTransactions, so the PDF summary
+// reconciles with what the user saw on screen.
 // ================================================================
 export const downloadTransactionsPdf = async (req, res) => {
   try {
@@ -346,7 +382,9 @@ export const downloadTransactionsPdf = async (req, res) => {
       filter.date = { $gte: new Date(y, m - 1, 1), $lt: new Date(y, m, 1) };
     }
 
-    if (accountId && accountId !== 'all') filter.accountId = accountId;
+    // ── Account scope (mirrors homeController classification) ──
+    filter.accountId = await resolveAccountScope(userId, accountId);
+
     if (category && category !== 'All') filter.category = category;
     if (type && type !== 'all') {
       const aliases = TYPE_ALIASES[type] || [type];

@@ -21,11 +21,10 @@ const depositSchema = new mongoose.Schema({
 
   method: {
     type: String,
-    enum: ['Mobile Check Deposit', 'Direct Deposit', 'ATM Deposit', 'Wire Deposit'],
+    enum: ['Mobile Check Deposit', 'Direct Deposit', 'ATM Deposit', 'Wire Deposit', 'Cheque'],
     default: 'Mobile Check Deposit',
   },
 
-  // ⬇️ Cloudinary URLs + public_ids for cleanup
   frontImage:         { type: String, default: '' },
   frontImagePublicId: { type: String, default: '' },
   backImage:          { type: String, default: '' },
@@ -33,8 +32,8 @@ const depositSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ['Processing', 'Accepted', 'Rejected'],
-    default: 'Processing',
+    enum: ['Pending', 'Completed', 'Rejected'],
+    default: 'Pending',
     index: true,
   },
 

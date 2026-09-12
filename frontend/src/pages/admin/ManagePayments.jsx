@@ -1,89 +1,169 @@
 // src/pages/admin/ManagePayments.jsx
-import React, { useState } from 'react';
-import { 
-  Search, Filter, Edit, X, Save, Receipt, 
-  Plus, Trash2, CalendarClock, RefreshCw 
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Search, Filter, Edit, X, Save, Receipt,
+  Plus, Trash2, CalendarClock, RefreshCw, Loader2, CheckCircle2,
 } from 'lucide-react';
-import { mockAdminPayments } from '../../data/mockAdminData';
+import { apiFetch } from '../../utils/api';
 
 const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount ?? 0);
 };
 
 const ManagePayments = () => {
-  const [users, setUsers] = useState(mockAdminPayments);
+  const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState('');
+
   const [selectedUser, setSelectedUser] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const filteredUsers = users.filter(u => 
-    u.user.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    u.id.toLowerCase().includes(searchTerm.toLowerCase())
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 3500);
+  };
+
+  // ────────────────────────────────────────────────────────
+  // Load all users + payment profiles
+  // ────────────────────────────────────────────────────────
+  const loadPayments = useCallback(async () => {
+    const res = await apiFetch('/admin/payments');
+    const d = res?.data ?? res;
+    setUsers(d.users ?? []);
+  }, []);
+
+  useEffect(() => {
+    const boot = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        await loadPayments();
+      } catch (err) {
+        console.error('❌ Failed to load payments:', err);
+        setError(err.message || 'Failed to load payments');
+      } finally {
+        setLoading(false);
+      }
+    };
+    boot();
+  }, [loadPayments]);
+
+  const filteredUsers = users.filter(u =>
+    (u.user || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (u.id || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // ────────────────────────────────────────────────────────
+  // Open modal
+  // ────────────────────────────────────────────────────────
   const handleEditClick = (user) => {
     // Deep clone to prevent direct state mutation
     setSelectedUser(JSON.parse(JSON.stringify(user)));
     setIsModalOpen(true);
   };
 
-  const handleSaveUser = () => {
-    setUsers(users.map(u => u.id === selectedUser.id ? selectedUser : u));
-    setIsModalOpen(false);
+  // ────────────────────────────────────────────────────────
+  // Save — send only the editable fields + the arrays
+  // ────────────────────────────────────────────────────────
+  const handleSaveUser = async () => {
+    if (!selectedUser) return;
+    setSaving(true);
+
+    try {
+      const payload = {
+        dueWithinDays: parseInt(selectedUser.dueWithinDays) || 0,
+        upcomingPayments: (selectedUser.upcomingPayments || []).map((p) => ({
+          id: p.id, // backend preserves it if it's a real ObjectId, otherwise generates a fresh one
+          name: p.name || '',
+          dueDate: p.dueDate || null,
+          balance: parseFloat(p.balance) || 0,
+          autopay: !!p.autopay,
+        })),
+        automaticPayments: (selectedUser.automaticPayments || []).map((p) => ({
+          id: p.id,
+          name: p.name || '',
+          frequency: p.frequency || 'Monthly',
+          balance: parseFloat(p.balance) || 0,
+          nextDate: p.nextDate || null,
+          autopay: !!p.autopay,
+        })),
+      };
+
+      await apiFetch(`/admin/payments/${selectedUser.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+
+      await loadPayments();
+      setIsModalOpen(false);
+      showToast('Payment profile updated successfully.');
+    } catch (err) {
+      console.error('❌ Save payment profile failed:', err);
+      showToast(err.message || 'Failed to update payment profile');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // --- Upcoming Payments Handlers ---
+  // ────────────────────────────────────────────────────────
+  // Upcoming Payments handlers
+  // ────────────────────────────────────────────────────────
   const handleAddUpcoming = () => {
     setSelectedUser({
       ...selectedUser,
       upcomingPayments: [
-        ...selectedUser.upcomingPayments, 
-        { id: `up-${Date.now()}`, name: '', dueDate: '', balance: 0, autopay: false }
-      ]
+        ...selectedUser.upcomingPayments,
+        { id: `up-${Date.now()}`, name: '', dueDate: '', balance: 0, autopay: false },
+      ],
     });
   };
 
   const handleRemoveUpcoming = (id) => {
     setSelectedUser({
       ...selectedUser,
-      upcomingPayments: selectedUser.upcomingPayments.filter(p => p.id !== id)
+      upcomingPayments: selectedUser.upcomingPayments.filter((p) => p.id !== id),
     });
   };
 
   const handleUpcomingChange = (id, field, value) => {
     setSelectedUser({
       ...selectedUser,
-      upcomingPayments: selectedUser.upcomingPayments.map(p => 
+      upcomingPayments: selectedUser.upcomingPayments.map((p) =>
         p.id === id ? { ...p, [field]: value } : p
-      )
+      ),
     });
   };
 
-  // --- Automatic Payments Handlers ---
+  // ────────────────────────────────────────────────────────
+  // Automatic Payments handlers
+  // ────────────────────────────────────────────────────────
   const handleAddAutomatic = () => {
     setSelectedUser({
       ...selectedUser,
       automaticPayments: [
-        ...selectedUser.automaticPayments, 
-        { id: `auto-${Date.now()}`, name: '', frequency: 'Monthly', balance: 0, nextDate: '', autopay: false }
-      ]
+        ...selectedUser.automaticPayments,
+        { id: `auto-${Date.now()}`, name: '', frequency: 'Monthly', balance: 0, nextDate: '', autopay: false },
+      ],
     });
   };
 
   const handleRemoveAutomatic = (id) => {
     setSelectedUser({
       ...selectedUser,
-      automaticPayments: selectedUser.automaticPayments.filter(p => p.id !== id)
+      automaticPayments: selectedUser.automaticPayments.filter((p) => p.id !== id),
     });
   };
 
   const handleAutomaticChange = (id, field, value) => {
     setSelectedUser({
       ...selectedUser,
-      automaticPayments: selectedUser.automaticPayments.map(p => 
+      automaticPayments: selectedUser.automaticPayments.map((p) =>
         p.id === id ? { ...p, [field]: value } : p
-      )
+      ),
     });
   };
 
@@ -93,8 +173,8 @@ const ManagePayments = () => {
       type="button"
       onClick={onToggle}
       className={`inline-flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold uppercase tracking-wide border transition-colors ${
-        isOn 
-          ? 'bg-primary/10 border-primary text-primary' 
+        isOn
+          ? 'bg-primary/10 border-primary text-primary'
           : 'bg-faint border-hairline text-muted'
       }`}
     >
@@ -102,6 +182,36 @@ const ManagePayments = () => {
       Autopay {isOn ? 'ON' : 'OFF'}
     </button>
   );
+
+  // ────────────────────────────────────────────────────────
+  // Full-page loading / error
+  // ────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" strokeWidth={1.75} />
+        <p className="text-sm text-muted">Loading payment profiles…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4">
+        <p className="font-serif text-xl font-bold text-deep-accent">
+          We couldn&rsquo;t load payments
+        </p>
+        <p className="max-w-md text-center text-sm text-muted">{error}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-2 bg-primary px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-primary-deep"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1400px]">
@@ -115,7 +225,14 @@ const ManagePayments = () => {
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex flex-1 items-center border border-hairline bg-white px-3 focus-within:border-primary">
           <Search className="h-4 w-4 text-muted" strokeWidth={2} />
-          <input type="text" placeholder="Search by user name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="min-h-[40px] w-full border-none bg-transparent px-3 py-2 text-sm text-deep-accent outline-none placeholder:text-muted/60" />
+          <input
+            type="text"
+            autoComplete="off"
+            placeholder="Search by user name or ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="min-h-[40px] w-full border-none bg-transparent px-3 py-2 text-sm text-deep-accent outline-none placeholder:text-muted/60"
+          />
         </div>
         <button className="inline-flex min-h-[40px] items-center justify-center gap-2 border border-hairline bg-white px-4 py-2 text-sm font-semibold text-deep-accent hover:bg-faint">
           <Filter className="h-4 w-4" strokeWidth={2} /> Filter
@@ -139,7 +256,7 @@ const ManagePayments = () => {
               <tr key={u.id} className="transition-colors hover:bg-faint/30">
                 <td className="px-5 py-4">
                   <div className="font-semibold text-deep-accent">{u.user}</div>
-                  <div className="text-xs text-muted">{u.id}</div>
+                  <div className="text-xs text-muted">{String(u.id).slice(-8).toUpperCase()}</div>
                 </td>
                 <td className="px-5 py-4">
                   <div className="font-semibold text-deep-accent">{formatCurrency(u.dueSoonAmount)}</div>
@@ -154,7 +271,10 @@ const ManagePayments = () => {
                   </div>
                 </td>
                 <td className="px-5 py-4 text-right">
-                  <button onClick={() => handleEditClick(u)} className="inline-flex h-8 items-center gap-2 border border-hairline bg-white px-3 py-1 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint">
+                  <button
+                    onClick={() => handleEditClick(u)}
+                    className="inline-flex h-8 items-center gap-2 border border-hairline bg-white px-3 py-1 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint"
+                  >
                     <Edit className="h-3.5 w-3.5" strokeWidth={2} /> Manage
                   </button>
                 </td>
@@ -167,43 +287,79 @@ const ManagePayments = () => {
 
       {/* --- MANAGE USER PAYMENTS MODAL --- */}
       {isModalOpen && selectedUser && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4" onClick={() => setIsModalOpen(false)}>
-          <div className="relative max-h-[90vh] w-full max-w-[800px] overflow-y-auto border border-hairline bg-white p-6 sm:p-8" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setIsModalOpen(false)} className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent">
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => !saving && setIsModalOpen(false)}
+        >
+          <div
+            className="relative max-h-[90vh] w-full max-w-[800px] overflow-y-auto border border-hairline bg-white p-6 sm:p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => !saving && setIsModalOpen(false)}
+              disabled={saving}
+              className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent disabled:opacity-40"
+            >
               <X className="h-4 w-4" strokeWidth={2.25} />
             </button>
-            
+
             <div className="flex items-start gap-3 mb-6 border-b border-hairline pb-4">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#e7f3f5] text-primary">
                 <Receipt className="h-5 w-5" strokeWidth={1.75} />
               </span>
               <div>
                 <h2 className="font-serif text-xl font-bold text-deep-accent">Manage Payments</h2>
-                <p className="mt-1 text-sm text-body">{selectedUser.user} • {selectedUser.id}</p>
+                <p className="mt-1 text-sm text-body">
+                  {selectedUser.user} • {String(selectedUser.id).slice(-8).toUpperCase()}
+                </p>
               </div>
             </div>
 
             <div className="flex flex-col gap-8">
-              
+
               {/* SECTION 1: SUMMARY */}
               <div>
                 <h3 className="mb-3 font-serif text-lg font-bold text-deep-accent">Payment Summary</h3>
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-deep-accent">Due Soon Amount</label>
-                    <input type="number" step="0.01" value={selectedUser.dueSoonAmount} onChange={(e) => setSelectedUser({...selectedUser, dueSoonAmount: parseFloat(e.target.value) || 0})} className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none" />
+                    <input
+                      type="number"
+                      readOnly
+                      tabIndex={-1}
+                      value={selectedUser.dueSoonAmount}
+                      className="min-h-[38px] w-full border border-hairline bg-faint px-3 py-1.5 text-sm text-muted focus:outline-none cursor-not-allowed"
+                    />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-deep-accent">Due Within (Days)</label>
-                    <input type="number" value={selectedUser.dueWithinDays} onChange={(e) => setSelectedUser({...selectedUser, dueWithinDays: parseInt(e.target.value) || 0})} className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none" />
+                    <input
+                      type="number"
+                      autoComplete="off"
+                      value={selectedUser.dueWithinDays}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, dueWithinDays: parseInt(e.target.value) || 0 })}
+                      className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                    />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-deep-accent">Scheduled Amount</label>
-                    <input type="number" step="0.01" value={selectedUser.scheduledAmount} onChange={(e) => setSelectedUser({...selectedUser, scheduledAmount: parseFloat(e.target.value) || 0})} className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none" />
+                    <input
+                      type="number"
+                      readOnly
+                      tabIndex={-1}
+                      value={selectedUser.scheduledAmount}
+                      className="min-h-[38px] w-full border border-hairline bg-faint px-3 py-1.5 text-sm text-muted focus:outline-none cursor-not-allowed"
+                    />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-deep-accent">Paid This Month</label>
-                    <input type="number" step="0.01" value={selectedUser.paidThisMonth} onChange={(e) => setSelectedUser({...selectedUser, paidThisMonth: parseFloat(e.target.value) || 0})} className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none" />
+                    <input
+                      type="number"
+                      readOnly
+                      tabIndex={-1}
+                      value={selectedUser.paidThisMonth}
+                      className="min-h-[38px] w-full border border-hairline bg-faint px-3 py-1.5 text-sm text-muted focus:outline-none cursor-not-allowed"
+                    />
                   </div>
                 </div>
               </div>
@@ -214,21 +370,56 @@ const ManagePayments = () => {
                   <h3 className="font-serif text-lg font-bold text-deep-accent flex items-center gap-2">
                     <CalendarClock className="h-4 w-4 text-primary" /> Upcoming Payments
                   </h3>
-                  <button onClick={handleAddUpcoming} className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+                  <button
+                    onClick={handleAddUpcoming}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                  >
                     <Plus className="h-3.5 w-3.5" /> Add Upcoming
                   </button>
                 </div>
                 <div className="flex flex-col gap-3">
                   {selectedUser.upcomingPayments.length === 0 && (
-                    <div className="text-sm text-muted py-2 text-center border border-dashed border-hairline">No upcoming payments added.</div>
+                    <div className="text-sm text-muted py-2 text-center border border-dashed border-hairline">
+                      No upcoming payments added.
+                    </div>
                   )}
                   {selectedUser.upcomingPayments.map((payment) => (
-                    <div key={payment.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 border border-hairline bg-faint/30 p-3">
-                      <input type="text" placeholder="Payment Name" value={payment.name} onChange={(e) => handleUpcomingChange(payment.id, 'name', e.target.value)} className="min-h-[36px] flex-1 border border-hairline bg-white px-3 py-1 text-sm text-deep-accent focus:border-primary focus:outline-none" />
-                      <input type="date" value={payment.dueDate} onChange={(e) => handleUpcomingChange(payment.id, 'dueDate', e.target.value)} className="min-h-[36px] w-full sm:w-auto border border-hairline bg-white px-3 py-1 text-sm text-deep-accent focus:border-primary focus:outline-none" />
-                      <input type="number" step="0.01" placeholder="Balance" value={payment.balance} onChange={(e) => handleUpcomingChange(payment.id, 'balance', parseFloat(e.target.value) || 0)} className="min-h-[36px] w-full sm:w-28 border border-hairline bg-white px-3 py-1 text-sm text-deep-accent focus:border-primary focus:outline-none" />
-                      <AutopayToggle isOn={payment.autopay} onToggle={() => handleUpcomingChange(payment.id, 'autopay', !payment.autopay)} />
-                      <button onClick={() => handleRemoveUpcoming(payment.id)} className="inline-flex h-8 w-8 items-center justify-center text-muted hover:text-[#d9534f] transition-colors shrink-0">
+                    <div
+                      key={payment.id}
+                      className="flex flex-col sm:flex-row items-start sm:items-center gap-3 border border-hairline bg-faint/30 p-3"
+                    >
+                      <input
+                        type="text"
+                        autoComplete="off"
+                        placeholder="Payment Name"
+                        value={payment.name}
+                        onChange={(e) => handleUpcomingChange(payment.id, 'name', e.target.value)}
+                        className="min-h-[36px] flex-1 border border-hairline bg-white px-3 py-1 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                      />
+                      <input
+                        type="date"
+                        autoComplete="off"
+                        value={payment.dueDate}
+                        onChange={(e) => handleUpcomingChange(payment.id, 'dueDate', e.target.value)}
+                        className="min-h-[36px] w-full sm:w-auto border border-hairline bg-white px-3 py-1 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                      />
+                      <input
+                        type="number"
+                        autoComplete="off"
+                        step="0.01"
+                        placeholder="Balance"
+                        value={payment.balance}
+                        onChange={(e) => handleUpcomingChange(payment.id, 'balance', parseFloat(e.target.value) || 0)}
+                        className="min-h-[36px] w-full sm:w-28 border border-hairline bg-white px-3 py-1 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                      />
+                      <AutopayToggle
+                        isOn={payment.autopay}
+                        onToggle={() => handleUpcomingChange(payment.id, 'autopay', !payment.autopay)}
+                      />
+                      <button
+                        onClick={() => handleRemoveUpcoming(payment.id)}
+                        className="inline-flex h-8 w-8 items-center justify-center text-muted hover:text-[#d9534f] transition-colors shrink-0"
+                      >
                         <Trash2 className="h-4 w-4" strokeWidth={2} />
                       </button>
                     </div>
@@ -242,27 +433,67 @@ const ManagePayments = () => {
                   <h3 className="font-serif text-lg font-bold text-deep-accent flex items-center gap-2">
                     <RefreshCw className="h-4 w-4 text-primary" /> Automatic Payments
                   </h3>
-                  <button onClick={handleAddAutomatic} className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+                  <button
+                    onClick={handleAddAutomatic}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                  >
                     <Plus className="h-3.5 w-3.5" /> Add Automatic
                   </button>
                 </div>
                 <div className="flex flex-col gap-3">
                   {selectedUser.automaticPayments.length === 0 && (
-                    <div className="text-sm text-muted py-2 text-center border border-dashed border-hairline">No automatic payments set up.</div>
+                    <div className="text-sm text-muted py-2 text-center border border-dashed border-hairline">
+                      No automatic payments set up.
+                    </div>
                   )}
                   {selectedUser.automaticPayments.map((payment) => (
-                    <div key={payment.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 border border-hairline bg-faint/30 p-3">
-                      <input type="text" placeholder="Payment Name" value={payment.name} onChange={(e) => handleAutomaticChange(payment.id, 'name', e.target.value)} className="min-h-[36px] flex-1 border border-hairline bg-white px-3 py-1 text-sm text-deep-accent focus:border-primary focus:outline-none" />
-                      <select value={payment.frequency} onChange={(e) => handleAutomaticChange(payment.id, 'frequency', e.target.value)} className="min-h-[36px] w-full sm:w-auto border border-hairline bg-white px-3 py-1 text-sm text-deep-accent focus:border-primary focus:outline-none">
+                    <div
+                      key={payment.id}
+                      className="flex flex-col sm:flex-row items-start sm:items-center gap-3 border border-hairline bg-faint/30 p-3"
+                    >
+                      <input
+                        type="text"
+                        autoComplete="off"
+                        placeholder="Payment Name"
+                        value={payment.name}
+                        onChange={(e) => handleAutomaticChange(payment.id, 'name', e.target.value)}
+                        className="min-h-[36px] flex-1 border border-hairline bg-white px-3 py-1 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                      />
+                      <select
+                        value={payment.frequency}
+                        autoComplete="off"
+                        onChange={(e) => handleAutomaticChange(payment.id, 'frequency', e.target.value)}
+                        className="min-h-[36px] w-full sm:w-auto border border-hairline bg-white px-3 py-1 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                      >
                         <option value="Daily">Daily</option>
                         <option value="Weekly">Weekly</option>
                         <option value="Monthly">Monthly</option>
                         <option value="Yearly">Yearly</option>
                       </select>
-                      <input type="number" step="0.01" placeholder="Balance" value={payment.balance} onChange={(e) => handleAutomaticChange(payment.id, 'balance', parseFloat(e.target.value) || 0)} className="min-h-[36px] w-full sm:w-28 border border-hairline bg-white px-3 py-1 text-sm text-deep-accent focus:border-primary focus:outline-none" />
-                      <input type="date" value={payment.nextDate} onChange={(e) => handleAutomaticChange(payment.id, 'nextDate', e.target.value)} className="min-h-[36px] w-full sm:w-auto border border-hairline bg-white px-3 py-1 text-sm text-deep-accent focus:border-primary focus:outline-none" />
-                      <AutopayToggle isOn={payment.autopay} onToggle={() => handleAutomaticChange(payment.id, 'autopay', !payment.autopay)} />
-                      <button onClick={() => handleRemoveAutomatic(payment.id)} className="inline-flex h-8 w-8 items-center justify-center text-muted hover:text-[#d9534f] transition-colors shrink-0">
+                      <input
+                        type="number"
+                        autoComplete="off"
+                        step="0.01"
+                        placeholder="Balance"
+                        value={payment.balance}
+                        onChange={(e) => handleAutomaticChange(payment.id, 'balance', parseFloat(e.target.value) || 0)}
+                        className="min-h-[36px] w-full sm:w-28 border border-hairline bg-white px-3 py-1 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                      />
+                      <input
+                        type="date"
+                        autoComplete="off"
+                        value={payment.nextDate}
+                        onChange={(e) => handleAutomaticChange(payment.id, 'nextDate', e.target.value)}
+                        className="min-h-[36px] w-full sm:w-auto border border-hairline bg-white px-3 py-1 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                      />
+                      <AutopayToggle
+                        isOn={payment.autopay}
+                        onToggle={() => handleAutomaticChange(payment.id, 'autopay', !payment.autopay)}
+                      />
+                      <button
+                        onClick={() => handleRemoveAutomatic(payment.id)}
+                        className="inline-flex h-8 w-8 items-center justify-center text-muted hover:text-[#d9534f] transition-colors shrink-0"
+                      >
                         <Trash2 className="h-4 w-4" strokeWidth={2} />
                       </button>
                     </div>
@@ -272,14 +503,37 @@ const ManagePayments = () => {
 
               {/* MODAL ACTIONS */}
               <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">
-                <button onClick={() => setIsModalOpen(false)} className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent hover:bg-faint">Cancel</button>
-                <button onClick={handleSaveUser} className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-deep">
-                  <Save className="h-4 w-4" strokeWidth={2.25} /> Save All Changes
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  disabled={saving}
+                  className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent hover:bg-faint disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveUser}
+                  disabled={saving}
+                  className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-deep disabled:opacity-70"
+                >
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+                  ) : (
+                    <Save className="h-4 w-4" strokeWidth={2.25} />
+                  )}
+                  Save All Changes
                 </button>
               </div>
 
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed right-4 top-4 z-[10001] flex items-start gap-3 border border-hairline bg-white p-4 shadow-lg">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.25} />
+          <p className="text-sm font-semibold text-deep-accent">{toast}</p>
         </div>
       )}
     </div>

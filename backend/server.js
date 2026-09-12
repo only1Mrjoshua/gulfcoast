@@ -22,6 +22,8 @@ import cardsRoutes from './routes/cardsRoutes.js';
 import adminCardsRoutes from './routes/adminCardsRoutes.js';
 import adminUsersRoutes from './routes/adminUsersRoutes.js';
 import adminAccountsRoutes from './routes/adminAccountsRoutes.js';
+import adminPaymentsRoutes from './routes/adminPaymentsRoutes.js';
+import adminTransactionsRoutes from './routes/adminTransactionsRoutes.js';
 
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 
@@ -134,7 +136,9 @@ app.use("/api/admin/statements", adminStatementsRoutes);               // ⬅️
 app.use("/api/cards", cardsRoutes);                                   // ⬅️ NEW
 app.use("/api/admin/cards", adminCardsRoutes);                        // ⬅️ NEW
 app.use("/api/admin/accounts", adminAccountsRoutes);                   // ⬅️ NEW
-app.use("/api/admin/users", adminUsersRoutes);   
+app.use("/api/admin/users", adminUsersRoutes); 
+app.use('/api/admin/transactions', adminTransactionsRoutes);
+app.use('/api/admin/payments', adminPaymentsRoutes);
                      // ⬅️ NEW
 // Error middleware
 app.use(notFound);

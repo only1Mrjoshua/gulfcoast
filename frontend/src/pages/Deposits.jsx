@@ -45,17 +45,17 @@ const toISODate = (dateStr) => {
   return new Date(dateStr).toISOString().split('T')[0];
 };
 
-// Status color helper — matches the new Processing / Accepted / Rejected enum
+// Status color helper — matches the Pending / Completed / Rejected enum
 const statusColor = (status) => {
   const s = (status || '').toLowerCase();
-  if (s === 'accepted') return 'text-primary';
+  if (s === 'completed') return 'text-primary';
   if (s === 'rejected' || s === 'canceled' || s === 'cancelled') return 'text-[#d9534f]';
-  return 'text-[#b8860b]'; // processing
+  return 'text-[#b8860b]'; // pending
 };
 
 const statusDotColor = (status) => {
   const s = (status || '').toLowerCase();
-  if (s === 'accepted') return 'bg-primary';
+  if (s === 'completed') return 'bg-primary';
   if (s === 'rejected' || s === 'canceled' || s === 'cancelled') return 'bg-[#d9534f]';
   return 'bg-[#b8860b]';
 };
@@ -725,9 +725,10 @@ const Deposits = () => {
 
           <div className="mx-auto mt-6 max-w-lg border border-hairline bg-white p-5 text-left">
             <div className="flex items-center justify-between py-1.5">
-              <span className="text-xs text-muted sm:text-sm">Amount</span>
-              <span className="text-sm font-semibold text-deep-accent">
-                {formatCurrency(parseFloat(amount) || 0)}
+              <span className="text-xs text-muted sm:text-sm">Status</span>
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#b8860b]">
+                <Clock className="h-3.5 w-3.5" strokeWidth={2} />
+                Pending
               </span>
             </div>
             <div className="flex items-center justify-between py-1.5">

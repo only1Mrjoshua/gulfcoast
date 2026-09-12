@@ -1,78 +1,131 @@
 // src/pages/admin/ManageTransactions.jsx
-import React, { useState } from 'react';
-import { 
-  Search, 
-  Filter, 
-  Eye, 
-  AlertTriangle, 
-  CheckCircle2, 
-  Clock, 
-  Download,
-  X,
-  Save,
-  ArrowLeftRight
-} from 'lucide-react';
-import { mockAdminTransactions } from '../../data/mockAdminData';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Search, Download, Loader2 } from 'lucide-react';
+import { apiFetch } from '../../utils/api';
 
-const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('en-US', {
+const formatCurrency = (amount) =>
+  new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
-  }).format(Math.abs(amount));
+  }).format(Math.abs(amount ?? 0));
+
+const formatDate = (value) => {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 };
 
 const ManageTransactions = () => {
-  const [transactions, setTransactions] = useState(mockAdminTransactions);
+  const [transactions, setTransactions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTx, setSelectedTx] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Filter logic
-  const filteredTransactions = transactions.filter(tx => 
-    tx.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    tx.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tx.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const handleViewClick = (tx) => {
-    setSelectedTx({ ...tx });
-    setIsModalOpen(true);
+  // ────────────────────────────────────────────────────────
+  // Load all transactions
+  // ────────────────────────────────────────────────────────
+  const loadTransactions = useCallback(async () => {
+    const res = await apiFetch('/admin/transactions');
+    const d = res?.data ?? res;
+    setTransactions(d.transactions ?? []);
+  }, []);
+
+  useEffect(() => {
+    const boot = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        await loadTransactions();
+      } catch (err) {
+        console.error('❌ Failed to load transactions:', err);
+        setError(err.message || 'Failed to load transactions');
+      } finally {
+        setLoading(false);
+      }
+    };
+    boot();
+  }, [loadTransactions]);
+
+  // ────────────────────────────────────────────────────────
+  // Filtering (client-side)
+  // ────────────────────────────────────────────────────────
+  const filteredTransactions = transactions.filter((tx) => {
+    const q = searchTerm.toLowerCase();
+    return (
+      String(tx.id || '').toLowerCase().includes(q) ||
+      (tx.user || '').toLowerCase().includes(q) ||
+      (tx.description || '').toLowerCase().includes(q)
+    );
+  });
+
+  // ────────────────────────────────────────────────────────
+  // CSV export of the currently visible rows
+  // ────────────────────────────────────────────────────────
+  const handleExportCsv = () => {
+    const rows = [
+      ['Transaction ID', 'User', 'Description', 'Date', 'Amount'],
+      ...filteredTransactions.map((tx) => [
+        tx.id,
+        tx.user || '',
+        tx.description || '',
+        formatDate(tx.date),
+        tx.amount ?? 0,
+      ]),
+    ];
+
+    const csv = rows
+      .map((r) =>
+        r
+          .map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`)
+          .join(',')
+      )
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `transactions-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
-  const handleSaveTransaction = () => {
-    setTransactions(transactions.map(tx => tx.id === selectedTx.id ? selectedTx : tx));
-    setIsModalOpen(false);
-  };
+  // ────────────────────────────────────────────────────────
+  // Full-page loading / error
+  // ────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" strokeWidth={1.75} />
+        <p className="text-sm text-muted">Loading transactions…</p>
+      </div>
+    );
+  }
 
-  // Status badge helper
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'Completed':
-        return (
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary">
-            <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2.25} />
-            Completed
-          </span>
-        );
-      case 'Pending':
-        return (
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[#f0ad4e]">
-            <Clock className="h-3.5 w-3.5" strokeWidth={2.25} />
-            Pending
-          </span>
-        );
-      case 'Flagged':
-        return (
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[#d9534f]">
-            <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2.25} />
-            Flagged
-          </span>
-        );
-      default:
-        return null;
-    }
-  };
+  if (error) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4">
+        <p className="font-serif text-xl font-bold text-deep-accent">
+          We couldn&rsquo;t load transactions
+        </p>
+        <p className="max-w-md text-center text-sm text-muted">{error}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-2 bg-primary px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-primary-deep"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1400px]">
@@ -82,30 +135,47 @@ const ManageTransactions = () => {
           <h1 className="font-serif text-2xl font-bold leading-tight text-deep-accent sm:text-3xl">
             Manage Transactions
           </h1>
-          <p className="mt-1 text-sm text-body">Monitor and manage all system-wide transactions.</p>
+          <p className="mt-1 text-sm text-body">
+            View every transaction across all user accounts.
+          </p>
         </div>
-        <button className="inline-flex min-h-[40px] items-center justify-center gap-2 border border-hairline bg-white px-4 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+        <button
+          type="button"
+          onClick={handleExportCsv}
+          disabled={filteredTransactions.length === 0}
+          className="inline-flex min-h-[40px] items-center justify-center gap-2 border border-hairline bg-white px-4 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-60"
+        >
           <Download className="h-4 w-4" strokeWidth={2} />
           Export CSV
         </button>
       </div>
 
-      {/* Filters & Search */}
+      {/* Search */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex flex-1 items-center border border-hairline bg-white px-3 focus-within:border-primary">
           <Search className="h-4 w-4 text-muted" strokeWidth={2} />
           <input
             type="text"
+            autoComplete="off"
             placeholder="Search by ID, user, or description..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="min-h-[40px] w-full border-none bg-transparent px-3 py-2 text-sm text-deep-accent outline-none placeholder:text-muted/60"
           />
         </div>
-        <button className="inline-flex min-h-[40px] items-center justify-center gap-2 border border-hairline bg-white px-4 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint">
-          <Filter className="h-4 w-4" strokeWidth={2} />
-          Filter
-        </button>
+      </div>
+
+      {/* Results count */}
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+          {filteredTransactions.length}{' '}
+          {filteredTransactions.length === 1 ? 'Transaction' : 'Transactions'} Found
+          {searchTerm && transactions.length !== filteredTransactions.length && (
+            <span className="ml-1 normal-case font-normal text-muted/80">
+              (of {transactions.length})
+            </span>
+          )}
+        </p>
       </div>
 
       {/* Transactions Table */}
@@ -118,128 +188,37 @@ const ManageTransactions = () => {
               <th className="px-5 py-3 font-semibold">Description</th>
               <th className="px-5 py-3 font-semibold">Date</th>
               <th className="px-5 py-3 font-semibold">Amount</th>
-              <th className="px-5 py-3 font-semibold">Status</th>
-              <th className="px-5 py-3 font-semibold text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-faint">
             {filteredTransactions.map((tx) => (
               <tr key={tx.id} className="transition-colors hover:bg-faint/30">
-                <td className="px-5 py-4 font-mono text-xs text-muted">{tx.id}</td>
-                <td className="px-5 py-4 font-semibold text-deep-accent">{tx.user}</td>
-                <td className="px-5 py-4 text-body">{tx.description}</td>
-                <td className="px-5 py-4 text-muted">{tx.date}</td>
-                <td className={`px-5 py-4 font-semibold ${tx.amount >= 0 ? 'text-primary' : 'text-deep-accent'}`}>
-                  {tx.amount >= 0 ? '+' : '-'}{formatCurrency(tx.amount)}
+                <td className="px-5 py-4 font-mono text-xs text-muted">
+                  {String(tx.id).slice(-10).toUpperCase()}
                 </td>
-                <td className="px-5 py-4">
-                  {getStatusBadge(tx.status)}
+                <td className="px-5 py-4 font-semibold text-deep-accent">
+                  {tx.user || '—'}
                 </td>
-                <td className="px-5 py-4 text-right">
-                  <button 
-                    onClick={() => handleViewClick(tx)} 
-                    className="inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:text-primary"
-                    title="View Details"
-                  >
-                    <Eye className="h-4 w-4" strokeWidth={2} />
-                  </button>
+                <td className="px-5 py-4 text-body">{tx.description || '—'}</td>
+                <td className="px-5 py-4 text-muted">{formatDate(tx.date)}</td>
+                <td
+                  className={`px-5 py-4 font-semibold ${
+                    (tx.amount ?? 0) >= 0 ? 'text-primary' : 'text-[#d9534f]'
+                  }`}
+                >
+                  {(tx.amount ?? 0) >= 0 ? '+' : '-'}
+                  {formatCurrency(tx.amount)}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
         {filteredTransactions.length === 0 && (
-          <div className="p-8 text-center text-muted">No transactions found matching your search.</div>
+          <div className="p-8 text-center text-muted">
+            No transactions found matching your search.
+          </div>
         )}
       </div>
-
-      {/* View/Edit Transaction Modal */}
-      {isModalOpen && selectedTx && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4" onClick={() => setIsModalOpen(false)}>
-          <div className="relative max-h-[90vh] w-full max-w-[500px] overflow-y-auto border border-hairline bg-white p-6 sm:p-8" onClick={(e) => e.stopPropagation()}>
-            <button 
-              onClick={() => setIsModalOpen(false)} 
-              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent"
-            >
-              <X className="h-4 w-4" strokeWidth={2.25} />
-            </button>
-
-            <div className="flex items-start gap-3 mb-6">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#e7f3f5] text-primary">
-                <ArrowLeftRight className="h-5 w-5" strokeWidth={1.75} />
-              </span>
-              <div>
-                <h2 className="font-serif text-xl font-bold text-deep-accent">Transaction Details</h2>
-                <p className="mt-1 text-sm text-body">ID: {selectedTx.id}</p>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-5">
-              {/* Read-only Details */}
-              <div className="grid grid-cols-2 gap-4 border border-hairline bg-faint/30 p-4">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted">User</div>
-                  <div className="mt-1 text-sm font-semibold text-deep-accent">{selectedTx.user}</div>
-                </div>
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted">Date</div>
-                  <div className="mt-1 text-sm font-semibold text-deep-accent">{selectedTx.date}</div>
-                </div>
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted">Description</div>
-                  <div className="mt-1 text-sm font-semibold text-deep-accent">{selectedTx.description}</div>
-                </div>
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted">Amount</div>
-                  <div className={`mt-1 text-sm font-semibold ${selectedTx.amount >= 0 ? 'text-primary' : 'text-deep-accent'}`}>
-                    {selectedTx.amount >= 0 ? '+' : '-'}{formatCurrency(selectedTx.amount)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Editable Status */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-deep-accent">Transaction Status</label>
-                <select 
-                  value={selectedTx.status} 
-                  onChange={(e) => setSelectedTx({...selectedTx, status: e.target.value})} 
-                  className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
-                >
-                  <option value="Completed">Completed</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Flagged">Flagged</option>
-                </select>
-              </div>
-
-              {/* Admin Note */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-deep-accent">Admin Note (Optional)</label>
-                <textarea 
-                  rows="3"
-                  placeholder="Add an internal note about this transaction..."
-                  className="w-full border border-hairline bg-white p-3 text-sm text-deep-accent outline-none focus:border-primary placeholder:text-muted/60 resize-none"
-                ></textarea>
-              </div>
-
-              {/* Actions */}
-              <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">
-                <button 
-                  onClick={() => setIsModalOpen(false)} 
-                  className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleSaveTransaction} 
-                  className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep"
-                >
-                  <Save className="h-4 w-4" strokeWidth={2.25} /> Save Changes
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

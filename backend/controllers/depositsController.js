@@ -29,7 +29,6 @@ const formatDeposit = (d) => ({
   submittedAt: d.submittedAt,
   processedAt: d.processedAt,
   adminNote: d.adminNote,
-  // Small URLs ready for <img> tags — omitted from list payloads if you prefer
   frontImage: d.frontImage || '',
   backImage: d.backImage || '',
   hasFrontImage: !!d.frontImage,
@@ -63,20 +62,20 @@ export const getDepositsOverview = async (req, res) => {
     const depositedThisMonth = deposits
       .filter(
         (d) =>
-          d.status === 'Accepted' &&
+          d.status === 'Completed' &&
           d.processedAt &&
           new Date(d.processedAt) >= monthStart
       )
       .reduce((sum, d) => sum + (d.amount || 0), 0);
 
     const pendingDeposits = deposits
-      .filter((d) => d.status === 'Processing')
+      .filter((d) => d.status === 'Pending')
       .reduce((sum, d) => sum + (d.amount || 0), 0);
 
     const availableDeposits = deposits
       .filter(
         (d) =>
-          d.status === 'Accepted' &&
+          d.status === 'Completed' &&
           d.processedAt &&
           new Date(d.processedAt) >= thirtyDaysAgo
       )
@@ -107,16 +106,8 @@ export const getDepositsOverview = async (req, res) => {
 
 // ================================================================
 // POST /api/deposits
-// multipart/form-data:
-//   - accountId      (text field)
-//   - amount         (text field)
-//   - method         (text field, optional)
-//   - frontImage     (file)
-//   - backImage      (file)
 // ================================================================
 export const createDeposit = async (req, res) => {
-  // Images may have already been uploaded before validation.
-  // If we bail out early, clean them up.
   const cleanupUploads = async () => {
     const front = req.files?.frontImage?.[0];
     const back  = req.files?.backImage?.[0];
@@ -155,7 +146,6 @@ export const createDeposit = async (req, res) => {
       return res.status(400).json({ error: 'Cannot deposit into this account type' });
     }
 
-    // Extract Cloudinary URLs + public_ids
     const frontFile = req.files?.frontImage?.[0];
     const backFile  = req.files?.backImage?.[0];
 
@@ -178,7 +168,7 @@ export const createDeposit = async (req, res) => {
       backImage:          backFile?.path      || '',
       backImagePublicId:  backFile?.filename  || '',
 
-      status: 'Processing',
+      status: 'Pending',                 // <-- new default
       confirmationNumber,
       submittedAt: new Date(),
     });

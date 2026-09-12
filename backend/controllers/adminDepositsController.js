@@ -5,29 +5,39 @@ import Account from '../models/Account.js';
 import Transaction from '../models/Transaction.js';
 import { deleteCloudinaryImage } from '../config/cloudinary.js';
 
-const formatDeposit = (d) => ({
-  id: d._id,
-  userId: d.userId,
-  user: d.userName || '',
-  userEmail: d.userEmail || '',
-  accountId: d.accountId,
-  accountName: d.accountName,
-  accountLastFour: d.accountLastFour,
-  amount: d.amount,
-  method: d.method,
-  status: d.status,
-  confirmationNumber: d.confirmationNumber,
-  submittedAt: d.submittedAt,
-  processedAt: d.processedAt,
-  adminNote: d.adminNote,
-  frontImage: d.frontImage || '',
-  backImage: d.backImage || '',
-  hasFrontImage: !!d.frontImage,
-  hasBackImage: !!d.backImage,
-});
+// ----------------------------------------------------------------
+// Formatter — handles both populated and non-populated userId
+// ----------------------------------------------------------------
+const formatDeposit = (d) => {
+  const u = d.userId;
+  const isPopulated = u && typeof u === 'object' && (u.firstName || u.lastName || u.email);
+
+  return {
+    id: d._id,
+    userId: isPopulated ? u._id : u,
+    user: isPopulated
+      ? `${u.firstName || ''} ${u.lastName || ''}`.trim() || '—'
+      : (d.userName || '—'),
+    userEmail: isPopulated ? (u.email || '') : (d.userEmail || ''),
+    accountId: d.accountId,
+    accountName: d.accountName,
+    accountLastFour: d.accountLastFour,
+    amount: d.amount,
+    method: d.method,
+    status: d.status,
+    confirmationNumber: d.confirmationNumber,
+    submittedAt: d.submittedAt,
+    processedAt: d.processedAt,
+    adminNote: d.adminNote,
+    frontImage: d.frontImage || '',
+    backImage: d.backImage || '',
+    hasFrontImage: !!d.frontImage,
+    hasBackImage: !!d.backImage,
+  };
+};
 
 // ================================================================
-// GET /api/admin/deposits?status=Processing
+// GET /api/admin/deposits?status=Pending
 // ================================================================
 export const adminListDeposits = async (req, res) => {
   try {
@@ -40,17 +50,7 @@ export const adminListDeposits = async (req, res) => {
       .sort({ submittedAt: -1 })
       .lean();
 
-    const formatted = deposits.map((d) => {
-      const u = d.userId;
-      return {
-        ...formatDeposit(d),
-        userId: u?._id || d.userId,
-        user: u ? `${u.firstName} ${u.lastName}`.trim() : '—',
-        userEmail: u?.email || '',
-      };
-    });
-
-    res.json({ deposits: formatted });
+    res.json({ deposits: deposits.map(formatDeposit) });
   } catch (err) {
     console.error('❌ adminListDeposits:', err);
     res.status(500).json({ error: 'Failed to load deposits' });
@@ -67,15 +67,7 @@ export const adminGetDeposit = async (req, res) => {
       .lean();
     if (!deposit) return res.status(404).json({ error: 'Deposit not found' });
 
-    const u = deposit.userId;
-    res.json({
-      deposit: {
-        ...formatDeposit(deposit),
-        userId: u?._id || deposit.userId,
-        user: u ? `${u.firstName} ${u.lastName}`.trim() : '—',
-        userEmail: u?.email || '',
-      },
-    });
+    res.json({ deposit: formatDeposit(deposit) });
   } catch (err) {
     console.error('❌ adminGetDeposit:', err);
     res.status(500).json({ error: 'Failed to load deposit' });
@@ -83,110 +75,126 @@ export const adminGetDeposit = async (req, res) => {
 };
 
 // ================================================================
-// PUT /api/admin/deposits/:id/accept
+// PUT /api/admin/deposits/:id/status
+// Body: { status: 'Pending' | 'Completed' | 'Rejected', adminNote?: string }
+//
+// Rules:
+//   - Pending  → just sets the status back to pending (no balance change)
+//   - Completed→ credits the destination account and records a Transaction
+//   - Rejected → no balance change; best-effort cleanup of Cloudinary images
+//   - Completed deposits cannot be moved back to another status
+//     (funds have already been applied).
 // ================================================================
-export const adminAcceptDeposit = async (req, res) => {
+export const adminUpdateDepositStatus = async (req, res) => {
+  const { id } = req.params;
+  const { status, adminNote } = req.body || {};
+
+  if (!['Pending', 'Completed', 'Rejected'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+
   const session = await mongoose.startSession();
+  let updatedDepositId = null;
+  let clearImages = false;
 
   try {
-    let updated;
-
     await session.withTransaction(async () => {
-      const { id } = req.params;
-      const { adminNote = '' } = req.body || {};
-
       const deposit = await Deposit.findById(id).session(session);
       if (!deposit) throw new Error('Deposit not found');
 
-      if (deposit.status === 'Accepted') {
-        throw new Error('Deposit is already accepted');
-      }
-      if (deposit.status === 'Rejected') {
-        throw new Error('Deposit was rejected and cannot be accepted');
+      if (deposit.status === status) {
+        throw new Error(`Deposit is already ${status.toLowerCase()}`);
       }
 
-      const account = await Account.findById(deposit.accountId).session(session);
-      if (!account) throw new Error('Destination account not found');
+      // Funds are already applied — lock it down.
+      if (deposit.status === 'Completed') {
+        throw new Error('Completed deposits cannot be changed');
+      }
 
-      account.totalBalance     += deposit.amount;
-      account.availableBalance += deposit.amount;
-      await account.save({ session });
+      if (status === 'Completed') {
+        const account = await Account.findById(deposit.accountId).session(session);
+        if (!account) throw new Error('Destination account not found');
 
-      await Transaction.create(
-        [
-          {
-            userId: deposit.userId,
-            accountId: account._id,
-            description: `Check Deposit •••• ${deposit.accountLastFour}`,
-            amount: Math.abs(deposit.amount),
-            type: 'deposit',
-            status: 'Completed',
-            date: new Date(),
-          },
-        ],
-        { session }
-      );
+        account.totalBalance     += deposit.amount;
+        account.availableBalance += deposit.amount;
+        await account.save({ session });
 
-      deposit.status = 'Accepted';
-      deposit.processedAt = new Date();
-      if (adminNote) deposit.adminNote = adminNote;
+        await Transaction.create(
+          [
+            {
+              userId: deposit.userId,
+              accountId: account._id,
+              description: `Deposit •••• ${deposit.accountLastFour}`,
+              amount: Math.abs(deposit.amount),
+              type: 'deposit',
+              status: 'Completed',
+              date: new Date(),
+            },
+          ],
+          { session }
+        );
+
+        deposit.processedAt = new Date();
+      } else if (status === 'Rejected') {
+        deposit.processedAt = new Date();
+        clearImages = true;
+      } else if (status === 'Pending') {
+        deposit.processedAt = null;
+      }
+
+      deposit.status = status;
+      if (typeof adminNote === 'string') deposit.adminNote = adminNote;
+
       await deposit.save({ session });
-
-      updated = deposit.toObject();
+      updatedDepositId = deposit._id;
     });
 
-    res.json({ message: 'Deposit accepted', deposit: formatDeposit(updated) });
+    // Best-effort Cloudinary cleanup for rejected deposits (outside the txn)
+    if (clearImages && updatedDepositId) {
+      const fresh = await Deposit.findById(updatedDepositId).lean();
+      try {
+        await Promise.all([
+          fresh?.frontImagePublicId
+            ? deleteCloudinaryImage(fresh.frontImagePublicId)
+            : Promise.resolve(),
+          fresh?.backImagePublicId
+            ? deleteCloudinaryImage(fresh.backImagePublicId)
+            : Promise.resolve(),
+        ]);
+      } catch (cleanupErr) {
+        console.warn('⚠️ Cloudinary cleanup failed:', cleanupErr.message);
+      }
+
+      await Deposit.updateOne(
+        { _id: updatedDepositId },
+        {
+          $set: {
+            frontImage: '',
+            backImage: '',
+            frontImagePublicId: '',
+            backImagePublicId: '',
+          },
+        }
+      );
+    }
+
+    const populated = await Deposit.findById(updatedDepositId)
+      .populate('userId', 'firstName lastName email')
+      .lean();
+
+    res.json({
+      message: `Deposit marked as ${status}`,
+      deposit: formatDeposit(populated),
+    });
   } catch (err) {
-    console.error('❌ adminAcceptDeposit:', err);
-    const status = /not found/i.test(err.message)
+    console.error('❌ adminUpdateDepositStatus:', err);
+    const code = /not found/i.test(err.message)
       ? 404
-      : /already|rejected|cannot/i.test(err.message)
+      : /already|cannot|invalid/i.test(err.message)
       ? 400
       : 500;
-    res.status(status).json({ error: err.message || 'Failed to accept deposit' });
+    res.status(code).json({ error: err.message || 'Failed to update deposit status' });
   } finally {
     await session.endSession();
-  }
-};
-
-// ================================================================
-// PUT /api/admin/deposits/:id/reject
-// Deletes Cloudinary images to save space after rejection
-// ================================================================
-export const adminRejectDeposit = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { adminNote = '' } = req.body || {};
-
-    const deposit = await Deposit.findById(id);
-    if (!deposit) return res.status(404).json({ error: 'Deposit not found' });
-
-    if (deposit.status === 'Accepted') {
-      return res.status(400).json({ error: 'Deposit is already accepted' });
-    }
-    if (deposit.status === 'Rejected') {
-      return res.status(400).json({ error: 'Deposit is already rejected' });
-    }
-
-    // Best-effort cleanup of Cloudinary assets
-    await Promise.all([
-      deleteCloudinaryImage(deposit.frontImagePublicId),
-      deleteCloudinaryImage(deposit.backImagePublicId),
-    ]);
-
-    deposit.status = 'Rejected';
-    deposit.processedAt = new Date();
-    if (adminNote) deposit.adminNote = adminNote;
-    // Clear URLs since files are gone
-    deposit.frontImage = '';
-    deposit.backImage = '';
-    deposit.frontImagePublicId = '';
-    deposit.backImagePublicId = '';
-    await deposit.save();
-
-    res.json({ message: 'Deposit rejected', deposit: formatDeposit(deposit.toObject()) });
-  } catch (err) {
-    console.error('❌ adminRejectDeposit:', err);
-    res.status(500).json({ error: 'Failed to reject deposit' });
   }
 };
