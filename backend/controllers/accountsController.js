@@ -4,7 +4,6 @@ import Account from '../models/Account.js';
 import Loan from '../models/Loan.js';
 import Transaction from '../models/Transaction.js';
 
-// Default alert preferences in case user has none
 const DEFAULT_ALERTS = {
   lowBalance: true,
   largeTransaction: true,
@@ -13,12 +12,10 @@ const DEFAULT_ALERTS = {
   monthlyStatement: true,
 };
 
-// Which types count as money-in vs money-out
 const POSITIVE_TX_TYPES = ['credit', 'deposit'];
 const isPositiveTransaction = (tx) =>
   POSITIVE_TX_TYPES.includes((tx.type || '').toLowerCase());
 
-// Returns amount with the correct sign for display
 const signedAmount = (tx) =>
   isPositiveTransaction(tx) ? Math.abs(tx.amount) : -Math.abs(tx.amount);
 
@@ -37,13 +34,19 @@ export const getAccountsOverview = async (req, res) => {
     const allAccounts = await Account.find({ userId }).lean();
     const loans = await Loan.find({ userId, status: { $ne: 'Paid Off' } }).lean();
 
-    const totalBalance = allAccounts.reduce((sum, acc) => sum + (acc.totalBalance || 0), 0);
-    const availableBalance = allAccounts.reduce((sum, acc) => sum + (acc.availableBalance || 0), 0);
-    const pendingBalance = allAccounts.reduce((sum, acc) => sum + (acc.pendingBalance || 0), 0);
+    // Only Checking + Savings are considered accounts.
+    // Credit cards are managed via the Cards module, not here.
+    const realAccounts = allAccounts.filter(
+      (a) => (a.type || '').toLowerCase() !== 'credit'
+    );
 
-    const checkingAccounts = allAccounts.filter((a) => a.type === 'Checking');
-    const savingsAccounts  = allAccounts.filter((a) => a.type === 'Savings');
-    const creditAccounts   = allAccounts.filter((a) => a.type === 'Credit');
+    const accountBalance = realAccounts.reduce(
+      (sum, acc) => sum + (acc.totalBalance || 0),
+      0
+    );
+
+    const checkingAccounts = realAccounts.filter((a) => a.type === 'Checking');
+    const savingsAccounts  = realAccounts.filter((a) => a.type === 'Savings');
 
     const primaryChecking =
       checkingAccounts.find((a) => a.isPrimary) || checkingAccounts[0] || null;
@@ -53,6 +56,7 @@ export const getAccountsOverview = async (req, res) => {
       primaryCheckingTransactions = await Transaction.find({
         userId,
         accountId: primaryChecking._id,
+        date: { $lte: new Date() },
       })
         .sort({ date: -1 })
         .limit(10)
@@ -65,15 +69,10 @@ export const getAccountsOverview = async (req, res) => {
     };
 
     res.json({
-      balances: {
-        total: totalBalance,
-        available: availableBalance,
-        pending: pendingBalance,
-      },
+      balance: accountBalance,
       accounts: {
         checking: checkingAccounts.map(formatAccount),
         savings:  savingsAccounts.map(formatAccount),
-        credit:   creditAccounts.map(formatAccount),
       },
       loans: loans.map(formatLoan),
       primaryChecking: primaryChecking
@@ -83,7 +82,7 @@ export const getAccountsOverview = async (req, res) => {
               _id: tx._id,
               description: tx.description,
               category: tx.category || tx.type,
-              amount: signedAmount(tx),      // ⬅️ signed in backend
+              amount: signedAmount(tx),
               type: tx.type,
               status: tx.status,
               date: tx.date,
@@ -160,9 +159,7 @@ function formatAccount(acc) {
     subType: acc.subType || null,
     accountNumber: acc.accountNumber,
     lastFour: acc.accountNumber ? acc.accountNumber.slice(-4) : '',
-    totalBalance: acc.totalBalance ?? 0,
-    availableBalance: acc.availableBalance ?? 0,
-    pendingBalance: acc.pendingBalance ?? 0,
+    balance: acc.totalBalance ?? 0,
     interestRate: acc.interestRate ?? null,
     status: acc.status,
     isPrimary: !!acc.isPrimary,

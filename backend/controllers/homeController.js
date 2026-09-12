@@ -9,10 +9,6 @@ import { getUSGreetingAndDate } from '../utils/dateUtils.js';
 import ErrorResponse from '../utils/errorResponse.js';
 
 // ---------- Helpers ----------
-const getAccountBalance = (acc) => acc.balance ?? acc.totalBalance ?? 0;
-const getAvailableBalance = (acc) => acc.availableBalance ?? 0;
-const getPendingBalance = (acc) => acc.pendingBalance ?? 0;
-
 const normalizeType = (type) => (type || '').toLowerCase();
 
 const POSITIVE_TX_TYPES = ['credit', 'deposit'];
@@ -21,69 +17,6 @@ const isPositiveTransaction = (tx) =>
 
 const signedAmount = (tx) =>
   isPositiveTransaction(tx) ? Math.abs(tx.amount) : -Math.abs(tx.amount);
-
-const isTransferFrom = (desc) => /^Transfer from /i.test(desc || '');
-const isTransferTo = (desc) => /^Transfer to /i.test(desc || '');
-
-// Merge mirror pairs of internal transfers into single "Source → Destination" rows.
-const pairInternalTransfers = (txs) => {
-  const used = new Set();
-  const result = [];
-
-  const groups = new Map();
-  txs.forEach((tx) => {
-    const key = `${new Date(tx.date).toISOString().slice(0, 10)}|${Math.abs(tx.amount).toFixed(2)}`;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(tx);
-  });
-
-  for (const tx of txs) {
-    const id = tx._id.toString();
-    if (used.has(id)) continue;
-
-    const key = `${new Date(tx.date).toISOString().slice(0, 10)}|${Math.abs(tx.amount).toFixed(2)}`;
-    const group = groups.get(key) || [];
-
-    const mirror = group.find((t) => {
-      const tid = t._id.toString();
-      if (tid === id || used.has(tid)) return false;
-      if (Math.sign(t.amount) === Math.sign(tx.amount)) return false;
-      const bothAreTransfers =
-        (isTransferFrom(t.description) || isTransferTo(t.description)) &&
-        (isTransferFrom(tx.description) || isTransferTo(tx.description));
-      return bothAreTransfers;
-    });
-
-    if (mirror) {
-      const outgoing = tx.amount < 0 ? tx : mirror;
-      const incoming = tx.amount > 0 ? tx : mirror;
-
-      const sourceMatch = (incoming.description || '').match(/^Transfer from (.+)$/i);
-      const destMatch = (outgoing.description || '').match(/^Transfer to (.+)$/i);
-      const from = sourceMatch ? sourceMatch[1].trim() : 'Account';
-      const to = destMatch ? destMatch[1].trim() : 'Account';
-
-      result.push({
-        _id: outgoing._id,
-        description: `${from} → ${to}`,
-        category: 'transfer',
-        type: 'debit',
-        amount: -Math.abs(outgoing.amount),
-        status: outgoing.status,
-        date: outgoing.date,
-      });
-
-      used.add(id);
-      used.add(mirror._id.toString());
-    } else {
-      result.push(tx);
-      used.add(id);
-    }
-  }
-
-  result.sort((a, b) => new Date(b.date) - new Date(a.date));
-  return result;
-};
 
 // @desc    Get all home dashboard data for the logged-in user
 // @route   GET /api/home/dashboard
@@ -99,53 +32,42 @@ export const getHomeData = async (req, res, next) => {
     // 2. Greeting + Date
     const { greeting, dateString } = getUSGreetingAndDate();
 
-    // 3. Accounts + balances
+    // 3. Accounts + balance
     const accounts = await Account.find({ userId });
 
-    let totalBalance = 0;
-    let availableBalance = 0;
-    let pendingBalance = 0;
+    // Only Checking + Savings are considered accounts.
+    // Credit cards are not accounts — they're cards linked to an account.
+    const realAccounts = accounts.filter(
+      (a) => normalizeType(a.type) !== 'credit'
+    );
 
-    const formattedAccounts = accounts.map((acc) => {
-    const bal = getAccountBalance(acc);
-    const avail = getAvailableBalance(acc);
-    const pend = getPendingBalance(acc);
+    const accountBalance = realAccounts.reduce(
+      (sum, acc) => sum + (acc.totalBalance || 0),
+      0
+    );
 
-    // ⬇️ Running totals — unchanged
-    totalBalance += bal;
-    availableBalance += avail;
-    pendingBalance += pend;
+    const formattedAccounts = realAccounts.map((acc) => {
+      const rawNumber = String(acc.accountNumber || '');
+      const lastFour = rawNumber.slice(-4);
 
-    const rawNumber = String(acc.accountNumber || '');
-    const lastFour = rawNumber.slice(-4);
-
-    // ⬇️ NEW: what each card shows must match Accounts.jsx
-    const displayBalance =
-        normalizeType(acc.type) === 'credit'
-        ? bal          // credit card → show totalBalance (amount owed)
-        : avail;       // checking/savings → show availableBalance
-
-    return {
+      return {
         id: acc._id,
         type: normalizeType(acc.type),
         accountNumber: `****${lastFour}`,
-        balance: displayBalance,   // ⬅️ FIX
-    };
+        balance: acc.totalBalance ?? 0,
+      };
     });
 
-    // 4. Recent Transactions — all accounts, past/today only,
-    //    internal-transfer mirror pairs merged into one row each.
-    const candidateTransactions = await Transaction.find({
+    // 4. Recent Transactions — past/today only, completed only
+    const recentTransactionsRaw = await Transaction.find({
       userId,
+      status: 'Completed',
       date: { $lte: new Date() },
     })
       .sort({ date: -1 })
-      .limit(50)
-      .lean();
+      .limit(5);
 
-    const paired = pairInternalTransfers(candidateTransactions);
-
-    const recentTransactions = paired.slice(0, 5).map((tx) => ({
+    const recentTransactions = recentTransactionsRaw.map((tx) => ({
       _id: tx._id,
       description: tx.description,
       category: tx.category || normalizeType(tx.type),
@@ -155,7 +77,7 @@ export const getHomeData = async (req, res, next) => {
       date: tx.date,
     }));
 
-    // 5. Upcoming Payments — from the Payment + Autopay collections
+    // 5. Upcoming Payments
     const now = new Date();
 
     const [upcomingRaw, autopayRaw] = await Promise.all([
@@ -192,11 +114,7 @@ export const getHomeData = async (req, res, next) => {
       data: {
         greeting: `${greeting}, ${user.firstName}`,
         date: dateString,
-        balances: {
-          total: totalBalance,
-          available: availableBalance,
-          pending: pendingBalance,
-        },
+        balance: accountBalance,
         accounts: formattedAccounts,
         recentTransactions,
         upcomingPayments,

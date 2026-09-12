@@ -35,8 +35,6 @@ const formatAccountName = (type) => {
       return 'Checking';
     case 'savings':
       return 'Savings';
-    case 'credit':
-      return 'Credit Card';
     default:
       return 'Account';
   }
@@ -75,9 +73,7 @@ const Home = () => {
   const [data, setData] = useState({
     greeting: '',
     date: '',
-    totalBalance: 0,
-    availableBalance: 0,
-    pendingAmount: 0,
+    balance: 0,
     accounts: [],
     transactions: [],
     upcomingPayments: [],
@@ -97,9 +93,7 @@ const Home = () => {
         setData({
           greeting: d.greeting || 'Welcome back',
           date: d.date || '',
-          totalBalance: d.balances?.total ?? 0,
-          availableBalance: d.balances?.available ?? 0,
-          pendingAmount: d.balances?.pending ?? 0,
+          balance: d.balance ?? 0,
 
           accounts: (d.accounts || []).map((acc) => ({
             id: acc.id,
@@ -200,12 +194,12 @@ const Home = () => {
         <div className="text-xs text-muted sm:text-sm">{data.date}</div>
       </section>
 
-      {/* Total Balance & Financial Snapshot */}
+      {/* Account Balance */}
       <section className="mb-10">
         <div className="bg-deep-accent p-6 sm:p-8">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70 sm:text-xs">
-              Total Balance
+              Account Balance
             </span>
             <button
               type="button"
@@ -222,22 +216,7 @@ const Home = () => {
           </div>
 
           <div className="mt-3 font-serif text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-[2.75rem]">
-            {showBalance ? formatCurrency(data.totalBalance) : '•••••••'}
-          </div>
-
-          <div className="mt-6 flex flex-col gap-4 border-t border-white/15 pt-5 sm:flex-row sm:gap-12">
-            <div className="flex items-baseline justify-between gap-3 sm:flex-col sm:items-start sm:gap-1">
-              <span className="text-xs uppercase tracking-wide text-white/60">Available</span>
-              <span className="text-sm font-semibold text-white sm:text-base">
-                {showBalance ? formatCurrency(data.availableBalance) : '•••••••'}
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between gap-3 sm:flex-col sm:items-start sm:gap-1">
-              <span className="text-xs uppercase tracking-wide text-white/60">Pending</span>
-              <span className="text-sm font-semibold text-white sm:text-base">
-                {showBalance ? formatCurrency(data.pendingAmount) : '•••••••'}
-              </span>
-            </div>
+            {showBalance ? formatCurrency(data.balance) : '•••••••'}
           </div>
         </div>
       </section>
@@ -267,11 +246,7 @@ const Home = () => {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-2">
-                    {account.type === 'credit' ? (
-                      <CreditCard className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
-                    ) : (
-                      <Wallet className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
-                    )}
+                    <Wallet className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
                     <span className="truncate text-sm font-semibold text-body">
                       {account.name}
                     </span>
@@ -282,9 +257,7 @@ const Home = () => {
                 <div className="mt-4 font-serif text-xl font-bold text-deep-accent">
                   {showBalance ? formatCurrency(account.balance) : '•••••••'}
                 </div>
-                <div className="mt-0.5 text-xs text-muted">
-                  {account.type === 'credit' ? 'Credit Card' : 'Account'}
-                </div>
+                <div className="mt-0.5 text-xs text-muted">Account</div>
               </div>
             ))}
           </div>
@@ -313,7 +286,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Two columns: Recent Transactions & Upcoming Payments — always rendered */}
+      {/* Two columns: Recent Transactions & Upcoming Payments */}
       <div className="mb-10 grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Recent Transactions */}
         <section>

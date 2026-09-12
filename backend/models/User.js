@@ -7,7 +7,20 @@ const userSchema = new mongoose.Schema({
   username:  { type: String, required: true, unique: true },
   email:     { type: String, required: true, unique: true },
   password:  { type: String, required: true },
-  role: { type: String, enum: ['user', 'admin'], default: 'user' },
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user',
+    index: true,
+  },
+
+  // ⬇️ NEW — Active / Suspended, used by the admin Manage Users page
+  status: {
+    type: String,
+    enum: ['Active', 'Suspended'],
+    default: 'Active',
+    index: true,
+  },
 
   creditScore: {
     score:       { type: Number, default: 0 },
@@ -16,7 +29,6 @@ const userSchema = new mongoose.Schema({
     lastUpdated: { type: Date,   default: Date.now },
   },
 
-  // Account alert preferences (existing)
   alertPreferences: {
     lowBalance:       { type: Boolean, default: true },
     largeTransaction: { type: Boolean, default: true },
@@ -25,15 +37,14 @@ const userSchema = new mongoose.Schema({
     monthlyStatement: { type: Boolean, default: true },
   },
 
-  // ⬇️ NEW: Card alert preferences
   cardAlertPreferences: {
-    largePurchase:           { type: Boolean, default: true },
-    cardTransaction:         { type: Boolean, default: true },
-    internationalTransaction:{ type: Boolean, default: true },
-    onlinePurchase:          { type: Boolean, default: true },
-    atmWithdrawal:           { type: Boolean, default: true },
-    paymentDue:              { type: Boolean, default: true },
-    cardExpiration:          { type: Boolean, default: true },
+    largePurchase:            { type: Boolean, default: true },
+    cardTransaction:          { type: Boolean, default: true },
+    internationalTransaction: { type: Boolean, default: true },
+    onlinePurchase:           { type: Boolean, default: true },
+    atmWithdrawal:            { type: Boolean, default: true },
+    paymentDue:               { type: Boolean, default: true },
+    cardExpiration:           { type: Boolean, default: true },
   },
 }, { timestamps: true });
 

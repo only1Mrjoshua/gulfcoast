@@ -40,29 +40,24 @@ const formatShortDate = (dateStr) => {
   });
 };
 
-// Helper for account type label
 const getAccountTypeLabel = (type) => {
   const map = {
     checking: 'Checking',
     savings: 'Savings',
-    credit: 'Credit Card',
     loan: 'Loan',
   };
   return map[type] || type;
 };
 
-// Icon per account type
 const getAccountIcon = (type) => {
   const map = {
     checking: Wallet,
     savings: PiggyBank,
-    credit: CreditCard,
     loan: Landmark,
   };
   return map[type] || Wallet;
 };
 
-// The 5 alert types
 const ALERT_DEFINITIONS = [
   { key: 'lowBalance',       name: 'Low balance alert' },
   { key: 'largeTransaction', name: 'Large transaction alert' },
@@ -75,21 +70,9 @@ const ALERT_DEFINITIONS = [
 const AccountCard = ({ account, showBalance, onView, isSelected }) => {
   const Icon = getAccountIcon(account.type);
 
-  const getBalanceDisplay = () => {
-    if (account.type === 'credit') {
-      return account.currentBalance;
-    } else if (account.type === 'loan') {
-      return account.outstandingBalance;
-    } else {
-      return account.availableBalance;
-    }
-  };
-
   const getSecondaryInfo = () => {
     if (account.type === 'savings' && account.interestRate != null) {
       return `Interest Rate ${account.interestRate}% APY`;
-    } else if (account.type === 'credit') {
-      return `Available Credit ${formatCurrency(account.availableCredit)}`;
     } else if (account.type === 'loan') {
       return `Next Payment ${formatCurrency(account.nextPayment)} due ${account.nextPaymentDue}`;
     }
@@ -122,7 +105,7 @@ const AccountCard = ({ account, showBalance, onView, isSelected }) => {
       <div className="mt-0.5 text-xs text-muted">•••• {account.lastFour}</div>
 
       <div className="mt-3 font-serif text-2xl font-bold text-deep-accent">
-        {showBalance ? formatCurrency(getBalanceDisplay()) : '•••••••'}
+        {showBalance ? formatCurrency(account.balance) : '•••••••'}
       </div>
 
       {getSecondaryInfo() && (
@@ -132,7 +115,6 @@ const AccountCard = ({ account, showBalance, onView, isSelected }) => {
   );
 };
 
-// Section header used multiple times
 const SectionHeading = ({ title, subtitle }) => (
   <div className="mb-4 flex items-end justify-between gap-3 border-b border-hairline pb-3">
     <div>
@@ -150,8 +132,8 @@ const Accounts = () => {
   const [error, setError] = useState('');
 
   const [data, setData] = useState({
-    balances: { total: 0, available: 0, pending: 0 },
-    accounts: { checking: [], savings: [], credit: [] },
+    balance: 0,
+    accounts: { checking: [], savings: [] },
     loans: [],
     primaryChecking: null,
     alertPreferences: {
@@ -163,9 +145,6 @@ const Accounts = () => {
     },
   });
 
-  // ------------------------------------------------------------
-  // Fetch from backend
-  // ------------------------------------------------------------
   useEffect(() => {
     const fetchOverview = async () => {
       try {
@@ -188,12 +167,8 @@ const Accounts = () => {
             lastFour: acc.lastFour,
             accountNumber: acc.accountNumber,
             status: acc.status,
-            currentBalance: acc.totalBalance,
-            totalBalance: acc.totalBalance,
-            availableBalance: acc.availableBalance,
-            pendingBalance: acc.pendingBalance,
+            balance: acc.balance,
             interestRate: acc.interestRate,
-            availableCredit: acc.availableBalance,
           };
         };
 
@@ -203,9 +178,8 @@ const Accounts = () => {
           name: loan.name,
           lastFour: loan.lastFour,
           status: loan.status,
-          outstandingBalance: loan.currentBalance,
+          balance: loan.currentBalance,
           currentBalance: loan.currentBalance,
-          availableBalance: loan.currentBalance,
           nextPayment: loan.monthlyPayment,
           nextPaymentDue: formatShortDate(loan.nextPaymentDate),
           interestRate: loan.interestRate,
@@ -229,15 +203,10 @@ const Accounts = () => {
         });
 
         setData({
-          balances: {
-            total: d.balances?.total ?? 0,
-            available: d.balances?.available ?? 0,
-            pending: d.balances?.pending ?? 0,
-          },
+          balance: d.balance ?? 0,
           accounts: {
             checking: checkingList,
             savings: (d.accounts.savings || []).map(transformAccount),
-            credit: (d.accounts.credit || []).map(transformAccount),
           },
           loans: transformedLoans,
           primaryChecking: transformedPrimaryChecking,
@@ -264,9 +233,6 @@ const Accounts = () => {
     fetchOverview();
   }, []);
 
-  // ------------------------------------------------------------
-  // Toggle an alert preference
-  // ------------------------------------------------------------
   const handleToggleAlert = async (key) => {
     const currentValue = data.alertPreferences[key];
     const newValue = !currentValue;
@@ -293,9 +259,6 @@ const Accounts = () => {
   const toggleBalance = () => setShowBalance(!showBalance);
   const handleViewAccount = (accountId) => setSelectedAccountId(accountId);
 
-  // ------------------------------------------------------------
-  // Loading state
-  // ------------------------------------------------------------
   if (loading) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4">
@@ -305,9 +268,6 @@ const Accounts = () => {
     );
   }
 
-  // ------------------------------------------------------------
-  // Error state
-  // ------------------------------------------------------------
   if (error) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4">
@@ -326,13 +286,9 @@ const Accounts = () => {
     );
   }
 
-  // ------------------------------------------------------------
-  // Derived values
-  // ------------------------------------------------------------
   const allAccounts = [
     ...data.accounts.checking,
     ...data.accounts.savings,
-    ...data.accounts.credit,
     ...data.loans,
   ];
 
@@ -341,7 +297,6 @@ const Accounts = () => {
   const categories = [
     { key: 'checking', title: 'Checking', accounts: data.accounts.checking },
     { key: 'savings', title: 'Savings', accounts: data.accounts.savings },
-    { key: 'creditCards', title: 'Credit Cards', accounts: data.accounts.credit },
     ...(data.loans.length > 0 ? [{ key: 'loans', title: 'Loans', accounts: data.loans }] : []),
   ];
 
@@ -359,12 +314,12 @@ const Accounts = () => {
         </div>
       </div>
 
-      {/* Total Balance Summary */}
+      {/* Account Balance Summary */}
       <section className="mb-10">
         <div className="bg-deep-accent p-6 sm:p-8">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70 sm:text-xs">
-              Total Balance
+              Account Balance
             </span>
             <button
               type="button"
@@ -381,22 +336,7 @@ const Accounts = () => {
           </div>
 
           <div className="mt-3 font-serif text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-[2.75rem]">
-            {showBalance ? formatCurrency(data.balances.total) : '•••••••'}
-          </div>
-
-          <div className="mt-6 flex flex-col gap-4 border-t border-white/15 pt-5 sm:flex-row sm:gap-12">
-            <div className="flex items-baseline justify-between gap-3 sm:flex-col sm:items-start sm:gap-1">
-              <span className="text-xs uppercase tracking-wide text-white/60">Available</span>
-              <span className="text-sm font-semibold text-white sm:text-base">
-                {showBalance ? formatCurrency(data.balances.available) : '•••••••'}
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between gap-3 sm:flex-col sm:items-start sm:gap-1">
-              <span className="text-xs uppercase tracking-wide text-white/60">Pending</span>
-              <span className="text-sm font-semibold text-white sm:text-base">
-                {showBalance ? formatCurrency(data.balances.pending) : '•••••••'}
-              </span>
-            </div>
+            {showBalance ? formatCurrency(data.balance) : '•••••••'}
           </div>
         </div>
       </section>
@@ -437,27 +377,13 @@ const Accounts = () => {
               <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:gap-10">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[11px] uppercase tracking-wide text-muted">
-                    Current Balance
+                    Balance
                   </span>
                   <span className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
                     {showBalance
                       ? formatCurrency(
-                          selectedAccount.currentBalance ||
-                            selectedAccount.outstandingBalance ||
-                            0
-                        )
-                      : '•••••••'}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[11px] uppercase tracking-wide text-muted">
-                    Available Balance
-                  </span>
-                  <span className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
-                    {showBalance
-                      ? formatCurrency(
-                          selectedAccount.availableBalance ||
-                            selectedAccount.availableCredit ||
+                          selectedAccount.balance ??
+                            selectedAccount.currentBalance ??
                             0
                         )
                       : '•••••••'}

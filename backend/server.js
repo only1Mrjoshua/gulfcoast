@@ -20,6 +20,8 @@ import statementsRoutes from "./routes/statementsRoutes.js";              // ⬅
 import adminStatementsRoutes from "./routes/adminStatementsRoutes.js";    // ⬅️ NEW
 import cardsRoutes from './routes/cardsRoutes.js';
 import adminCardsRoutes from './routes/adminCardsRoutes.js';
+import adminUsersRoutes from './routes/adminUsersRoutes.js';
+import adminAccountsRoutes from './routes/adminAccountsRoutes.js';
 
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 
@@ -131,7 +133,9 @@ app.use("/api/statements", statementsRoutes);                          // ⬅️
 app.use("/api/admin/statements", adminStatementsRoutes);               // ⬅️ NEW
 app.use("/api/cards", cardsRoutes);                                   // ⬅️ NEW
 app.use("/api/admin/cards", adminCardsRoutes);                        // ⬅️ NEW
-
+app.use("/api/admin/accounts", adminAccountsRoutes);                   // ⬅️ NEW
+app.use("/api/admin/users", adminUsersRoutes);   
+                     // ⬅️ NEW
 // Error middleware
 app.use(notFound);
 app.use(errorHandler);
