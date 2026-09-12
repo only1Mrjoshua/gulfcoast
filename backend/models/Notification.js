@@ -1,6 +1,18 @@
 // models/Notification.js
 import mongoose from 'mongoose';
 
+const NOTIFICATION_CATEGORIES = [
+  'Account',
+  'Transaction',
+  'Promotions',
+  'Security',
+  'Card',
+  'Loan',
+  'Deposit',
+  'Transfer',
+  'Payment',
+];
+
 const notificationSchema = new mongoose.Schema(
   {
     userId: {
@@ -11,8 +23,14 @@ const notificationSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ['Account', 'Transaction', 'Promotions', 'Security'],
+      enum: NOTIFICATION_CATEGORIES,
       required: true,
+      index: true,
+    },
+    // Only used for Card and Loan categories
+    subCategory: {
+      type: String,
+      default: null,
       index: true,
     },
     title:   { type: String, required: true },
@@ -34,5 +52,8 @@ const notificationSchema = new mongoose.Schema(
 );
 
 notificationSchema.index({ userId: 1, date: -1 });
+notificationSchema.index({ userId: 1, category: 1, date: -1 });
+
+notificationSchema.statics.CATEGORIES = NOTIFICATION_CATEGORIES;
 
 export default mongoose.model('Notification', notificationSchema);

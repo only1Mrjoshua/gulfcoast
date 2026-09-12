@@ -4,21 +4,23 @@ import Deposit from '../models/Deposit.js';
 import Account from '../models/Account.js';
 import Transaction from '../models/Transaction.js';
 import { deleteCloudinaryImage } from '../config/cloudinary.js';
+import { notifyUser } from '../utils/notifyUser.js';
 
 // ----------------------------------------------------------------
 // Formatter — handles both populated and non-populated userId
 // ----------------------------------------------------------------
 const formatDeposit = (d) => {
   const u = d.userId;
-  const isPopulated = u && typeof u === 'object' && (u.firstName || u.lastName || u.email);
+  const isPopulated =
+    u && typeof u === 'object' && (u.firstName || u.lastName || u.email);
 
   return {
     id: d._id,
     userId: isPopulated ? u._id : u,
     user: isPopulated
       ? `${u.firstName || ''} ${u.lastName || ''}`.trim() || '—'
-      : (d.userName || '—'),
-    userEmail: isPopulated ? (u.email || '') : (d.userEmail || ''),
+      : d.userName || '—',
+    userEmail: isPopulated ? u.email || '' : d.userEmail || '',
     accountId: d.accountId,
     accountName: d.accountName,
     accountLastFour: d.accountLastFour,
@@ -76,14 +78,7 @@ export const adminGetDeposit = async (req, res) => {
 
 // ================================================================
 // PUT /api/admin/deposits/:id/status
-// Body: { status: 'Pending' | 'Completed' | 'Rejected', adminNote?: string }
-//
-// Rules:
-//   - Pending  → just sets the status back to pending (no balance change)
-//   - Completed→ credits the destination account and records a Transaction
-//   - Rejected → no balance change; best-effort cleanup of Cloudinary images
-//   - Completed deposits cannot be moved back to another status
-//     (funds have already been applied).
+// Body: { status: 'Pending' | 'Completed' | 'Rejected', adminNote? }
 // ================================================================
 export const adminUpdateDepositStatus = async (req, res) => {
   const { id } = req.params;
@@ -106,13 +101,14 @@ export const adminUpdateDepositStatus = async (req, res) => {
         throw new Error(`Deposit is already ${status.toLowerCase()}`);
       }
 
-      // Funds are already applied — lock it down.
       if (deposit.status === 'Completed') {
         throw new Error('Completed deposits cannot be changed');
       }
 
       if (status === 'Completed') {
-        const account = await Account.findById(deposit.accountId).session(session);
+        const account = await Account.findById(deposit.accountId).session(
+          session
+        );
         if (!account) throw new Error('Destination account not found');
 
         account.totalBalance     += deposit.amount;
@@ -149,7 +145,7 @@ export const adminUpdateDepositStatus = async (req, res) => {
       updatedDepositId = deposit._id;
     });
 
-    // Best-effort Cloudinary cleanup for rejected deposits (outside the txn)
+    // Cloudinary cleanup for rejected deposits (outside the txn)
     if (clearImages && updatedDepositId) {
       const fresh = await Deposit.findById(updatedDepositId).lean();
       try {
@@ -182,6 +178,24 @@ export const adminUpdateDepositStatus = async (req, res) => {
       .populate('userId', 'firstName lastName email')
       .lean();
 
+    // ---- Auto-notify on Completed ----
+    if (status === 'Completed' && populated) {
+      try {
+        await notifyUser({
+          userId: populated.userId?._id || populated.userId,
+          category: 'Deposit',
+          title: 'Deposit Completed',
+          message:
+            `Your deposit of $${Number(populated.amount).toFixed(2)} to ` +
+            `${populated.accountName} •••• ${populated.accountLastFour} ` +
+            `has been completed and added to your balance.`,
+          priority: 'Normal',
+        });
+      } catch (notifyErr) {
+        console.warn('Deposit notification failed:', notifyErr.message);
+      }
+    }
+
     res.json({
       message: `Deposit marked as ${status}`,
       deposit: formatDeposit(populated),
@@ -193,7 +207,9 @@ export const adminUpdateDepositStatus = async (req, res) => {
       : /already|cannot|invalid/i.test(err.message)
       ? 400
       : 500;
-    res.status(code).json({ error: err.message || 'Failed to update deposit status' });
+    res
+      .status(code)
+      .json({ error: err.message || 'Failed to update deposit status' });
   } finally {
     await session.endSession();
   }

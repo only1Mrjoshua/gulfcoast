@@ -17,16 +17,40 @@ import {
   Info,
   Loader2,
   Settings,
+  CreditCard,
+  Wallet,
 } from 'lucide-react';
 import { apiFetch } from '../utils/api';
+
+const CARD_ALERT_OPTIONS = [
+  { key: 'largePurchase',            label: 'Large Purchase' },
+  { key: 'cardTransaction',          label: 'Card Transaction' },
+  { key: 'internationalTransaction', label: 'International Transaction' },
+  { key: 'onlinePurchase',           label: 'Online Purchase' },
+  { key: 'atmWithdrawal',            label: 'ATM Withdrawal' },
+  { key: 'paymentDue',               label: 'Payment Due' },
+  { key: 'cardExpiration',           label: 'Card Expiration' },
+];
+
+const LOAN_ALERT_OPTIONS = [
+  { key: 'paymentReminder',    label: 'Payment Reminder' },
+  { key: 'dueDateAlert',       label: 'Due Date Alert' },
+  { key: 'interestRateChange', label: 'Interest Rate Change' },
+  { key: 'payoffNotification', label: 'Payoff Notification' },
+];
 
 const notificationCategories = [
   { value: 'All Notifications', label: 'All Notifications' },
   { value: 'Unread',            label: 'Unread' },
+  { value: 'Account',           label: 'Account' },
   { value: 'Transaction',       label: 'Transactions' },
   { value: 'Security',          label: 'Security' },
-  { value: 'Account',           label: 'Account' },
   { value: 'Promotions',        label: 'Promotions' },
+  { value: 'Card',              label: 'Card' },
+  { value: 'Loan',              label: 'Loan' },
+  { value: 'Deposit',           label: 'Deposit' },
+  { value: 'Transfer',          label: 'Transfer' },
+  { value: 'Payment',           label: 'Payment' },
 ];
 
 const parseDate = (s) => {
@@ -60,6 +84,11 @@ const getTypeIcon = (category) => {
     case 'Transaction': return TrendingUp;
     case 'Promotions':  return Gift;
     case 'Account':     return Landmark;
+    case 'Card':        return CreditCard;
+    case 'Loan':        return Landmark;
+    case 'Deposit':     return Wallet;
+    case 'Transfer':    return TrendingUp;
+    case 'Payment':     return TrendingUp;
     default:            return Bell;
   }
 };
@@ -83,18 +112,36 @@ const Notifications = () => {
     transaction: true,
     promotions: true,
     security: true,
+    deposit: true,
+    transfer: true,
+    payment: true,
+    card: {
+      largePurchase: true,
+      cardTransaction: true,
+      internationalTransaction: true,
+      onlinePurchase: true,
+      atmWithdrawal: true,
+      paymentDue: true,
+      cardExpiration: true,
+    },
+    loan: {
+      paymentReminder: true,
+      dueDateAlert: true,
+      interestRateChange: true,
+      payoffNotification: true,
+    },
   });
   const [showPreferences, setShowPreferences] = useState(false);
   const [prefSaving, setPrefSaving] = useState(false);
 
-  // ────────────────────────────────────────────────────────
   // Load
-  // ────────────────────────────────────────────────────────
   const loadNotifications = useCallback(async () => {
     const res = await apiFetch('/notifications');
     const d = res?.data ?? res;
     setNotifications(d.notifications ?? []);
-    if (d.preferences) setPreferences(d.preferences);
+    if (d.preferences) {
+      setPreferences((prev) => ({ ...prev, ...d.preferences }));
+    }
   }, []);
 
   useEffect(() => {
@@ -113,9 +160,7 @@ const Notifications = () => {
     boot();
   }, [loadNotifications]);
 
-  // ────────────────────────────────────────────────────────
   // Filter
-  // ────────────────────────────────────────────────────────
   const filteredNotifications = useMemo(() => {
     let filtered = notifications;
 
@@ -143,16 +188,13 @@ const Notifications = () => {
     (n) => n.id === selectedNotificationId
   );
 
-  // ────────────────────────────────────────────────────────
   // Handlers
-  // ────────────────────────────────────────────────────────
   const handleOpenNotification = async (id) => {
     setSelectedNotificationId(id);
 
     const target = notifications.find((n) => n.id === id);
     if (!target || target.read) return;
 
-    // Optimistic
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
@@ -161,7 +203,6 @@ const Notifications = () => {
       await apiFetch(`/notifications/${id}/read`, { method: 'PUT' });
     } catch (err) {
       console.error('❌ Mark read failed:', err);
-      // Roll back on failure
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, read: false } : n))
       );
@@ -202,11 +243,18 @@ const Notifications = () => {
     }
   };
 
-  // ────────────────────────────────────────────────────────
   // Preferences
-  // ────────────────────────────────────────────────────────
-  const togglePreference = (key) => {
-    setPreferences((prev) => ({ ...prev, [key]: !prev[key] }));
+  const togglePreference = (path) => {
+    setPreferences((prev) => {
+      const next = JSON.parse(JSON.stringify(prev));
+      if (path.includes('.')) {
+        const [parent, child] = path.split('.');
+        next[parent][child] = !next[parent][child];
+      } else {
+        next[path] = !next[path];
+      }
+      return next;
+    });
   };
 
   const handleSavePreferences = async () => {
@@ -216,7 +264,6 @@ const Notifications = () => {
         method: 'PUT',
         body: JSON.stringify(preferences),
       });
-      // Reload to apply the filter
       await loadNotifications();
       setShowPreferences(false);
     } catch (err) {
@@ -226,9 +273,7 @@ const Notifications = () => {
     }
   };
 
-  // ────────────────────────────────────────────────────────
   // Stats
-  // ────────────────────────────────────────────────────────
   const unreadCount = notifications.filter((n) => !n.read).length;
   const importantCount = notifications.filter(
     (n) => n.priority === 'Important'
@@ -627,7 +672,7 @@ const Notifications = () => {
           onClick={() => !prefSaving && setShowPreferences(false)}
         >
           <div
-            className="relative w-full max-w-[480px] border border-hairline bg-white p-6 sm:p-8"
+            className="relative max-h-[90vh] w-full max-w-[520px] overflow-y-auto border border-hairline bg-white p-6 sm:p-8"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -654,38 +699,117 @@ const Notifications = () => {
               </div>
             </div>
 
-            <div className="mt-6 flex flex-col divide-y divide-faint border-y border-hairline">
-              {[
-                { key: 'account',     label: 'Account Alerts' },
-                { key: 'transaction', label: 'Transaction Alerts' },
-                { key: 'promotions',  label: 'Promotions' },
-                { key: 'security',    label: 'Security Alerts' },
-              ].map(({ key, label }) => (
-                <div
-                  key={key}
-                  className="flex items-center justify-between py-3"
-                >
-                  <span className="text-sm font-semibold text-deep-accent">
-                    {label}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => togglePreference(key)}
-                    className={`inline-flex items-center gap-1.5 border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors ${
-                      preferences[key]
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-hairline bg-faint text-muted'
-                    }`}
+            {/* General */}
+            <div className="mt-6">
+              <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted">
+                General
+              </h3>
+              <div className="flex flex-col divide-y divide-faint border-y border-hairline">
+                {[
+                  { key: 'account',     label: 'Account Alerts' },
+                  { key: 'transaction', label: 'Transaction Alerts' },
+                  { key: 'promotions',  label: 'Promotions' },
+                  { key: 'security',    label: 'Security Alerts' },
+                  { key: 'deposit',     label: 'Deposit Alerts' },
+                  { key: 'transfer',    label: 'Transfer Alerts' },
+                  { key: 'payment',     label: 'Payment Alerts' },
+                ].map(({ key, label }) => (
+                  <div
+                    key={key}
+                    className="flex items-center justify-between py-2.5"
                   >
-                    <span
-                      className={`h-1.5 w-1.5 ${
-                        preferences[key] ? 'bg-primary' : 'bg-muted'
+                    <span className="text-sm font-semibold text-deep-accent">
+                      {label}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => togglePreference(key)}
+                      className={`inline-flex items-center gap-1.5 border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors ${
+                        preferences[key]
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-hairline bg-faint text-muted'
                       }`}
-                    />
-                    {preferences[key] ? 'ON' : 'OFF'}
-                  </button>
-                </div>
-              ))}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 ${
+                          preferences[key] ? 'bg-primary' : 'bg-muted'
+                        }`}
+                      />
+                      {preferences[key] ? 'ON' : 'OFF'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Card alerts */}
+            <div className="mt-6">
+              <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted">
+                Card Alerts
+              </h3>
+              <div className="flex flex-col divide-y divide-faint border-y border-hairline">
+                {CARD_ALERT_OPTIONS.map(({ key, label }) => (
+                  <div
+                    key={key}
+                    className="flex items-center justify-between py-2.5"
+                  >
+                    <span className="text-sm font-semibold text-deep-accent">
+                      {label}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => togglePreference(`card.${key}`)}
+                      className={`inline-flex items-center gap-1.5 border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors ${
+                        preferences.card[key]
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-hairline bg-faint text-muted'
+                      }`}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 ${
+                          preferences.card[key] ? 'bg-primary' : 'bg-muted'
+                        }`}
+                      />
+                      {preferences.card[key] ? 'ON' : 'OFF'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Loan alerts */}
+            <div className="mt-6">
+              <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted">
+                Loan Alerts
+              </h3>
+              <div className="flex flex-col divide-y divide-faint border-y border-hairline">
+                {LOAN_ALERT_OPTIONS.map(({ key, label }) => (
+                  <div
+                    key={key}
+                    className="flex items-center justify-between py-2.5"
+                  >
+                    <span className="text-sm font-semibold text-deep-accent">
+                      {label}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => togglePreference(`loan.${key}`)}
+                      className={`inline-flex items-center gap-1.5 border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors ${
+                        preferences.loan[key]
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-hairline bg-faint text-muted'
+                      }`}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 ${
+                          preferences.loan[key] ? 'bg-primary' : 'bg-muted'
+                        }`}
+                      />
+                      {preferences.loan[key] ? 'ON' : 'OFF'}
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="mt-6 flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">

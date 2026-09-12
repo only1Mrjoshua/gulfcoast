@@ -32,6 +32,7 @@ import notificationsRoutes from './routes/notificationsRoutes.js';
 import adminNotificationsRoutes from './routes/adminNotificationsRoutes.js';
 
 import { startGoalContributionJob } from './jobs/goalContributions.js';
+import { startPaymentDueJob } from './jobs/paymentDueNotifications.js';
 
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 
@@ -165,8 +166,9 @@ if (!process.env.VERCEL) {
       console.log("✅ Connected to MongoDB");
       app.listen(PORT, "0.0.0.0", () => {
         console.log(`✅ Server running on port ${PORT}`);
-        // Start the recurring goal contribution engine
+        // Start the recurring job engines
         startGoalContributionJob();
+        startPaymentDueJob();
       });
     })
     .catch((err) => {

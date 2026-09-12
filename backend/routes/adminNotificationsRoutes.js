@@ -2,6 +2,7 @@
 import express from 'express';
 import {
   adminListNotifications,
+  adminNotificationMeta,
   adminGetUserNotifications,
   adminSendNotification,
   adminDeleteNotification,
@@ -10,9 +11,10 @@ import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.get('/',           protect, adminListNotifications);
-router.get('/:userId',    protect, adminGetUserNotifications);
-router.post('/:userId',   protect, adminSendNotification);
-router.delete('/:id',     protect, adminDeleteNotification);
+router.get('/',          protect, adminListNotifications);
+router.get('/meta',      protect, adminNotificationMeta);
+router.get('/:userId',   protect, adminGetUserNotifications);
+router.post('/:userId',  protect, adminSendNotification);
+router.delete('/:id',    protect, adminDeleteNotification);
 
 export default router;

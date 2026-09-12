@@ -2,22 +2,20 @@
 import mongoose from 'mongoose';
 import Notification from '../models/Notification.js';
 import User from '../models/User.js';
-
-const CATEGORY_KEYS = {
-  Account:     'account',
-  Transaction: 'transaction',
-  Promotions:  'promotions',
-  Security:    'security',
-};
+import {
+  shouldShowNotification,
+  buildFullPreferences,
+  CARD_SUBCATEGORIES,
+  LOAN_SUBCATEGORIES,
+} from '../utils/notifyUser.js';
 
 const formatNotification = (n) => {
   const d = new Date(n.date);
-  const iso = Number.isNaN(d.getTime())
-    ? ''
-    : d.toISOString().split('T')[0];
+  const iso = Number.isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
   return {
     id: n._id,
     category: n.category,
+    subCategory: n.subCategory || null,
     title: n.title,
     message: n.message,
     preview:
@@ -28,20 +26,6 @@ const formatNotification = (n) => {
   };
 };
 
-const defaultPrefs = () => ({
-  account: true,
-  transaction: true,
-  promotions: true,
-  security: true,
-});
-
-const normalizePrefs = (prefs = {}) => ({
-  account:     prefs.account !== false,
-  transaction: prefs.transaction !== false,
-  promotions:  prefs.promotions !== false,
-  security:    prefs.security !== false,
-});
-
 // ================================================================
 // GET /api/notifications
 // ================================================================
@@ -49,25 +33,20 @@ export const getNotifications = async (req, res) => {
   try {
     const userId = req.user._id;
     const user = await User.findById(userId)
-      .select('notificationPreferences')
+      .select(
+        'notificationPreferences cardAlertPreferences loanAlertPreferences'
+      )
       .lean();
-    const prefs = normalizePrefs(user?.notificationPreferences || defaultPrefs());
 
-    const allowed = [];
-    for (const [category, key] of Object.entries(CATEGORY_KEYS)) {
-      if (prefs[key]) allowed.push(category);
-    }
-
-    const notifications = await Notification.find({
-      userId,
-      category: { $in: allowed },
-    })
+    const notifications = await Notification.find({ userId })
       .sort({ date: -1 })
       .lean();
 
+    const visible = notifications.filter((n) => shouldShowNotification(n, user));
+
     res.json({
-      notifications: notifications.map(formatNotification),
-      preferences: prefs,
+      notifications: visible.map(formatNotification),
+      preferences: buildFullPreferences(user),
     });
   } catch (err) {
     console.error('❌ getNotifications:', err);
@@ -149,11 +128,11 @@ export const deleteNotification = async (req, res) => {
 export const getNotificationPreferences = async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
-      .select('notificationPreferences')
+      .select(
+        'notificationPreferences cardAlertPreferences loanAlertPreferences'
+      )
       .lean();
-    res.json({
-      preferences: normalizePrefs(user?.notificationPreferences),
-    });
+    res.json({ preferences: buildFullPreferences(user) });
   } catch (err) {
     console.error('❌ getNotificationPreferences:', err);
     res.status(500).json({ error: 'Failed to load preferences' });
@@ -162,7 +141,9 @@ export const getNotificationPreferences = async (req, res) => {
 
 // ================================================================
 // PUT /api/notifications/preferences
-// Body: { account?, transaction?, promotions?, security? }
+// Body: { account?, transaction?, promotions?, security?,
+//         deposit?, transfer?, payment?,
+//         card?: { ...7 keys... }, loan?: { ...4 keys... } }
 // ================================================================
 export const updateNotificationPreferences = async (req, res) => {
   try {
@@ -170,9 +151,36 @@ export const updateNotificationPreferences = async (req, res) => {
     const body = req.body || {};
     const update = {};
 
-    for (const key of ['account', 'transaction', 'promotions', 'security']) {
+    // Simple booleans
+    for (const key of [
+      'account',
+      'transaction',
+      'promotions',
+      'security',
+      'deposit',
+      'transfer',
+      'payment',
+    ]) {
       if (body[key] !== undefined) {
         update[`notificationPreferences.${key}`] = !!body[key];
+      }
+    }
+
+    // Card sub-alerts → cardAlertPreferences
+    if (body.card && typeof body.card === 'object') {
+      for (const key of Object.keys(CARD_SUBCATEGORIES)) {
+        if (body.card[key] !== undefined) {
+          update[`cardAlertPreferences.${key}`] = !!body.card[key];
+        }
+      }
+    }
+
+    // Loan sub-alerts → loanAlertPreferences
+    if (body.loan && typeof body.loan === 'object') {
+      for (const key of Object.keys(LOAN_SUBCATEGORIES)) {
+        if (body.loan[key] !== undefined) {
+          update[`loanAlertPreferences.${key}`] = !!body.loan[key];
+        }
       }
     }
 
@@ -180,11 +188,11 @@ export const updateNotificationPreferences = async (req, res) => {
       userId,
       { $set: update },
       { new: true, lean: true }
-    ).select('notificationPreferences');
+    ).select(
+      'notificationPreferences cardAlertPreferences loanAlertPreferences'
+    );
 
-    res.json({
-      preferences: normalizePrefs(user?.notificationPreferences),
-    });
+    res.json({ preferences: buildFullPreferences(user) });
   } catch (err) {
     console.error('❌ updateNotificationPreferences:', err);
     res.status(500).json({ error: 'Failed to update preferences' });

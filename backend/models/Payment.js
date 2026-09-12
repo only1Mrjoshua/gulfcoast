@@ -45,6 +45,7 @@ const paymentSchema = new mongoose.Schema({
   confirmationNumber: { type: String, default: '' },
   completedAt:        { type: Date, default: null },
   failedAt:           { type: Date, default: null },
+  lastDueReminderAt: { type: Date, default: null },
   adminNote:          { type: String, default: '' },
 }, { timestamps: true });
 

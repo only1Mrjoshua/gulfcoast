@@ -1,6 +1,8 @@
 // controllers/adminTransfersController.js
 import Transfer from '../models/Transfer.js';
 import { executeTransfer } from '../utils/transferExecutor.js';
+import { notifyUser } from '../utils/notifyUser.js';
+import { buildTransferNotificationMessage } from './transfersController.js';
 
 // ── Formatter ────────────────────────────────────────────────
 const formatTransfer = (t) => {
@@ -40,6 +42,9 @@ const formatTransfer = (t) => {
     adminNote: t.adminNote || '',
   };
 };
+
+// ── Internal: extract the owning user id from a populated doc ──
+const ownerIdOf = (t) => t.userId?._id || t.userId;
 
 // ================================================================
 // GET /api/admin/transfers
@@ -129,6 +134,26 @@ export const adminUpdateTransferStatus = async (req, res) => {
       const exec = await executeTransfer(id);
 
       if (exec?.failed) {
+        // Money didn't move — notify as failed
+        const failedPopulated = await Transfer.findById(id)
+          .populate('userId', 'firstName lastName email')
+          .lean();
+
+        try {
+          await notifyUser({
+            userId: ownerIdOf(failedPopulated),
+            category: 'Transfer',
+            title: 'Transfer Failed',
+            message: buildTransferNotificationMessage(
+              failedPopulated,
+              'The transfer failed. Please contact support if you have questions.'
+            ),
+            priority: 'Important',
+          });
+        } catch (notifyErr) {
+          console.warn('Transfer failed notification failed:', notifyErr.message);
+        }
+
         return res.status(400).json({
           error:
             'Transfer could not be completed: ' +
@@ -145,6 +170,25 @@ export const adminUpdateTransferStatus = async (req, res) => {
         .populate('userId', 'firstName lastName email')
         .lean();
 
+      // ── Notify user: Transfer Completed ────────────────────
+      try {
+        await notifyUser({
+          userId: ownerIdOf(updated),
+          category: 'Transfer',
+          title: 'Transfer Completed',
+          message: buildTransferNotificationMessage(
+            updated,
+            'The transfer was completed successfully.'
+          ),
+          priority: 'Normal',
+        });
+      } catch (notifyErr) {
+        console.warn(
+          'Transfer completed notification failed:',
+          notifyErr.message
+        );
+      }
+
       return res.json({
         message: 'Transfer completed — balances updated',
         transfer: formatTransfer(updated),
@@ -160,6 +204,24 @@ export const adminUpdateTransferStatus = async (req, res) => {
     const populated = await Transfer.findById(id)
       .populate('userId', 'firstName lastName email')
       .lean();
+
+    // ── Notify user: Transfer Failed (only when status is Failed)
+    if (status === 'Failed') {
+      try {
+        await notifyUser({
+          userId: ownerIdOf(populated),
+          category: 'Transfer',
+          title: 'Transfer Failed',
+          message: buildTransferNotificationMessage(
+            populated,
+            'The transfer failed. Please contact support if you have questions.'
+          ),
+          priority: 'Important',
+        });
+      } catch (notifyErr) {
+        console.warn('Transfer failed notification failed:', notifyErr.message);
+      }
+    }
 
     res.json({
       message: `Transfer marked ${status}`,

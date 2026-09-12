@@ -6,6 +6,32 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '../../utils/api';
 
+const ADMIN_CATEGORIES = [
+  { value: 'Account',     label: 'Account' },
+  { value: 'Transaction', label: 'Transaction' },
+  { value: 'Promotions',  label: 'Promotions' },
+  { value: 'Security',    label: 'Security' },
+  { value: 'Card',        label: 'Card' },
+  { value: 'Loan',        label: 'Loan' },
+];
+
+const CARD_SUBCATEGORIES = [
+  { key: 'largePurchase',            label: 'Large Purchase' },
+  { key: 'cardTransaction',          label: 'Card Transaction' },
+  { key: 'internationalTransaction', label: 'International Transaction' },
+  { key: 'onlinePurchase',           label: 'Online Purchase' },
+  { key: 'atmWithdrawal',            label: 'ATM Withdrawal' },
+  { key: 'paymentDue',               label: 'Payment Due' },
+  { key: 'cardExpiration',           label: 'Card Expiration' },
+];
+
+const LOAN_SUBCATEGORIES = [
+  { key: 'paymentReminder',    label: 'Payment Reminder' },
+  { key: 'dueDateAlert',       label: 'Due Date Alert' },
+  { key: 'interestRateChange', label: 'Interest Rate Change' },
+  { key: 'payoffNotification', label: 'Payoff Notification' },
+];
+
 const formatDate = (dateStr) => {
   if (!dateStr) return '—';
   const s = String(dateStr);
@@ -20,6 +46,15 @@ const formatDate = (dateStr) => {
 
 const todayISO = () => new Date().toISOString().split('T')[0];
 
+const emptyForm = {
+  category: 'Account',
+  subCategory: '',
+  title: '',
+  date: todayISO(),
+  priority: 'Normal',
+  message: '',
+};
+
 const ManageNotifications = () => {
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,18 +68,9 @@ const ManageNotifications = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [sendSuccess, setSendSuccess] = useState(false);
 
-  const [newNotification, setNewNotification] = useState({
-    category: 'Account',
-    title: '',
-    date: todayISO(),
-    priority: 'Normal',
-    message: '',
-  });
-
+  const [newNotification, setNewNotification] = useState({ ...emptyForm });
   const [formError, setFormError] = useState('');
 
-  // ────────────────────────────────────────────────────────
-  // Load user list
   // ────────────────────────────────────────────────────────
   const loadUsers = useCallback(async () => {
     const res = await apiFetch('/admin/notifications');
@@ -74,20 +100,22 @@ const ManageNotifications = () => {
       (u.id || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // ────────────────────────────────────────────────────────
-  // Manage click — load the user's full history
-  // ────────────────────────────────────────────────────────
+  const currentCategoryHasSub =
+    newNotification.category === 'Card' ||
+    newNotification.category === 'Loan';
+
+  const currentSubOptions =
+    newNotification.category === 'Card'
+      ? CARD_SUBCATEGORIES
+      : newNotification.category === 'Loan'
+      ? LOAN_SUBCATEGORIES
+      : [];
+
   const handleManageClick = async (user) => {
     setSelectedUser(JSON.parse(JSON.stringify(user)));
     setSendSuccess(false);
     setFormError('');
-    setNewNotification({
-      category: 'Account',
-      title: '',
-      date: todayISO(),
-      priority: 'Normal',
-      message: '',
-    });
+    setNewNotification({ ...emptyForm });
     setIsModalOpen(true);
     setDetailLoading(true);
 
@@ -100,7 +128,6 @@ const ManageNotifications = () => {
           ...(prev || {}),
           ...user,
           notifications: detail.notifications || [],
-          notificationPreferences: detail.notificationPreferences,
         }));
       }
     } catch (err) {
@@ -110,12 +137,13 @@ const ManageNotifications = () => {
     }
   };
 
-  // ────────────────────────────────────────────────────────
-  // Send notification
-  // ────────────────────────────────────────────────────────
   const handleSendNotification = async () => {
     if (!selectedUser) return;
     if (!newNotification.title.trim() || !newNotification.message.trim()) return;
+    if (currentCategoryHasSub && !newNotification.subCategory) {
+      setFormError('Please select a subcategory');
+      return;
+    }
 
     setSending(true);
     setFormError('');
@@ -125,6 +153,7 @@ const ManageNotifications = () => {
         method: 'POST',
         body: JSON.stringify({
           category: newNotification.category,
+          subCategory: newNotification.subCategory || null,
           title: newNotification.title.trim(),
           message: newNotification.message.trim(),
           date: newNotification.date,
@@ -132,7 +161,7 @@ const ManageNotifications = () => {
         }),
       });
 
-      // Refresh detail (to show the new one at top)
+      // Refresh detail
       const res = await apiFetch(`/admin/notifications/${selectedUser.id}`);
       const d = res?.data ?? res;
       const detail = d?.user;
@@ -143,17 +172,10 @@ const ManageNotifications = () => {
         }));
       }
 
-      // Refresh the list (to update last notification + count)
       await loadUsers();
 
       setSendSuccess(true);
-      setNewNotification({
-        category: 'Account',
-        title: '',
-        date: todayISO(),
-        priority: 'Normal',
-        message: '',
-      });
+      setNewNotification({ ...emptyForm });
       setTimeout(() => setSendSuccess(false), 3000);
     } catch (err) {
       setFormError(err.message || 'Failed to send notification');
@@ -235,7 +257,7 @@ const ManageNotifications = () => {
         </button>
       </div>
 
-      {/* User Notifications Summary Table */}
+      {/* Table */}
       <div className="overflow-x-auto border border-hairline bg-white">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-hairline bg-faint/50 text-xs uppercase tracking-wide text-muted">
@@ -290,7 +312,7 @@ const ManageNotifications = () => {
         )}
       </div>
 
-      {/* --- MANAGE USER NOTIFICATIONS MODAL --- */}
+      {/* Modal */}
       {isModalOpen && selectedUser && (
         <div
           className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4"
@@ -323,7 +345,7 @@ const ManageNotifications = () => {
             </div>
 
             <div className="flex flex-col gap-8">
-              {/* SECTION 1: SEND NEW NOTIFICATION */}
+              {/* Send new */}
               <div className="border border-hairline bg-faint/30 p-5">
                 <h3 className="mb-4 font-serif text-lg font-bold text-deep-accent flex items-center gap-2">
                   <Send className="h-4 w-4 text-primary" /> Send New Notification
@@ -342,7 +364,7 @@ const ManageNotifications = () => {
                 )}
 
                 <div className="flex flex-col gap-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-semibold text-deep-accent flex items-center gap-1.5">
                         <Tag className="h-3 w-3" /> Category
@@ -353,14 +375,16 @@ const ManageNotifications = () => {
                           setNewNotification({
                             ...newNotification,
                             category: e.target.value,
+                            subCategory: '',
                           })
                         }
                         className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
                       >
-                        <option value="Account">Account</option>
-                        <option value="Transaction">Transaction</option>
-                        <option value="Promotions">Promotions</option>
-                        <option value="Security">Security</option>
+                        {ADMIN_CATEGORIES.map((c) => (
+                          <option key={c.value} value={c.value}>
+                            {c.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div className="flex flex-col gap-1.5">
@@ -380,6 +404,31 @@ const ManageNotifications = () => {
                         className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
                       />
                     </div>
+
+                    {currentCategoryHasSub && (
+                      <div className="flex flex-col gap-1.5 sm:col-span-2">
+                        <label className="text-xs font-semibold text-deep-accent flex items-center gap-1.5">
+                          <Tag className="h-3 w-3" /> Subcategory
+                        </label>
+                        <select
+                          value={newNotification.subCategory}
+                          onChange={(e) =>
+                            setNewNotification({
+                              ...newNotification,
+                              subCategory: e.target.value,
+                            })
+                          }
+                          className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                        >
+                          <option value="">Select subcategory</option>
+                          {currentSubOptions.map((s) => (
+                            <option key={s.key} value={s.key}>
+                              {s.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -453,6 +502,8 @@ const ManageNotifications = () => {
                       disabled={
                         !newNotification.title.trim() ||
                         !newNotification.message.trim() ||
+                        (currentCategoryHasSub &&
+                          !newNotification.subCategory) ||
                         sending
                       }
                       className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-deep disabled:opacity-50 disabled:cursor-not-allowed"
@@ -468,7 +519,7 @@ const ManageNotifications = () => {
                 </div>
               </div>
 
-              {/* SECTION 2: NOTIFICATION HISTORY */}
+              {/* History */}
               <div>
                 <h3 className="mb-4 font-serif text-lg font-bold text-deep-accent flex items-center gap-2">
                   <Bell className="h-4 w-4 text-primary" /> Notification History
@@ -489,13 +540,18 @@ const ManageNotifications = () => {
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-semibold text-deep-accent">
                                 {notif.title}
                               </span>
                               <span className="font-mono text-[10px] text-muted bg-faint px-1.5 py-0.5">
                                 {notif.category}
                               </span>
+                              {notif.subCategory && (
+                                <span className="font-mono text-[10px] text-muted bg-faint px-1.5 py-0.5">
+                                  {notif.subCategory}
+                                </span>
+                              )}
                             </div>
                             <span className="text-xs text-muted">
                               {formatDate(notif.date)}
@@ -512,7 +568,6 @@ const ManageNotifications = () => {
                 )}
               </div>
 
-              {/* MODAL ACTIONS */}
               <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">
                 <button
                   onClick={() => setIsModalOpen(false)}

@@ -2,15 +2,19 @@
 import mongoose from 'mongoose';
 import Notification from '../models/Notification.js';
 import User from '../models/User.js';
+import {
+  notifyUser,
+  CARD_SUBCATEGORIES,
+  LOAN_SUBCATEGORIES,
+} from '../utils/notifyUser.js';
 
 const formatNotification = (n) => {
   const d = new Date(n.date);
-  const iso = Number.isNaN(d.getTime())
-    ? ''
-    : d.toISOString().split('T')[0];
+  const iso = Number.isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
   return {
     id: n._id,
     category: n.category,
+    subCategory: n.subCategory || null,
     title: n.title,
     message: n.message,
     date: iso,
@@ -21,7 +25,6 @@ const formatNotification = (n) => {
 
 // ================================================================
 // GET /api/admin/notifications
-// Lists every non-admin user with count + last notification.
 // ================================================================
 export const adminListNotifications = async (req, res) => {
   try {
@@ -79,6 +82,33 @@ export const adminListNotifications = async (req, res) => {
 };
 
 // ================================================================
+// GET /api/admin/notifications/meta
+// Frontend uses this to render the correct subcategory picker.
+// ================================================================
+export const adminNotificationMeta = async (req, res) => {
+  res.json({
+    categories: [
+      'Account',
+      'Transaction',
+      'Promotions',
+      'Security',
+      'Card',
+      'Loan',
+    ],
+    subcategories: {
+      Card: Object.entries(CARD_SUBCATEGORIES).map(([key, label]) => ({
+        key,
+        label,
+      })),
+      Loan: Object.entries(LOAN_SUBCATEGORIES).map(([key, label]) => ({
+        key,
+        label,
+      })),
+    },
+  });
+};
+
+// ================================================================
 // GET /api/admin/notifications/:userId
 // ================================================================
 export const adminGetUserNotifications = async (req, res) => {
@@ -89,7 +119,9 @@ export const adminGetUserNotifications = async (req, res) => {
     }
 
     const user = await User.findById(userId)
-      .select('firstName lastName email notificationPreferences')
+      .select(
+        'firstName lastName email notificationPreferences cardAlertPreferences loanAlertPreferences'
+      )
       .lean();
     if (!user) return res.status(404).json({ error: 'User not found' });
 
@@ -97,20 +129,12 @@ export const adminGetUserNotifications = async (req, res) => {
       .sort({ date: -1 })
       .lean();
 
-    const prefs = user.notificationPreferences || {};
-
     res.json({
       user: {
         id: String(user._id),
         user:
           `${user.firstName || ''} ${user.lastName || ''}`.trim() || '—',
         userEmail: user.email || '',
-        notificationPreferences: {
-          account:     prefs.account !== false,
-          transaction: prefs.transaction !== false,
-          promotions:  prefs.promotions !== false,
-          security:    prefs.security !== false,
-        },
         notifications: notifications.map(formatNotification),
       },
     });
@@ -122,12 +146,13 @@ export const adminGetUserNotifications = async (req, res) => {
 
 // ================================================================
 // POST /api/admin/notifications/:userId
-// Body: { category, title, message, date?, priority? }
+// Body: { category, subCategory?, title, message, date?, priority? }
 // ================================================================
 export const adminSendNotification = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { category, title, message, date, priority } = req.body || {};
+    const { category, subCategory, title, message, date, priority } =
+      req.body || {};
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ error: 'Invalid user id' });
@@ -138,10 +163,32 @@ export const adminSendNotification = async (req, res) => {
       'Transaction',
       'Promotions',
       'Security',
+      'Card',
+      'Loan',
     ];
     if (!validCategories.includes(category)) {
       return res.status(400).json({ error: 'Invalid category' });
     }
+
+    // Validate subCategory for Card / Loan
+    if (category === 'Card') {
+      if (!subCategory || !(subCategory in CARD_SUBCATEGORIES)) {
+        return res
+          .status(400)
+          .json({ error: 'A valid card subcategory is required' });
+      }
+    } else if (category === 'Loan') {
+      if (!subCategory || !(subCategory in LOAN_SUBCATEGORIES)) {
+        return res
+          .status(400)
+          .json({ error: 'A valid loan subcategory is required' });
+      }
+    } else if (subCategory) {
+      return res
+        .status(400)
+        .json({ error: 'Subcategory is only allowed for Card and Loan' });
+    }
+
     if (!title || !title.trim()) {
       return res.status(400).json({ error: 'Title is required' });
     }
@@ -152,16 +199,15 @@ export const adminSendNotification = async (req, res) => {
     const user = await User.findById(userId).select('_id').lean();
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const notification = await Notification.create({
+    // Always create — the read endpoint filters by preference
+    const notification = await notifyUser({
       userId,
       category,
+      subCategory: subCategory || null,
       title: title.trim(),
       message: message.trim(),
-      date: date ? new Date(date) : new Date(),
-      priority: ['Normal', 'Important'].includes(priority)
-        ? priority
-        : 'Normal',
-      read: false,
+      date,
+      priority,
       sentBy: req.user._id,
     });
 

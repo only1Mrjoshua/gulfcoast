@@ -3,6 +3,7 @@ import Transfer from '../models/Transfer.js';
 import Account from '../models/Account.js';
 import User from '../models/User.js';
 import { generateTransferReceiptPdf } from '../utils/pdfReceipt.js';
+import { notifyUser } from '../utils/notifyUser.js';
 
 const WIRE_FEE = 25;
 
@@ -68,6 +69,38 @@ function formatTransferForList(t) {
   };
 }
 
+// ----------------------------------------------------------------
+// Helper: build a human-readable notification message from a
+// transfer doc. Used by this controller and the admin one.
+//
+// @param {Object} transfer  raw Transfer doc (lean or Mongoose)
+// @param {String} statusLabel  e.g. 'pending review', 'completed',
+//                              'failed. Please contact support.'
+// ----------------------------------------------------------------
+export function buildTransferNotificationMessage(transfer, statusLabel) {
+  const from = transfer.fromLastFour
+    ? `${transfer.fromAccountName} •••• ${transfer.fromLastFour}`
+    : transfer.fromAccountName;
+
+  let to;
+  if (transfer.type === 'internal' || transfer.type === 'recurring') {
+    to = transfer.toLastFour
+      ? `${transfer.toAccountName} •••• ${transfer.toLastFour}`
+      : transfer.toAccountName || 'your account';
+  } else {
+    const name = transfer.recipient?.fullName || 'your recipient';
+    const bank = transfer.recipient?.bankName || 'their bank';
+    to = `${name} at ${bank}`;
+  }
+
+  const amount = Number(transfer.amount || 0).toFixed(2);
+
+  return (
+    `You just made a transfer of $${amount} from ${from} to ${to}. ` +
+    statusLabel
+  );
+}
+
 // ================================================================
 // GET /api/transfers
 // ================================================================
@@ -81,10 +114,9 @@ export const getTransfers = async (req, res) => {
 
     const formatted = transfers.map(formatTransferForList);
 
-    // Build the unique list of YYYY-MM month keys for the dropdown
     const monthSet = new Set();
     formatted.forEach((t) => {
-      if (t.date) monthSet.add(t.date.slice(0, 7)); // 'YYYY-MM'
+      if (t.date) monthSet.add(t.date.slice(0, 7));
     });
     const months = Array.from(monthSet).sort().reverse();
 
@@ -108,7 +140,7 @@ export const getTransferAccounts = async (req, res) => {
     const accounts = await Account.find({
       userId,
       status: 'Active',
-      type: { $in: ['Checking', 'Savings'] }, // no credit cards for transfers
+      type: { $in: ['Checking', 'Savings'] },
     }).lean();
 
     res.json({
@@ -163,38 +195,52 @@ export const createTransfer = async (req, res) => {
       return res.status(400).json({ error: 'Invalid amount' });
     }
 
-    // Load source account
     const from = await Account.findOne({ _id: fromAccountId, userId });
     if (!from) return res.status(404).json({ error: 'Source account not found' });
 
-    // Insufficient funds check (user-side, at creation time)
     const wireFee = type === 'wire' ? WIRE_FEE : 0;
     const totalDebit = amountNum + wireFee;
 
     if (from.availableBalance < totalDebit) {
-      const acctLabel = from.subType ? `${from.subType} ${from.type}` : from.type;
+      const acctLabel = from.subType
+        ? `${from.subType} ${from.type}`
+        : from.type;
       return res.status(400).json({
-        error: `Insufficient funds in your ${acctLabel} account. Available: $${from.availableBalance.toFixed(2)}`,
+        error: `Insufficient funds in your ${acctLabel} account. Available: $${from.availableBalance.toFixed(
+          2
+        )}`,
       });
     }
 
-    // Internal / recurring require a destination account
     let to = null;
     if (type === 'internal' || type === 'recurring') {
       to = await Account.findOne({ _id: toAccountId, userId });
-      if (!to) return res.status(400).json({ error: 'Destination account is required' });
+      if (!to)
+        return res
+          .status(400)
+          .json({ error: 'Destination account is required' });
       if (String(to._id) === String(from._id)) {
-        return res.status(400).json({ error: 'From and To accounts must be different' });
+        return res
+          .status(400)
+          .json({ error: 'From and To accounts must be different' });
       }
     }
 
-    // External / wire require recipient fields
     if (type === 'external' || type === 'wire') {
-      if (!recipientName || !recipientBankName || !recipientRoutingNumber || !recipientAccountNumber) {
-        return res.status(400).json({ error: 'Recipient details are incomplete' });
+      if (
+        !recipientName ||
+        !recipientBankName ||
+        !recipientRoutingNumber ||
+        !recipientAccountNumber
+      ) {
+        return res
+          .status(400)
+          .json({ error: 'Recipient details are incomplete' });
       }
       if (!/^\d{9}$/.test(recipientRoutingNumber)) {
-        return res.status(400).json({ error: 'Routing number must be 9 digits' });
+        return res
+          .status(400)
+          .json({ error: 'Routing number must be 9 digits' });
       }
     }
 
@@ -207,30 +253,37 @@ export const createTransfer = async (req, res) => {
       type,
 
       fromAccountId: from._id,
-      fromAccountName: from.subType ? `${from.subType} ${from.type}` : from.type,
+      fromAccountName: from.subType
+        ? `${from.subType} ${from.type}`
+        : from.type,
       fromLastFour: from.accountNumber ? from.accountNumber.slice(-4) : '',
 
       toAccountId: to?._id || null,
-      toAccountName: to ? (to.subType ? `${to.subType} ${to.type}` : to.type) : '',
+      toAccountName: to
+        ? to.subType
+          ? `${to.subType} ${to.type}`
+          : to.type
+        : '',
       toLastFour: to?.accountNumber ? to.accountNumber.slice(-4) : '',
 
-      recipient: (type === 'external' || type === 'wire')
-        ? {
-            fullName: recipientName,
-            bankName: recipientBankName,
-            routingNumber: recipientRoutingNumber,
-            accountNumber: recipientAccountNumber,
-            accountType: recipientAccountType || 'checking',
-            bankAddress: recipientBankAddress || '',
-          }
-        : undefined,
+      recipient:
+        type === 'external' || type === 'wire'
+          ? {
+              fullName: recipientName,
+              bankName: recipientBankName,
+              routingNumber: recipientRoutingNumber,
+              accountNumber: recipientAccountNumber,
+              accountType: recipientAccountType || 'checking',
+              bankAddress: recipientBankAddress || '',
+            }
+          : undefined,
 
       amount: amountNum,
       wireFee,
       totalDebit,
 
       transferDate: date ? new Date(date) : new Date(),
-      frequency: type === 'recurring' ? (frequency || 'One time') : 'One time',
+      frequency: type === 'recurring' ? frequency || 'One time' : 'One time',
       expectedArrival: getExpectedArrival(type),
       memo: memo || '',
 
@@ -240,9 +293,30 @@ export const createTransfer = async (req, res) => {
       status: 'Pending',
     });
 
+    // ── Fire the user notification ────────────────────────────
+    // Always succeeds here (transfer was created), but status is
+    // 'Pending' — the "completed" / "failed" notification will be
+    // sent by the admin controller when it flips the status.
+    try {
+      await notifyUser({
+        userId,
+        category: 'Transfer',
+        title: 'Transfer Submitted',
+        message: buildTransferNotificationMessage(
+          transfer,
+          'Your transfer has been submitted and is pending review.'
+        ),
+        priority: 'Normal',
+      });
+    } catch (notifyErr) {
+      console.warn('Transfer notification failed:', notifyErr.message);
+    }
+
     res.status(201).json({
       message: 'Transfer scheduled',
-      transfer: formatTransferForList(transfer.toObject ? transfer.toObject() : transfer),
+      transfer: formatTransferForList(
+        transfer.toObject ? transfer.toObject() : transfer
+      ),
     });
   } catch (err) {
     console.error('❌ createTransfer:', err);
@@ -256,7 +330,10 @@ export const createTransfer = async (req, res) => {
 export const downloadReceipt = async (req, res) => {
   try {
     const userId = req.user._id;
-    const transfer = await Transfer.findOne({ _id: req.params.id, userId }).lean();
+    const transfer = await Transfer.findOne({
+      _id: req.params.id,
+      userId,
+    }).lean();
     if (!transfer) return res.status(404).json({ error: 'Transfer not found' });
 
     res.setHeader('Content-Type', 'application/pdf');

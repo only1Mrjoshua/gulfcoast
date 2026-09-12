@@ -59,6 +59,11 @@ const userSchema = new mongoose.Schema({
     transaction: { type: Boolean, default: true },
     promotions:  { type: Boolean, default: true },
     security:    { type: Boolean, default: true },
+
+    // System-generated
+    deposit:     { type: Boolean, default: true },
+    transfer:    { type: Boolean, default: true },
+    payment:     { type: Boolean, default: true },
   },
 
   // ⬇️ NEW — Optional profile fields used to prefill the loan application.
