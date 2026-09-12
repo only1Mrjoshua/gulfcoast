@@ -1,5 +1,5 @@
 // src/pages/Loans.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus,
   Landmark,
@@ -9,12 +9,10 @@ import {
   GraduationCap,
   PiggyBank,
   Briefcase,
-  ArrowRight,
   ArrowUpRight,
   ChevronRight,
   CheckCircle2,
   X,
-  Info,
   FileText,
   Download,
   Eye,
@@ -28,25 +26,25 @@ import {
   Building2,
   DollarSign,
   ClipboardCheck,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
-import {
-  mockLoans,
-  mockLoanPayments,
-  mockLoanDocuments,
-  mockLoanAlerts,
-  exploreLoanOptions,
-} from '../data/mockLoansData';
+import { mockLoanDocuments } from '../data/mockLoansData';
+import { apiFetch } from '../utils/api';
 
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
-  }).format(amount);
+  }).format(amount ?? 0);
 };
 
 const formatDate = (dateStr) => {
-  const date = new Date(dateStr + 'T00:00:00');
+  if (!dateStr) return '—';
+  const s = String(dateStr);
+  const date = s.includes('T') ? new Date(s) : new Date(s + 'T00:00:00');
+  if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -55,7 +53,10 @@ const formatDate = (dateStr) => {
 };
 
 const formatDateLong = (dateStr) => {
-  const date = new Date(dateStr + 'T00:00:00');
+  if (!dateStr) return '—';
+  const s = String(dateStr);
+  const date = s.includes('T') ? new Date(s) : new Date(s + 'T00:00:00');
+  if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
@@ -70,7 +71,6 @@ const US_STATES = [
   'VA','WA','WV','WI','WY','DC',
 ];
 
-// Map explore-loan option to a Lucide icon without touching mock data
 const getExploreIcon = (option) => {
   const key = `${option.id || ''} ${option.name || ''}`.toLowerCase();
   if (key.includes('mortgage') || key.includes('home')) return Home;
@@ -84,85 +84,200 @@ const getExploreIcon = (option) => {
 };
 
 const Loans = () => {
-  // ---- State ---------------------------------------------------------
-  // Kept for when loans are present. In the empty state these stay untouched.
   const [selectedLoanId, setSelectedLoanId] = useState(null);
-
-  const [showAutopay, setShowAutopay] = useState(false);
-  const [showPayoff, setShowPayoff] = useState(false);
-
-  // Loan application flow
   const [showApplication, setShowApplication] = useState(false);
 
-  const selectedLoan = mockLoans.find((l) => l.id === selectedLoanId);
-  const loanPayments = selectedLoan
-    ? mockLoanPayments.filter((p) => p.loanId === selectedLoan.id)
-    : [];
+  // Backend data
+  const [loans, setLoans] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [summary, setSummary] = useState({
+    totalLoanBalance: 0,
+    nextPayment: 0,
+    dueDate: '',
+    activeLoans: 0,
+  });
+  const [loansLoading, setLoansLoading] = useState(true);
+  const [loansError, setLoansError] = useState('');
+  const [applicationPrefill, setApplicationPrefill] = useState(null);
+
+  // Payment history — fetched per selected loan
+  const [loanPayments, setLoanPayments] = useState([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [paymentsError, setPaymentsError] = useState('');
+
+  // ── Load overview on mount ─────────────────────────────
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoansLoading(true);
+        setLoansError('');
+        const res = await apiFetch('/loans/overview');
+        const d = res?.data ?? res;
+        setLoans(d.loans ?? []);
+        setAlerts(d.alerts ?? []);
+        setSummary(
+          d.summary ?? {
+            totalLoanBalance: 0,
+            nextPayment: 0,
+            dueDate: '',
+            activeLoans: 0,
+          }
+        );
+      } catch (err) {
+        console.error('❌ Failed to load loans:', err);
+        setLoansError(err.message || 'Failed to load loans');
+      } finally {
+        setLoansLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const selectedLoan = loans.find(
+    (l) => String(l.id) === String(selectedLoanId)
+  );
+
+  // ── Load payments when a loan is selected ──────────────
+  useEffect(() => {
+    if (!selectedLoan) {
+      setLoanPayments([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadPayments = async () => {
+      try {
+        setPaymentsLoading(true);
+        setPaymentsError('');
+        const res = await apiFetch(`/loans/${selectedLoan.id}/payments`);
+        const d = res?.data ?? res;
+        if (!cancelled) setLoanPayments(d.payments ?? []);
+      } catch (err) {
+        console.error('❌ Failed to load loan payments:', err);
+        if (!cancelled) {
+          setLoanPayments([]);
+          setPaymentsError(err.message || 'Failed to load payments');
+        }
+      } finally {
+        if (!cancelled) setPaymentsLoading(false);
+      }
+    };
+
+    loadPayments();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedLoan?.id]);
+
   const loanDocuments = selectedLoan
-    ? mockLoanDocuments.filter((d) => d.loanId === selectedLoan.id)
+    ? mockLoanDocuments.filter(
+        (d) => String(d.loanId) === String(selectedLoan.id)
+      )
     : [];
 
-  // The user has no active loans (empty-state view)
-  const activeLoans = mockLoans.filter((l) => l.status === 'Active');
+  const activeLoans = loans.filter((l) => l.status === 'Active');
   const hasActiveLoans = activeLoans.length > 0;
 
-  // Totals (0 when no loans)
-  const totalBalance = hasActiveLoans
-    ? mockLoans.reduce((sum, loan) => sum + loan.currentBalance, 0)
-    : 0;
-  const nextPayment = hasActiveLoans
-    ? activeLoans.sort(
-        (a, b) => new Date(a.nextPaymentDate) - new Date(b.nextPaymentDate)
-      )[0]
-    : null;
-
-  // ---- Handlers ------------------------------------------------------
-  const handleApplyForLoan = () => setShowApplication(true);
+  // ── Handlers ───────────────────────────────────────────
+  const handleApplyForLoan = async () => {
+    setShowApplication(true);
+    try {
+      const res = await apiFetch('/loans/application-profile');
+      const d = res?.data ?? res;
+      setApplicationPrefill(d.profile ?? null);
+    } catch (err) {
+      console.error('❌ Failed to load profile:', err);
+      setApplicationPrefill(null);
+    }
+  };
   const closeApplication = () => setShowApplication(false);
-
-  const handleManageAutopay = () => setShowAutopay(true);
-  const closeAutopay = () => setShowAutopay(false);
-
-  const handlePayoff = () => setShowPayoff(true);
-  const closePayoff = () => setShowPayoff(false);
 
   const handleDocumentAction = (doc, action) => {
     alert(`${action} ${doc.name}`);
   };
 
-  const toggleAlert = (alertId) => {
-    alert(`Toggling alert ${alertId}`);
+  const toggleAlert = async (alertId) => {
+    const current = alerts.find((a) => a.id === alertId);
+    if (!current) return;
+
+    const previous = alerts;
+    const next = alerts.map((a) =>
+      a.id === alertId ? { ...a, active: !a.active } : a
+    );
+    setAlerts(next);
+
+    try {
+      const res = await apiFetch('/loans/alerts', {
+        method: 'PUT',
+        body: JSON.stringify({
+          alerts: next.map((a) => ({ id: a.id, active: a.active })),
+        }),
+      });
+      const d = res?.data ?? res;
+      if (d?.alerts) setAlerts(d.alerts);
+    } catch (err) {
+      console.error('❌ Failed to update alert:', err);
+      setAlerts(previous);
+    }
   };
 
   const getRepaymentProgress = (loan) => {
     const paid = loan.amountPaidToDate;
     const total = loan.originalAmount;
+    if (!total || total <= 0) return 0;
     return Math.min((paid / total) * 100, 100);
   };
 
-  // Overview cards — zero-state friendly
   const overviewCards = [
     {
       label: 'Total Loan Balance',
-      value: hasActiveLoans ? formatCurrency(totalBalance) : '—',
+      value: hasActiveLoans ? formatCurrency(summary.totalLoanBalance) : '—',
       icon: Landmark,
     },
     {
       label: 'Next Payment',
-      value: nextPayment ? formatCurrency(nextPayment.monthlyPayment) : '—',
+      value: summary.nextPayment ? formatCurrency(summary.nextPayment) : '—',
       icon: TrendingDown,
     },
     {
       label: 'Due',
-      value: nextPayment ? formatDate(nextPayment.nextPaymentDate) : '—',
+      value: summary.dueDate ? formatDate(summary.dueDate) : '—',
       icon: Calendar,
     },
     {
       label: 'Active Loans',
-      value: activeLoans.length,
+      value: summary.activeLoans || 0,
       icon: CheckCircle2,
     },
   ];
+
+  if (loansLoading) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" strokeWidth={1.75} />
+        <p className="text-sm text-muted">Loading your loans…</p>
+      </div>
+    );
+  }
+
+  if (loansError) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4">
+        <p className="font-serif text-xl font-bold text-deep-accent">
+          We couldn&rsquo;t load your loans
+        </p>
+        <p className="max-w-md text-center text-sm text-muted">{loansError}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-2 bg-primary px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-primary-deep"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -213,7 +328,6 @@ const Loans = () => {
         </h2>
 
         {!hasActiveLoans ? (
-          /* ---------- Empty state ---------- */
           <div className="flex flex-col items-center justify-center border border-hairline bg-faint px-6 py-12 text-center sm:py-16">
             <span className="flex h-12 w-12 items-center justify-center bg-[#e7f3f5] text-primary">
               <Landmark className="h-6 w-6" strokeWidth={1.75} />
@@ -235,10 +349,9 @@ const Loans = () => {
             </button>
           </div>
         ) : (
-          /* ---------- Loans grid (renders when loans exist) ---------- */
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {mockLoans.map((loan) => {
-              const isSelected = selectedLoanId === loan.id;
+            {loans.map((loan) => {
+              const isSelected = String(selectedLoanId) === String(loan.id);
               return (
                 <div
                   key={loan.id}
@@ -336,7 +449,7 @@ const Loans = () => {
         )}
       </section>
 
-      {/* Selected Loan Details (only renders when a loan exists) */}
+      {/* Selected Loan Details */}
       {selectedLoan && (
         <section className="mb-10 border-t border-hairline pt-8">
           <h2 className="mb-4 font-serif text-lg font-bold text-deep-accent sm:text-xl">
@@ -344,48 +457,24 @@ const Loans = () => {
           </h2>
 
           <div className="border border-hairline bg-faint p-5 sm:p-6">
-            {/* Header */}
-            <div className="mb-6 flex flex-col gap-4 border-b border-hairline pb-5 lg:flex-row lg:items-start lg:justify-between">
-              <div className="flex min-w-0 items-start gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-deep-accent text-white">
-                  <Landmark className="h-5 w-5" strokeWidth={1.75} />
-                </span>
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-bold text-deep-accent sm:text-base">
-                    {selectedLoan.name}
-                  </div>
-                  <div className="truncate text-xs text-body sm:text-sm">
-                    {selectedLoan.type}
-                  </div>
-                  <div className="text-xs text-muted">
-                    Loan #•••• {selectedLoan.loanNumber}
-                  </div>
+            <div className="mb-6 flex min-w-0 items-start gap-3 border-b border-hairline pb-5">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-deep-accent text-white">
+                <Landmark className="h-5 w-5" strokeWidth={1.75} />
+              </span>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-bold text-deep-accent sm:text-base">
+                  {selectedLoan.name}
                 </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handleManageAutopay}
-                  className="inline-flex min-h-[36px] items-center gap-1.5 border border-hairline bg-white px-4 py-1.5 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
-                >
-                  <Calendar className="h-3.5 w-3.5" strokeWidth={2} />
-                  Manage Autopay
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePayoff}
-                  className="inline-flex min-h-[36px] items-center gap-1.5 border border-hairline bg-white px-4 py-1.5 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
-                >
-                  <Info className="h-3.5 w-3.5" strokeWidth={2} />
-                  Payoff Information
-                </button>
+                <div className="truncate text-xs text-body sm:text-sm">
+                  {selectedLoan.type}
+                </div>
+                <div className="text-xs text-muted">
+                  Loan #•••• {selectedLoan.loanNumber}
+                </div>
               </div>
             </div>
 
-            {/* Detail content */}
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-              {/* Info panel */}
               <div className="flex flex-col divide-y divide-hairline">
                 <DetailRow
                   label="Original Amount"
@@ -409,15 +498,19 @@ const Loans = () => {
                 />
                 <DetailRow
                   label="Maturity Date"
-                  value={formatDateLong(selectedLoan.maturityDate)}
+                  value={
+                    selectedLoan.maturityDate
+                      ? formatDateLong(selectedLoan.maturityDate)
+                      : '—'
+                  }
                 />
                 <DetailRow
                   label="Amount Paid"
-                  value={formatCurrency(selectedLoan.amountPaidToDate)}
+                  value={formatCurrency(selectedLoan.amountPaidToDate || 0)}
                 />
                 <DetailRow
                   label="Payment Method"
-                  value={selectedLoan.paymentMethod}
+                  value={selectedLoan.paymentMethod || '—'}
                 />
                 <DetailRow
                   label="Status"
@@ -441,19 +534,22 @@ const Loans = () => {
                 </div>
               </div>
 
-              {/* Payment History */}
               <div className="flex flex-col">
                 <h3 className="mb-3 font-serif text-base font-bold text-deep-accent sm:text-lg">
                   Payment History
                 </h3>
 
                 <div className="flex flex-col border-t border-hairline">
-                  {loanPayments.length === 0 ? (
+                  {paymentsLoading ? (
+                    <p className="py-4 text-sm text-muted">Loading payments…</p>
+                  ) : paymentsError ? (
+                    <p className="py-4 text-sm text-[#d9534f]">{paymentsError}</p>
+                  ) : loanPayments.length === 0 ? (
                     <p className="py-4 text-sm text-muted">
                       No payment history available.
                     </p>
                   ) : (
-                    loanPayments.slice(0, 5).map((payment) => (
+                    loanPayments.slice(0, 12).map((payment) => (
                       <div
                         key={payment.id}
                         className="flex flex-col gap-2 border-b border-faint py-3 sm:flex-row sm:items-center sm:justify-between"
@@ -494,7 +590,6 @@ const Loans = () => {
               </div>
             </div>
 
-            {/* Documents */}
             <div className="mt-8 border-t border-hairline pt-6">
               <div className="mb-3 flex items-center gap-2">
                 <FileText className="h-4 w-4 text-primary" strokeWidth={1.75} />
@@ -557,7 +652,11 @@ const Loans = () => {
         </div>
 
         <div className="flex flex-col divide-y divide-faint border-t border-hairline">
-          {mockLoanAlerts.map((alert) => (
+          {alerts.length === 0 && (
+            <p className="py-3 text-sm text-muted">No alerts available.</p>
+          )}
+
+          {alerts.map((alert) => (
             <div key={alert.id} className="flex items-center gap-3 py-3">
               <span
                 className={`h-1.5 w-1.5 shrink-0 ${
@@ -587,202 +686,49 @@ const Loans = () => {
         </div>
       </section>
 
-      {/* Autopay Modal */}
-      {showAutopay && selectedLoan && (
-        <div
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4"
-          onClick={closeAutopay}
-        >
-          <div
-            className="relative max-h-[90vh] w-full max-w-[550px] overflow-y-auto border border-hairline bg-white p-6 sm:p-8"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <ModalCloseButton onClick={closeAutopay} />
-
-            <h2 className="font-serif text-xl font-bold text-deep-accent sm:text-2xl">
-              Manage Autopay
-            </h2>
-            <p className="mt-1 text-sm text-body">
-              Automatic payments for {selectedLoan.name}
-            </p>
-
-            <div className="mt-6 flex flex-col divide-y divide-faint">
-              <div className="flex items-center justify-between py-2.5">
-                <span className="text-sm text-muted">Current Status</span>
-                <span
-                  className={`inline-flex items-center gap-1.5 text-sm font-semibold ${
-                    selectedLoan.autopayEnabled ? 'text-primary' : 'text-[#d9534f]'
-                  }`}
-                >
-                  {selectedLoan.autopayEnabled ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4" strokeWidth={2} />
-                      Enabled
-                    </>
-                  ) : (
-                    'Disabled'
-                  )}
-                </span>
-              </div>
-
-              {selectedLoan.autopayEnabled && (
-                <>
-                  <div className="flex items-center justify-between py-2.5">
-                    <span className="text-sm text-muted">Payment Account</span>
-                    <span className="text-sm font-semibold text-ink">
-                      {selectedLoan.autopayAccount}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-2.5">
-                    <span className="text-sm text-muted">Payment Amount</span>
-                    <span className="text-sm font-semibold text-ink">
-                      {formatCurrency(selectedLoan.monthlyPayment)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-2.5">
-                    <span className="text-sm text-muted">Next Payment</span>
-                    <span className="text-sm font-semibold text-ink">
-                      {formatDateLong(selectedLoan.nextPaymentDate)}
-                    </span>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="mt-6 flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={closeAutopay}
-                className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-              >
-                <Calendar className="h-4 w-4" strokeWidth={2.25} />
-                {selectedLoan.autopayEnabled ? 'Disable Autopay' : 'Enable Autopay'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Payoff Modal */}
-      {showPayoff && selectedLoan && (
-        <div
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4"
-          onClick={closePayoff}
-        >
-          <div
-            className="relative max-h-[90vh] w-full max-w-[550px] overflow-y-auto border border-hairline bg-white p-6 sm:p-8"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <ModalCloseButton onClick={closePayoff} />
-
-            <h2 className="font-serif text-xl font-bold text-deep-accent sm:text-2xl">
-              Payoff Information
-            </h2>
-            <p className="mt-1 text-sm text-body">
-              Payoff details for {selectedLoan.name}
-            </p>
-
-            <div className="mt-6 flex flex-col divide-y divide-faint">
-              <div className="flex items-center justify-between py-2.5">
-                <span className="text-sm text-muted">Current Balance</span>
-                <span className="text-sm font-semibold text-ink">
-                  {formatCurrency(selectedLoan.currentBalance)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between py-2.5">
-                <span className="text-sm text-muted">Estimated Payoff Amount</span>
-                <span className="font-serif text-base font-bold text-deep-accent">
-                  {formatCurrency(selectedLoan.currentBalance * 1.0025)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between py-2.5">
-                <span className="text-sm text-muted">Payoff Date</span>
-                <span className="text-sm font-semibold text-ink">
-                  {formatDateLong(new Date().toISOString().split('T')[0])}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-4 flex items-start gap-3 border border-hairline bg-faint px-4 py-3">
-              <Info
-                className="mt-0.5 h-4 w-4 shrink-0 text-primary"
-                strokeWidth={1.75}
-              />
-              <span className="text-xs text-body sm:text-sm">
-                The estimated payoff amount includes accrued interest. Actual payoff
-                amount may vary. A formal payoff quote can be requested for accurate
-                figures.
-              </span>
-            </div>
-
-            <div className="mt-6 flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={closePayoff}
-                className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-              >
-                <FileText className="h-4 w-4" strokeWidth={2.25} />
-                Request Payoff Quote
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Loan Application Modal */}
       {showApplication && (
-        <LoanApplicationModal onClose={closeApplication} />
+        <LoanApplicationModal
+          onClose={closeApplication}
+          prefill={applicationPrefill}
+        />
       )}
     </div>
   );
 };
 
 // ============================================================
-// Loan Application Modal — US-style loan application
+// Loan Application Modal (unchanged)
 // ============================================================
-const LoanApplicationModal = ({ onClose }) => {
+const LoanApplicationModal = ({ onClose, prefill }) => {
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmationNumber, setConfirmationNumber] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   const [formData, setFormData] = useState({
-    // Personal information
-    firstName: '',
-    lastName: '',
-    dateOfBirth: '',
-    ssn: '',
-    email: '',
-    phone: '',
-    // Current address
-    street: '',
-    city: '',
-    state: '',
-    zip: '',
-    housingStatus: 'Rent',
-    monthlyHousing: '',
-    // Employment & income
+    firstName: prefill?.firstName || '',
+    lastName: prefill?.lastName || '',
+    dateOfBirth: prefill?.dateOfBirth || '',
+    ssn: prefill?.ssn || '',
+    email: prefill?.email || '',
+    phone: prefill?.phone || '',
+    street: prefill?.street || '',
+    city: prefill?.city || '',
+    state: prefill?.state || '',
+    zip: prefill?.zip || '',
+    housingStatus: prefill?.housingStatus || 'Rent',
+    monthlyHousing: prefill?.monthlyHousing ?? '',
     employmentStatus: 'Employed',
     employerName: '',
     jobTitle: '',
     yearsEmployed: '',
     annualIncome: '',
     additionalIncome: '',
-    // Loan request
     loanType: 'Personal',
     loanAmount: '',
     loanTermMonths: '36',
     loanPurpose: '',
-    // Authorization
     authorizeCredit: false,
     agreeTerms: false,
   });
@@ -797,7 +743,6 @@ const LoanApplicationModal = ({ onClose }) => {
     }));
   };
 
-  // Format SSN as XXX-XX-XXXX while typing
   const handleSsnChange = (e) => {
     const digits = e.target.value.replace(/\D/g, '').slice(0, 9);
     let formatted = digits;
@@ -809,7 +754,6 @@ const LoanApplicationModal = ({ onClose }) => {
     setFormData((prev) => ({ ...prev, ssn: formatted }));
   };
 
-  // Format phone as (XXX) XXX-XXXX
   const handlePhoneChange = (e) => {
     const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
     let formatted = digits;
@@ -844,13 +788,27 @@ const LoanApplicationModal = ({ onClose }) => {
     return Object.keys(next).length === 0;
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
     if (!validate()) return;
-    setSubmitted(true);
-  };
 
-  const confirmationNumber = 'LN-' + Math.floor(100000 + Math.random() * 900000);
+    setSubmitting(true);
+    setSubmitError('');
+
+    try {
+      const res = await apiFetch('/loans/apply', {
+        method: 'POST',
+        body: JSON.stringify(formData),
+      });
+      const d = res?.data ?? res;
+      setConfirmationNumber(d?.application?.applicationNumber || '');
+      setSubmitted(true);
+    } catch (err) {
+      setSubmitError(err.message || 'Failed to submit application.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div
@@ -868,7 +826,6 @@ const LoanApplicationModal = ({ onClose }) => {
         <ModalCloseButton onClick={onClose} />
 
         {submitted ? (
-          /* ---------- Submitted state ---------- */
           <div className="flex flex-col items-center px-6 py-10 text-center sm:px-10">
             <div className="flex h-14 w-14 items-center justify-center bg-[#e7f3f5]">
               <CheckCircle2 className="h-8 w-8 text-primary" strokeWidth={1.75} />
@@ -924,9 +881,7 @@ const LoanApplicationModal = ({ onClose }) => {
             </div>
           </div>
         ) : (
-          /* ---------- Application form ---------- */
           <>
-            {/* Header */}
             <div className="border-b border-hairline px-5 py-4 sm:px-7">
               <div className="flex items-center gap-2">
                 <ClipboardCheck className="h-4 w-4 text-primary" strokeWidth={2} />
@@ -945,12 +900,10 @@ const LoanApplicationModal = ({ onClose }) => {
               </p>
             </div>
 
-            {/* Form body (scrollable) */}
             <form
               onSubmit={handleSubmit}
               className="flex-1 overflow-y-auto px-5 py-5 sm:px-7"
             >
-              {/* ---- Personal Information ---- */}
               <FormSection icon={User} title="Personal Information">
                 <Field
                   label="First Name"
@@ -1006,7 +959,6 @@ const LoanApplicationModal = ({ onClose }) => {
                 />
               </FormSection>
 
-              {/* ---- Current Address ---- */}
               <FormSection icon={MapPin} title="Current Address">
                 <Field
                   label="Street Address"
@@ -1091,7 +1043,6 @@ const LoanApplicationModal = ({ onClose }) => {
                 />
               </FormSection>
 
-              {/* ---- Employment & Income ---- */}
               <FormSection icon={Building2} title="Employment & Income">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm font-semibold text-deep-accent">
@@ -1152,7 +1103,6 @@ const LoanApplicationModal = ({ onClose }) => {
                 />
               </FormSection>
 
-              {/* ---- Loan Request ---- */}
               <FormSection icon={DollarSign} title="Loan Request">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm font-semibold text-deep-accent">
@@ -1213,9 +1163,8 @@ const LoanApplicationModal = ({ onClose }) => {
                 />
               </FormSection>
 
-              {/* ---- Authorization ---- */}
               <FormSection icon={ShieldCheck} title="Authorization">
-                <div className="sm:col-span-2 flex flex-col gap-3">
+                <div className="flex flex-col gap-3 sm:col-span-2">
                   <CheckboxField
                     name="authorizeCredit"
                     checked={formData.authorizeCredit}
@@ -1236,24 +1185,44 @@ const LoanApplicationModal = ({ onClose }) => {
                   </CheckboxField>
                 </div>
               </FormSection>
+
+              {submitError && (
+                <div className="mb-2 flex items-start gap-2 border border-[#f5c6cb] bg-[#f8d7da] px-4 py-2.5">
+                  <AlertCircle
+                    className="mt-0.5 h-4 w-4 shrink-0 text-[#721c24]"
+                    strokeWidth={2}
+                  />
+                  <span className="text-sm text-[#721c24]">{submitError}</span>
+                </div>
+              )}
             </form>
 
-            {/* Footer actions */}
             <div className="flex flex-col-reverse gap-2 border-t border-hairline px-5 py-4 sm:flex-row sm:justify-end sm:px-7">
               <button
                 type="button"
                 onClick={onClose}
-                className="min-h-[44px] border border-hairline bg-white px-5 py-2.5 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                disabled={submitting}
+                className="min-h-[44px] border border-hairline bg-white px-5 py-2.5 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                disabled={submitting}
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                <ClipboardCheck className="h-4 w-4" strokeWidth={2.25} />
-                Submit Application
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+                    Submitting…
+                  </>
+                ) : (
+                  <>
+                    <ClipboardCheck className="h-4 w-4" strokeWidth={2.25} />
+                    Submit Application
+                  </>
+                )}
               </button>
             </div>
           </>
@@ -1263,7 +1232,6 @@ const LoanApplicationModal = ({ onClose }) => {
   );
 };
 
-// Field with optional $ prefix and error display
 const Field = ({
   label,
   name,
@@ -1351,7 +1319,6 @@ const SummaryLine = ({ label, value }) => (
   </div>
 );
 
-// Reusable detail row
 const DetailRow = ({ label, value, valueColor = 'text-ink' }) => (
   <div className="flex flex-col gap-0.5 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
     <span className="text-xs text-muted sm:text-sm">{label}</span>
@@ -1359,7 +1326,6 @@ const DetailRow = ({ label, value, valueColor = 'text-ink' }) => (
   </div>
 );
 
-// Reusable modal close button
 const ModalCloseButton = ({ onClick }) => (
   <button
     type="button"

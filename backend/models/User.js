@@ -14,7 +14,6 @@ const userSchema = new mongoose.Schema({
     index: true,
   },
 
-  // ⬇️ NEW — Active / Suspended, used by the admin Manage Users page
   status: {
     type: String,
     enum: ['Active', 'Suspended'],
@@ -46,6 +45,28 @@ const userSchema = new mongoose.Schema({
     paymentDue:               { type: Boolean, default: true },
     cardExpiration:           { type: Boolean, default: true },
   },
+
+  // ⬇️ NEW — Loan alert preferences shown on the Loans page
+  loanAlertPreferences: {
+    paymentReminder:    { type: Boolean, default: true },
+    dueDateAlert:       { type: Boolean, default: true },
+    interestRateChange: { type: Boolean, default: true },
+    payoffNotification: { type: Boolean, default: true },
+  },
+
+  // ⬇️ NEW — Optional profile fields used to prefill the loan application.
+  //           All default to empty so existing records are unaffected.
+  dateOfBirth:    { type: String, default: '' },
+  ssn:            { type: String, default: '' },
+  phone:          { type: String, default: '' },
+  address: {
+    street: { type: String, default: '' },
+    city:   { type: String, default: '' },
+    state:  { type: String, default: '' },
+    zip:    { type: String, default: '' },
+  },
+  housingStatus:  { type: String, default: 'Rent' },
+  monthlyHousing: { type: Number, default: 0 },
 }, { timestamps: true });
 
 export default mongoose.model('User', userSchema);

@@ -15,6 +15,14 @@ const transactionSchema = new mongoose.Schema({
     index: true,
   },
 
+  // ⬇️ NEW — links loan payments back to the Loan they belong to
+  loanId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Loan',
+    default: null,
+    index: true,
+  },
+
   description: { type: String, required: true },
   amount:      { type: Number, required: true },  // signed: + in, - out
   type: {
