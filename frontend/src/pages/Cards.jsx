@@ -1,5 +1,5 @@
 // src/pages/Cards.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus,
@@ -19,40 +19,60 @@ import {
   ArrowDownLeft,
   CircleDollarSign,
   ShieldCheck,
+  Loader2,
 } from 'lucide-react';
-import {
-  mockCards,
-  mockCardTransactions,
-  mockCardAlerts,
-} from '../data/mockCardsData';
+import { apiFetch } from '../utils/api';
 
+// ---------- Formatting helpers ----------
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
-  }).format(Math.abs(amount));
+  }).format(Math.abs(amount ?? 0));
 };
 
-const formatDate = (dateStr) => {
-  const date = new Date(dateStr + 'T00:00:00');
-  return date.toLocaleDateString('en-US', {
+const toDate = (d) => (typeof d === 'string' ? new Date(d) : d);
+
+const formatDate = (d) => {
+  if (!d) return '';
+  return toDate(d).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
 };
 
+// "2027-12" → "12/27"
 const formatExpiration = (expStr) => {
+  if (!expStr) return '';
   const [year, month] = expStr.split('-');
+  if (!year || !month) return expStr;
   return `${month}/${year.slice(2)}`;
 };
 
-// Status → Tailwind color class (mirrors original status color mapping)
+// "4532890123454821" → "4532 8901 2345 4821"
+const formatFullNumber = (num) => {
+  if (!num) return '';
+  return String(num).replace(/(.{4})/g, '$1 ').trim();
+};
+
+// Backend alert keys → display labels
+const ALERT_LABELS = {
+  largePurchase:            'Large Purchase',
+  cardTransaction:          'Card Transaction',
+  internationalTransaction: 'International Transaction',
+  onlinePurchase:           'Online Purchase',
+  atmWithdrawal:            'ATM Withdrawal',
+  paymentDue:               'Payments Due',
+  cardExpiration:           'Card Expiration',
+};
+
 const getStatusColor = (status) => {
   const map = {
     Active: 'text-primary',
     'Temporarily Locked': 'text-[#d9534f]',
+    'Temporary Locked': 'text-[#f0ad4e]',
     Locked: 'text-[#d9534f]',
     Expired: 'text-[#d9534f]',
     'Replacement Pending': 'text-[#f0ad4e]',
@@ -61,12 +81,40 @@ const getStatusColor = (status) => {
   return map[status] || 'text-primary';
 };
 
+const getStatusDot = (status) => {
+  if (status === 'Active') return 'bg-primary';
+  if (status === 'Temporary Locked' || status === 'Replacement Pending') return 'bg-[#f0ad4e]';
+  return 'bg-[#d9534f]';
+};
+
+// -------------------- Component --------------------
 const Cards = () => {
-  // State
-  const [selectedCardId, setSelectedCardId] = useState(mockCards[0]?.id || null);
+  // ── Data from backend ──
+  const [cards, setCards] = useState([]);
+  const [activityByCard, setActivityByCard] = useState({});
+  const [overview, setOverview] = useState({
+    totalCards: 0,
+    activeCards: 0,
+    cardsWithAlerts: 0,
+    expiringSoon: 0,
+  });
+  const [alertPreferences, setAlertPreferences] = useState({});
+
+  // ── UI state ──
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [busyKey, setBusyKey] = useState(null); // e.g. "CARD_ID:locked" or "alert:largePurchase"
+
+  const [selectedCardId, setSelectedCardId] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [showReplacement, setShowReplacement] = useState(false);
+
+  // Reveal state (per modal open)
+  const [revealed, setRevealed] = useState(null); // { fullNumber, cvv }
+  const [revealing, setRevealing] = useState(false);
+
+  // Payment / replacement form state
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentFrom, setPaymentFrom] = useState('chk1');
   const [paymentDate, setPaymentDate] = useState(
@@ -74,22 +122,106 @@ const Cards = () => {
   );
   const [replacementReason, setReplacementReason] = useState('Damaged');
 
-  const selectedCard = mockCards.find((c) => c.id === selectedCardId);
-  const cardTransactions = mockCardTransactions.filter(
-    (t) => t.cardId === selectedCardId
-  );
+  // ── Derived ──
+  const selectedCard = cards.find((c) => c.id === selectedCardId) || null;
+  const cardTransactions = selectedCardId ? activityByCard[selectedCardId] || [] : [];
 
-  // Handlers
-  const toggleLock = (cardId) => {
-    alert(`Toggling lock for card ${cardId}`);
+  // ── Loaders ──
+  const loadCards = useCallback(async () => {
+    const res = await apiFetch('/cards');
+    const d = res?.data ?? res;
+
+    const list = d.cards ?? [];
+    setCards(list);
+    setActivityByCard(d.activityByCard ?? {});
+    setAlertPreferences(d.alertPreferences ?? {});
+    setOverview(d.overview ?? {
+      totalCards: list.length,
+      activeCards: list.filter((c) => c.status === 'Active').length,
+      cardsWithAlerts: 0,
+      expiringSoon: 0,
+    });
+
+    // Auto-select first card on initial load
+    setSelectedCardId((prev) => prev || list[0]?.id || null);
+  }, []);
+
+  useEffect(() => {
+    const boot = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        await loadCards();
+      } catch (err) {
+        console.error('❌ Failed to load cards:', err);
+        setError(err.message || 'Failed to load cards');
+      } finally {
+        setLoading(false);
+      }
+    };
+    boot();
+  }, [loadCards]);
+
+  // ── Card controls toggle ──
+  const toggleControl = async (cardId, key) => {
+    const card = cards.find((c) => c.id === cardId);
+    if (!card) return;
+    const current = card.controls?.[key] === true;
+    const newValue = !current;
+
+    setBusyKey(`${cardId}:${key}`);
+    try {
+      await apiFetch(`/cards/${cardId}/controls`, {
+        method: 'PUT',
+        body: JSON.stringify({ key, value: newValue }),
+      });
+      await loadCards();
+    } catch (err) {
+      console.error('❌ Toggle control failed:', err);
+    } finally {
+      setBusyKey(null);
+    }
   };
 
+  // Keep the exact same external call signature as the original
+  const toggleLock = (cardId) => toggleControl(cardId, 'locked');
+
+  // ── Alert preference toggle ──
+  const toggleAlert = async (key) => {
+    const current = alertPreferences[key] === true;
+    const newValue = !current;
+
+    // Optimistic update
+    setAlertPreferences((prev) => ({ ...prev, [key]: newValue }));
+    setBusyKey(`alert:${key}`);
+
+    try {
+      const res = await apiFetch('/cards/alerts', {
+        method: 'PUT',
+        body: JSON.stringify({ [key]: newValue }),
+      });
+      const d = res?.data ?? res;
+      if (d?.alertPreferences) {
+        setAlertPreferences(d.alertPreferences);
+      }
+    } catch (err) {
+      console.error('❌ Toggle alert failed:', err);
+      // Revert on failure
+      setAlertPreferences((prev) => ({ ...prev, [key]: current }));
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  // ── Modal handlers ──
   const handleViewDetails = () => {
+    setRevealed(null);
     setShowDetails(true);
   };
 
   const closeDetails = () => {
     setShowDetails(false);
+    setRevealed(null);
   };
 
   const handleMakePayment = () => {
@@ -102,6 +234,7 @@ const Cards = () => {
   };
 
   const handleSubmitPayment = () => {
+    // No backend endpoint for card payments yet — placeholder
     alert(`Payment of ${formatCurrency(parseFloat(paymentAmount) || 0)} submitted`);
     closePayment();
   };
@@ -115,36 +248,71 @@ const Cards = () => {
   };
 
   const handleSubmitReplacement = () => {
+    // No backend endpoint for card replacement yet — placeholder
     alert(
       `Replacement requested for ${selectedCard?.name} - Reason: ${replacementReason}`
     );
     closeReplacement();
   };
 
-  const toggleAlert = (alertId) => {
-    alert(`Toggling alert ${alertId}`);
+  // ── Reveal full number / CVV ──
+  const handleShowFullNumber = async () => {
+    if (revealed?.fullNumber) {
+      // Already showing — hide it
+      setRevealed((prev) => ({ ...(prev || {}), fullNumber: null }));
+      return;
+    }
+    await revealCardData();
   };
 
-  // Overview cards config
+  const handleShowCvv = async () => {
+    if (revealed?.cvv) {
+      setRevealed((prev) => ({ ...(prev || {}), cvv: null }));
+      return;
+    }
+    await revealCardData();
+  };
+
+  const revealCardData = async () => {
+    if (!selectedCard) return;
+    // If we already have the data cached this session, just show it
+    if (revealed?.fullNumber || revealed?.cvv) return;
+
+    setRevealing(true);
+    try {
+      const res = await apiFetch(`/cards/${selectedCard.id}/reveal`);
+      const d = res?.data ?? res;
+      setRevealed({
+        fullNumber: d.fullNumber || null,
+        cvv: d.cvv || null,
+      });
+    } catch (err) {
+      console.error('❌ Reveal failed:', err);
+      alert('Could not reveal card details. Please try again.');
+    } finally {
+      setRevealing(false);
+    }
+  };
+
+  // ── Overview cards config ──
+  const alertsEnabledCount = Object.values(alertPreferences).filter(Boolean).length;
+
   const overviewCards = [
-    { label: 'Total Cards', value: mockCards.length, icon: CreditCard },
+    { label: 'Total Cards', value: cards.length, icon: CreditCard },
     {
       label: 'Active Cards',
-      value: mockCards.filter((c) => c.status === 'Active').length,
+      value: cards.filter((c) => c.status === 'Active').length,
       icon: CheckCircle2,
     },
-    {
-      label: 'Cards With Alerts',
-      value: mockCardAlerts.filter((a) => a.enabled).length,
-      icon: Bell,
-    },
-    { label: 'Expiring Soon', value: 0, icon: Clock },
+    { label: 'Cards With Alerts', value: alertsEnabledCount, icon: Bell },
+    { label: 'Expiring Soon', value: overview.expiringSoon || 0, icon: Clock },
   ];
 
-  // Card control items — labeled grid
+  // ── Card controls grid config ──
   const controlItems = selectedCard
     ? [
         {
+          key: 'locked',
           label: 'Lock Card',
           status: selectedCard.controls.locked ? 'Locked' : 'Unlocked',
           on: selectedCard.controls.locked,
@@ -152,39 +320,76 @@ const Cards = () => {
           toggleLabel: selectedCard.controls.locked ? 'Unlock' : 'Lock',
         },
         {
+          key: 'contactless',
           label: 'Contactless Payments',
           status: selectedCard.controls.contactless ? 'On' : 'Off',
           on: selectedCard.controls.contactless,
+          action: () => toggleControl(selectedCard.id, 'contactless'),
           toggleLabel: selectedCard.controls.contactless ? 'Turn Off' : 'Turn On',
         },
         {
+          key: 'onlinePurchases',
           label: 'Online Purchases',
           status: selectedCard.controls.onlinePurchases ? 'On' : 'Off',
           on: selectedCard.controls.onlinePurchases,
+          action: () => toggleControl(selectedCard.id, 'onlinePurchases'),
           toggleLabel: selectedCard.controls.onlinePurchases ? 'Turn Off' : 'Turn On',
         },
         {
+          key: 'internationalPurchases',
           label: 'International Purchases',
           status: selectedCard.controls.internationalPurchases ? 'On' : 'Off',
           on: selectedCard.controls.internationalPurchases,
-          toggleLabel: selectedCard.controls.internationalPurchases
-            ? 'Turn Off'
-            : 'Turn On',
+          action: () => toggleControl(selectedCard.id, 'internationalPurchases'),
+          toggleLabel: selectedCard.controls.internationalPurchases ? 'Turn Off' : 'Turn On',
         },
         {
+          key: 'atmWithdrawals',
           label: 'ATM Withdrawals',
           status: selectedCard.controls.atmWithdrawals ? 'On' : 'Off',
           on: selectedCard.controls.atmWithdrawals,
+          action: () => toggleControl(selectedCard.id, 'atmWithdrawals'),
           toggleLabel: selectedCard.controls.atmWithdrawals ? 'Turn Off' : 'Turn On',
         },
         {
+          key: 'notifications',
           label: 'Card Notifications',
           status: selectedCard.controls.notifications ? 'On' : 'Off',
           on: selectedCard.controls.notifications,
+          action: () => toggleControl(selectedCard.id, 'notifications'),
           toggleLabel: selectedCard.controls.notifications ? 'Turn Off' : 'Turn On',
         },
       ]
     : [];
+
+  // ── Full-page loading ──
+  if (loading) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" strokeWidth={1.75} />
+        <p className="text-sm text-muted">Loading your cards…</p>
+      </div>
+    );
+  }
+
+  // ── Full-page error ──
+  if (error) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4">
+        <p className="font-serif text-xl font-bold text-deep-accent">
+          We couldn&rsquo;t load your cards
+        </p>
+        <p className="max-w-md text-center text-sm text-muted">{error}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-2 bg-primary px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-primary-deep"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -224,121 +429,125 @@ const Cards = () => {
           My Cards
         </h2>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {mockCards.map((card) => {
-            const isSelected = selectedCardId === card.id;
-            return (
-              <div
-                key={card.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedCardId(card.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setSelectedCardId(card.id);
-                  }
-                }}
-                className={`group flex cursor-pointer flex-col border bg-white p-5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
-                  isSelected
-                    ? 'border-2 border-primary'
-                    : 'border border-hairline hover:border-primary'
-                }`}
-              >
-                {/* Header: type + status */}
-                <div className="flex items-start justify-between gap-3">
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-deep-accent">
-                    <CreditCard className="h-3.5 w-3.5 text-primary" strokeWidth={2} />
-                    {card.type}
-                  </span>
-                  <span
-                    className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide ${getStatusColor(
-                      card.status
-                    )}`}
-                  >
+        {cards.length === 0 ? (
+          <div className="border border-hairline bg-faint py-12 text-center">
+            <CreditCard className="mx-auto h-8 w-8 text-muted" strokeWidth={1.5} />
+            <p className="mt-3 text-sm font-semibold text-deep-accent">No cards yet</p>
+            <p className="mt-1 text-xs text-muted">
+              Cards issued to you will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {cards.map((card) => {
+              const isSelected = selectedCardId === card.id;
+              const isBusy = busyKey === `${card.id}:locked`;
+              return (
+                <div
+                  key={card.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedCardId(card.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedCardId(card.id);
+                    }
+                  }}
+                  className={`group flex cursor-pointer flex-col border bg-white p-5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+                    isSelected
+                      ? 'border-2 border-primary'
+                      : 'border border-hairline hover:border-primary'
+                  }`}
+                >
+                  {/* Header: type + status */}
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-deep-accent">
+                      <CreditCard className="h-3.5 w-3.5 text-primary" strokeWidth={2} />
+                      {card.type}
+                    </span>
                     <span
-                      className={`h-1.5 w-1.5 ${
-                        card.status === 'Active'
-                          ? 'bg-primary'
-                          : card.status === 'Replacement Pending'
-                          ? 'bg-[#f0ad4e]'
-                          : 'bg-[#d9534f]'
-                      }`}
-                      aria-hidden="true"
-                    />
-                    {card.status}
-                  </span>
-                </div>
-
-                {/* Name */}
-                <div className="mt-3 text-sm font-semibold text-deep-accent sm:text-base">
-                  {card.name}
-                </div>
-
-                {/* Number */}
-                <div className="mt-1 font-mono text-lg tracking-[0.15em] text-ink">
-                  •••• {card.lastFour}
-                </div>
-
-                {/* Cardholder */}
-                <div className="mt-1 text-xs text-body">{card.cardholderName}</div>
-                <div className="text-xs text-muted">
-                  Expires {formatExpiration(card.expirationDate)}
-                </div>
-
-                {/* Credit balance */}
-                {card.type === 'Credit' && (
-                  <div className="mt-3 flex items-center justify-between border-t border-hairline pt-3">
-                    <span className="text-xs text-muted">Balance</span>
-                    <span className="font-serif text-base font-bold text-deep-accent">
-                      {formatCurrency(card.balance)}
+                      className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide ${getStatusColor(
+                        card.status
+                      )}`}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 ${getStatusDot(card.status)}`}
+                        aria-hidden="true"
+                      />
+                      {card.status}
                     </span>
                   </div>
-                )}
 
-                {/* Linked account */}
-                <div className="mt-3 text-xs text-muted">
-                  Linked: {card.linkedAccount}
-                </div>
+                  {/* Name */}
+                  <div className="mt-3 text-sm font-semibold text-deep-accent sm:text-base">
+                    {card.name}
+                  </div>
 
-                {/* Actions */}
-                <div className="mt-4 flex flex-wrap gap-2 border-t border-hairline pt-3">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleLock(card.id);
-                    }}
-                    className="inline-flex min-h-[32px] items-center gap-1.5 border border-hairline bg-white px-3 py-1 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                  >
-                    {card.controls.locked ? (
-                      <>
+                  {/* Number */}
+                  <div className="mt-1 font-mono text-lg tracking-[0.15em] text-ink">
+                    •••• {card.lastFour}
+                  </div>
+
+                  {/* Cardholder */}
+                  <div className="mt-1 text-xs text-body">{card.cardholderName}</div>
+                  <div className="text-xs text-muted">
+                    Expires {formatExpiration(card.expirationDate)}
+                  </div>
+
+                  {/* Credit balance */}
+                  {card.type === 'Credit' && (
+                    <div className="mt-3 flex items-center justify-between border-t border-hairline pt-3">
+                      <span className="text-xs text-muted">Balance</span>
+                      <span className="font-serif text-base font-bold text-deep-accent">
+                        {formatCurrency(card.balance)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Linked account */}
+                  <div className="mt-3 text-xs text-muted">
+                    Linked: {card.linkedAccount || '—'}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="mt-4 flex flex-wrap gap-2 border-t border-hairline pt-3">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleLock(card.id);
+                      }}
+                      disabled={isBusy}
+                      className="inline-flex min-h-[32px] items-center gap-1.5 border border-hairline bg-white px-3 py-1 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60"
+                    >
+                      {isBusy ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+                      ) : card.controls.locked ? (
                         <Unlock className="h-3.5 w-3.5" strokeWidth={2} />
-                        Unlock Card
-                      </>
-                    ) : (
-                      <>
+                      ) : (
                         <Lock className="h-3.5 w-3.5" strokeWidth={2} />
-                        Lock Card
-                      </>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleViewDetails();
-                    }}
-                    className="inline-flex min-h-[32px] items-center gap-1.5 border border-hairline bg-white px-3 py-1 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                  >
-                    <Eye className="h-3.5 w-3.5" strokeWidth={2} />
-                    View Details
-                  </button>
+                      )}
+                      {card.controls.locked ? 'Unlock Card' : 'Lock Card'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedCardId(card.id);
+                        handleViewDetails();
+                      }}
+                      className="inline-flex min-h-[32px] items-center gap-1.5 border border-hairline bg-white px-3 py-1 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                    >
+                      <Eye className="h-3.5 w-3.5" strokeWidth={2} />
+                      View Details
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* Selected Card Details */}
@@ -389,7 +598,7 @@ const Cards = () => {
                 />
                 <DetailRow
                   label="Linked Account"
-                  value={selectedCard.linkedAccount}
+                  value={selectedCard.linkedAccount || '—'}
                 />
                 <DetailRow label="Cardholder" value={selectedCard.cardholderName} />
                 <DetailRow
@@ -429,9 +638,11 @@ const Cards = () => {
                       <div className="mb-1.5 flex items-center justify-between">
                         <span className="text-xs text-muted">Credit Utilization</span>
                         <span className="text-xs font-bold text-deep-accent">
-                          {Math.round(
-                            (selectedCard.balance / selectedCard.creditLimit) * 100
-                          )}
+                          {selectedCard.creditLimit > 0
+                            ? Math.round(
+                                (Math.abs(selectedCard.balance) / selectedCard.creditLimit) * 100
+                              )
+                            : 0}
                           %
                         </span>
                       </div>
@@ -439,12 +650,17 @@ const Cards = () => {
                         <div
                           className="h-full transition-[width] duration-300"
                           style={{
-                            width: `${Math.min(
-                              (selectedCard.balance / selectedCard.creditLimit) * 100,
-                              100
-                            )}%`,
+                            width: `${
+                              selectedCard.creditLimit > 0
+                                ? Math.min(
+                                    (Math.abs(selectedCard.balance) / selectedCard.creditLimit) * 100,
+                                    100
+                                  )
+                                : 0
+                            }%`,
                             backgroundColor:
-                              selectedCard.balance / selectedCard.creditLimit > 0.8
+                              selectedCard.creditLimit > 0 &&
+                              Math.abs(selectedCard.balance) / selectedCard.creditLimit > 0.8
                                 ? '#d9534f'
                                 : '#008296',
                           }}
@@ -488,10 +704,10 @@ const Cards = () => {
                             </span>
                             <div className="min-w-0">
                               <div className="truncate text-sm font-semibold text-ink">
-                                {tx.merchant}
+                                {tx.merchant || tx.company || 'Card Activity'}
                               </div>
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-                                <span>{tx.category}</span>
+                                <span>{tx.category || tx.description || '—'}</span>
                                 {tx.status === 'Pending' && (
                                   <span className="inline-flex items-center gap-1 bg-[#fff3e0] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#f0ad4e]">
                                     <Clock className="h-2.5 w-2.5" strokeWidth={2.5} />
@@ -536,34 +752,40 @@ const Cards = () => {
                 Card Controls
               </h3>
               <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
-                {controlItems.map((item) => (
-                  <div
-                    key={item.label}
-                    className="flex items-center gap-3 border-b border-faint py-3"
-                  >
-                    <span
-                      className={`h-1.5 w-1.5 shrink-0 ${
-                        item.on ? 'bg-primary' : 'bg-muted'
-                      }`}
-                      aria-hidden="true"
-                    />
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-deep-accent">
-                      {item.label}
-                    </span>
-                    <span className="shrink-0 text-xs text-muted">{item.status}</span>
-                    <button
-                      type="button"
-                      onClick={item.action}
-                      className="shrink-0 border border-hairline bg-white px-2.5 py-1 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                {controlItems.map((item) => {
+                  const isBusy = busyKey === `${selectedCard.id}:${item.key}`;
+                  return (
+                    <div
+                      key={item.label}
+                      className="flex items-center gap-3 border-b border-faint py-3"
                     >
-                      {item.toggleLabel}
-                    </button>
-                  </div>
-                ))}
+                      <span
+                        className={`h-1.5 w-1.5 shrink-0 ${
+                          item.on ? 'bg-primary' : 'bg-muted'
+                        }`}
+                        aria-hidden="true"
+                      />
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-deep-accent">
+                        {item.label}
+                      </span>
+                      <span className="shrink-0 text-xs text-muted">{item.status}</span>
+                      <button
+                        type="button"
+                        onClick={item.action}
+                        disabled={isBusy}
+                        className="shrink-0 border border-hairline bg-white px-2.5 py-1 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60"
+                      >
+                        {isBusy ? (
+                          <Loader2 className="h-3 w-3 animate-spin inline" strokeWidth={2} />
+                        ) : (
+                          item.toggleLabel
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-
-
           </div>
         </section>
       )}
@@ -578,36 +800,44 @@ const Cards = () => {
         </div>
 
         <div className="flex flex-col divide-y divide-faint border-t border-hairline">
-          {mockCardAlerts.map((alert) => (
-            <div
-              key={alert.id}
-              className="flex items-center gap-3 py-3"
-            >
-              <span
-                className={`h-1.5 w-1.5 shrink-0 ${
-                  alert.enabled ? 'bg-primary' : 'bg-[#d9534f]'
-                }`}
-                aria-hidden="true"
-              />
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-deep-accent">
-                {alert.name}
-              </span>
-              <span
-                className={`shrink-0 text-xs font-bold uppercase tracking-wide ${
-                  alert.enabled ? 'text-primary' : 'text-[#d9534f]'
-                }`}
-              >
-                {alert.enabled ? 'ON' : 'OFF'}
-              </span>
-              <button
-                type="button"
-                onClick={() => toggleAlert(alert.id)}
-                className="shrink-0 border border-hairline bg-white px-2.5 py-1 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              >
-                {alert.enabled ? 'Turn Off' : 'Turn On'}
-              </button>
-            </div>
-          ))}
+          {Object.entries(ALERT_LABELS).map(([key, label]) => {
+            const enabled = alertPreferences[key] === true;
+            const isBusy = busyKey === `alert:${key}`;
+            return (
+              <div key={key} className="flex items-center gap-3 py-3">
+                <span
+                  className={`h-1.5 w-1.5 shrink-0 ${
+                    enabled ? 'bg-primary' : 'bg-[#d9534f]'
+                  }`}
+                  aria-hidden="true"
+                />
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-deep-accent">
+                  {label}
+                </span>
+                <span
+                  className={`shrink-0 text-xs font-bold uppercase tracking-wide ${
+                    enabled ? 'text-primary' : 'text-[#d9534f]'
+                  }`}
+                >
+                  {enabled ? 'ON' : 'OFF'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => toggleAlert(key)}
+                  disabled={isBusy}
+                  className="shrink-0 border border-hairline bg-white px-2.5 py-1 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60"
+                >
+                  {isBusy ? (
+                    <Loader2 className="h-3 w-3 animate-spin inline" strokeWidth={2} />
+                  ) : enabled ? (
+                    'Turn Off'
+                  ) : (
+                    'Turn On'
+                  )}
+                </button>
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -646,11 +876,14 @@ const Cards = () => {
                 {selectedCard.name}
               </div>
               <div className="mt-2 font-mono text-xl tracking-[0.2em] text-white">
-                •••• •••• •••• {selectedCard.lastFour}
+                {revealed?.fullNumber
+                  ? formatFullNumber(revealed.fullNumber)
+                  : `•••• •••• •••• ${selectedCard.lastFour}`}
               </div>
               <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-white/80">
                 <span>Cardholder: {selectedCard.cardholderName}</span>
                 <span>Expires: {formatExpiration(selectedCard.expirationDate)}</span>
+                {revealed?.cvv && <span>CVV: {revealed.cvv}</span>}
               </div>
               <div className="mt-3 flex items-center gap-2 border-t border-white/15 pt-3 text-xs">
                 <span className="text-white/70">Status:</span>
@@ -669,17 +902,29 @@ const Cards = () => {
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <button
                 type="button"
-                className="inline-flex min-h-[40px] items-center justify-center gap-1.5 border border-hairline bg-white px-4 py-2 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                onClick={handleShowFullNumber}
+                disabled={revealing}
+                className="inline-flex min-h-[40px] items-center justify-center gap-1.5 border border-hairline bg-white px-4 py-2 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60"
               >
-                <Eye className="h-3.5 w-3.5" strokeWidth={2} />
-                Show Full Number
+                {revealing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+                ) : (
+                  <Eye className="h-3.5 w-3.5" strokeWidth={2} />
+                )}
+                {revealed?.fullNumber ? 'Hide Full Number' : 'Show Full Number'}
               </button>
               <button
                 type="button"
-                className="inline-flex min-h-[40px] items-center justify-center gap-1.5 border border-hairline bg-white px-4 py-2 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                onClick={handleShowCvv}
+                disabled={revealing}
+                className="inline-flex min-h-[40px] items-center justify-center gap-1.5 border border-hairline bg-white px-4 py-2 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60"
               >
-                <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2} />
-                View CVV
+                {revealing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+                ) : (
+                  <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2} />
+                )}
+                {revealed?.cvv ? 'Hide CVV' : 'View CVV'}
               </button>
               <button
                 type="button"
@@ -748,6 +993,7 @@ const Cards = () => {
                   <input
                     type="number"
                     id="paymentAmount"
+                    autoComplete="off"
                     value={paymentAmount}
                     onChange={(e) => setPaymentAmount(e.target.value)}
                     placeholder="0.00"
@@ -772,6 +1018,7 @@ const Cards = () => {
                 <input
                   type="date"
                   id="paymentDate"
+                  autoComplete="off"
                   value={paymentDate}
                   onChange={(e) => setPaymentDate(e.target.value)}
                   className="min-h-[40px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
