@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import {
   createBrowserRouter,
   RouterProvider,
+  Navigate,
 } from 'react-router-dom';
 import App from './App';
 import AppLayout from './components/layout/AppLayout';
@@ -30,7 +31,6 @@ import ContactsPage from './pages/ContactsPage';
 import HistoryPage from './pages/HistoryPage';
 
 // Admin Pages
-import AdminDashboard from './pages/admin/AdminDashboard';
 import ManageUsers from './pages/admin/ManageUsers';
 import ManageAccounts from './pages/admin/ManageAccounts';
 import ManageTransfers from './pages/admin/ManageTransfers';
@@ -100,25 +100,28 @@ const router = createBrowserRouter([
 
   // ----- Admin routes -----
   {
+    path: 'admin',
     element: (
       <ProtectedRoute allowedRoles={['admin']}>
         <AdminLayout />
       </ProtectedRoute>
     ),
     children: [
-      { path: 'admin', element: <AdminDashboard /> },
-      { path: 'admin/users', element: <ManageUsers /> },
-      { path: 'admin/accounts', element: <ManageAccounts /> },
-      { path: 'admin/transfers', element: <ManageTransfers /> },
-      { path: 'admin/payments', element: <ManagePayments /> },
-      { path: 'admin/deposits', element: <ManageDeposits /> },
-      { path: 'admin/transactions', element: <ManageTransactions /> },
-      { path: 'admin/statements', element: <ManageStatements /> },
-      { path: 'admin/cards', element: <ManageCards /> },
-      { path: 'admin/loans', element: <ManageLoans /> },
-      { path: 'admin/goals', element: <ManageGoals /> },
-      { path: 'admin/notifications', element: <ManageNotifications /> },
-      { path: 'admin/settings', element: <AdminSettings /> },
+      // Bare /admin → redirect to Manage Users
+      { index: true, element: <Navigate to="/admin/users" replace /> },
+
+      { path: 'users', element: <ManageUsers /> },
+      { path: 'accounts', element: <ManageAccounts /> },
+      { path: 'transfers', element: <ManageTransfers /> },
+      { path: 'payments', element: <ManagePayments /> },
+      { path: 'deposits', element: <ManageDeposits /> },
+      { path: 'transactions', element: <ManageTransactions /> },
+      { path: 'statements', element: <ManageStatements /> },
+      { path: 'cards', element: <ManageCards /> },
+      { path: 'loans', element: <ManageLoans /> },
+      { path: 'goals', element: <ManageGoals /> },
+      { path: 'notifications', element: <ManageNotifications /> },
+      { path: 'settings', element: <AdminSettings /> },
     ],
   },
 ]);

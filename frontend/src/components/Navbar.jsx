@@ -32,7 +32,7 @@ function Navbar() {
       closeModal();
 
       if (loggedInUser.role === 'admin') {
-        navigate('/admin');
+        navigate('/admin/users');
       } else {
         navigate('/home');
       }
