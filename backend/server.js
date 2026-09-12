@@ -28,6 +28,8 @@ import loansRoutes from './routes/loansRoutes.js';
 import adminLoansRoutes from './routes/adminLoansRoutes.js';
 import goalsRoutes from './routes/goalsRoutes.js';
 import adminGoalsRoutes from './routes/adminGoalsRoutes.js';
+import notificationsRoutes from './routes/notificationsRoutes.js';
+import adminNotificationsRoutes from './routes/adminNotificationsRoutes.js';
 
 import { startGoalContributionJob } from './jobs/goalContributions.js';
 
@@ -149,6 +151,8 @@ app.use('/api/loans', loansRoutes);
 app.use('/api/admin/loans', adminLoansRoutes);
 app.use('/api/goals', goalsRoutes);
 app.use('/api/admin/goals', adminGoalsRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/admin/notifications', adminNotificationsRoutes);
 
 // Error middleware
 app.use(notFound);

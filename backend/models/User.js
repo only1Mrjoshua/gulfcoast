@@ -54,6 +54,13 @@ const userSchema = new mongoose.Schema({
     payoffNotification: { type: Boolean, default: true },
   },
 
+  notificationPreferences: {
+    account:     { type: Boolean, default: true },
+    transaction: { type: Boolean, default: true },
+    promotions:  { type: Boolean, default: true },
+    security:    { type: Boolean, default: true },
+  },
+
   // ⬇️ NEW — Optional profile fields used to prefill the loan application.
   //           All default to empty so existing records are unaffected.
   dateOfBirth:    { type: String, default: '' },

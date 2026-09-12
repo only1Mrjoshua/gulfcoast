@@ -1,14 +1,12 @@
 // src/pages/Notifications.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Bell,
   CheckCircle2,
   AlertCircle,
   Search,
   X,
-  Archive,
   Trash2,
-  ChevronRight,
   Inbox,
   ShieldCheck,
   CheckCheck,
@@ -17,105 +15,28 @@ import {
   Gift,
   Landmark,
   Info,
+  Loader2,
+  Settings,
 } from 'lucide-react';
-
-// ---------------------------------------------------------------------------
-// Mock notification data (kept inline so this page is self-contained)
-// ---------------------------------------------------------------------------
-const mockNotifications = [
-  {
-    id: 'n1',
-    title: 'Large transaction alert',
-    preview: 'A purchase of $842.10 was made on your Rewards Visa •••• 2208.',
-    body: 'A purchase of $842.10 was made on your Rewards Visa •••• 2208 at Best Buy.\n\nIf you did not authorize this transaction, please contact us immediately at 1-800-555-0142.',
-    type: 'Transactions',
-    date: '2025-06-14',
-    read: false,
-    priority: 'high',
-  },
-  {
-    id: 'n2',
-    title: 'New device signed in',
-    preview: 'A new sign-in was detected from an unrecognized device.',
-    body: 'A new sign-in to your account was detected from an unrecognized device.\n\nDevice: Chrome on Windows\nLocation: Mobile, AL\nTime: June 14, 2025 at 9:42 AM\n\nIf this was you, no action is needed. If not, secure your account immediately.',
-    type: 'Security',
-    date: '2025-06-14',
-    read: false,
-    priority: 'high',
-  },
-  {
-    id: 'n3',
-    title: 'Direct deposit received',
-    preview: 'Your paycheck of $2,450.00 was deposited into Checking •••• 4821.',
-    body: 'Your paycheck of $2,450.00 was deposited into Checking •••• 4821.\n\nYour available balance has been updated.',
-    type: 'Transactions',
-    date: '2025-06-13',
-    read: false,
-    priority: 'normal',
-  },
-  {
-    id: 'n4',
-    title: 'Statement ready',
-    preview: 'Your May statement for Savings •••• 9134 is now available.',
-    body: 'Your May statement for Savings •••• 9134 is now available to view and download.\n\nStatements are available for 24 months in your account documents.',
-    type: 'Account',
-    date: '2025-06-12',
-    read: true,
-    priority: 'normal',
-  },
-  {
-    id: 'n5',
-    title: 'Payment due reminder',
-    preview: 'Your Auto Loan •••• 3812 payment of $389.00 is due June 20.',
-    body: 'Your Auto Loan •••• 3812 payment of $389.00 is due on June 20, 2025.\n\nSet up autopay to avoid missing a payment.',
-    type: 'Account',
-    date: '2025-06-11',
-    read: false,
-    priority: 'normal',
-  },
-  {
-    id: 'n6',
-    title: 'You earned 1,200 reward points',
-    preview: 'Your recent purchases earned 1,200 points on your Rewards Visa.',
-    body: 'Your recent purchases earned 1,200 reward points on your Rewards Visa •••• 2208.\n\nRedeem points for statement credits, travel, and more.',
-    type: 'Promotions',
-    date: '2025-06-10',
-    read: true,
-    priority: 'normal',
-  },
-  {
-    id: 'n7',
-    title: 'Password changed successfully',
-    preview: 'Your online banking password was changed on June 9.',
-    body: 'Your online banking password was changed on June 9, 2025 at 3:18 PM.\n\nIf you did not make this change, contact us immediately.',
-    type: 'Security',
-    date: '2025-06-09',
-    read: true,
-    priority: 'normal',
-  },
-  {
-    id: 'n8',
-    title: 'Low balance warning',
-    preview: 'Checking •••• 4821 balance fell below your $500 alert threshold.',
-    body: 'Your Checking •••• 4821 balance fell below your $500 alert threshold.\n\nCurrent balance: $412.87\n\nConsider transferring funds to avoid overdraft fees.',
-    type: 'Account',
-    date: '2025-06-08',
-    read: true,
-    priority: 'high',
-  },
-];
+import { apiFetch } from '../utils/api';
 
 const notificationCategories = [
-  'All Notifications',
-  'Unread',
-  'Transactions',
-  'Security',
-  'Account',
-  'Promotions',
+  { value: 'All Notifications', label: 'All Notifications' },
+  { value: 'Unread',            label: 'Unread' },
+  { value: 'Transaction',       label: 'Transactions' },
+  { value: 'Security',          label: 'Security' },
+  { value: 'Account',           label: 'Account' },
+  { value: 'Promotions',        label: 'Promotions' },
 ];
 
+const parseDate = (s) => {
+  if (!s) return null;
+  return s.includes('T') ? new Date(s) : new Date(s + 'T00:00:00');
+};
+
 const formatDate = (dateStr) => {
-  const date = new Date(dateStr + 'T00:00:00');
+  const date = parseDate(dateStr);
+  if (!date || Number.isNaN(date.getTime())) return '';
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -124,7 +45,8 @@ const formatDate = (dateStr) => {
 };
 
 const formatDateLong = (dateStr) => {
-  const date = new Date(dateStr + 'T00:00:00');
+  const date = parseDate(dateStr);
+  if (!date || Number.isNaN(date.getTime())) return '';
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
@@ -132,101 +54,189 @@ const formatDateLong = (dateStr) => {
   });
 };
 
-const getTypeIcon = (type) => {
-  switch (type) {
-    case 'Security':
-      return Lock;
-    case 'Transactions':
-      return TrendingUp;
-    case 'Promotions':
-      return Gift;
-    case 'Account':
-      return Landmark;
-    default:
-      return Bell;
+const getTypeIcon = (category) => {
+  switch (category) {
+    case 'Security':    return Lock;
+    case 'Transaction': return TrendingUp;
+    case 'Promotions':  return Gift;
+    case 'Account':     return Landmark;
+    default:            return Bell;
   }
 };
 
 const Notifications = () => {
-  // State
-  const [notifications, setNotifications] = useState(mockNotifications);
+  // Data
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // UI state
   const [selectedCategory, setSelectedCategory] = useState('All Notifications');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedNotificationId, setSelectedNotificationId] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Filter notifications
+  // Preferences
+  const [preferences, setPreferences] = useState({
+    account: true,
+    transaction: true,
+    promotions: true,
+    security: true,
+  });
+  const [showPreferences, setShowPreferences] = useState(false);
+  const [prefSaving, setPrefSaving] = useState(false);
+
+  // ────────────────────────────────────────────────────────
+  // Load
+  // ────────────────────────────────────────────────────────
+  const loadNotifications = useCallback(async () => {
+    const res = await apiFetch('/notifications');
+    const d = res?.data ?? res;
+    setNotifications(d.notifications ?? []);
+    if (d.preferences) setPreferences(d.preferences);
+  }, []);
+
+  useEffect(() => {
+    const boot = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        await loadNotifications();
+      } catch (err) {
+        console.error('❌ Failed to load notifications:', err);
+        setError(err.message || 'Failed to load notifications');
+      } finally {
+        setLoading(false);
+      }
+    };
+    boot();
+  }, [loadNotifications]);
+
+  // ────────────────────────────────────────────────────────
+  // Filter
+  // ────────────────────────────────────────────────────────
   const filteredNotifications = useMemo(() => {
     let filtered = notifications;
 
     if (selectedCategory === 'Unread') {
       filtered = filtered.filter((n) => !n.read);
     } else if (selectedCategory !== 'All Notifications') {
-      filtered = filtered.filter((n) => n.type === selectedCategory);
+      filtered = filtered.filter((n) => n.category === selectedCategory);
     }
 
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
+      const q = searchQuery.toLowerCase().trim();
       filtered = filtered.filter(
         (n) =>
-          n.title.toLowerCase().includes(query) ||
-          n.preview.toLowerCase().includes(query) ||
-          n.body.toLowerCase().includes(query)
+          n.title.toLowerCase().includes(q) ||
+          n.message.toLowerCase().includes(q)
       );
     }
 
-    filtered = [...filtered].sort(
+    return [...filtered].sort(
       (a, b) => new Date(b.date) - new Date(a.date)
     );
-
-    return filtered;
   }, [notifications, selectedCategory, searchQuery]);
 
-  // Selected notification
   const selectedNotification = notifications.find(
     (n) => n.id === selectedNotificationId
   );
 
+  // ────────────────────────────────────────────────────────
   // Handlers
-  const handleOpenNotification = (id) => {
+  // ────────────────────────────────────────────────────────
+  const handleOpenNotification = async (id) => {
     setSelectedNotificationId(id);
+
+    const target = notifications.find((n) => n.id === id);
+    if (!target || target.read) return;
+
+    // Optimistic
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
+
+    try {
+      await apiFetch(`/notifications/${id}/read`, { method: 'PUT' });
+    } catch (err) {
+      console.error('❌ Mark read failed:', err);
+      // Roll back on failure
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: false } : n))
+      );
+    }
   };
 
-  const handleCloseNotification = () => {
-    setSelectedNotificationId(null);
-  };
+  const handleCloseNotification = () => setSelectedNotificationId(null);
 
-  const handleArchive = () => {
+  const handleDelete = async () => {
     if (!selectedNotification) return;
-    setNotifications((prev) =>
-      prev.filter((n) => n.id !== selectedNotification.id)
-    );
-    setSelectedNotificationId(null);
+    setActionLoading(true);
+
+    try {
+      await apiFetch(`/notifications/${selectedNotification.id}`, {
+        method: 'DELETE',
+      });
+      setNotifications((prev) =>
+        prev.filter((n) => n.id !== selectedNotification.id)
+      );
+      setSelectedNotificationId(null);
+      setShowDeleteConfirm(false);
+    } catch (err) {
+      console.error('❌ Delete failed:', err);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleDelete = () => {
-    if (!selectedNotification) return;
-    setNotifications((prev) =>
-      prev.filter((n) => n.id !== selectedNotification.id)
-    );
-    setSelectedNotificationId(null);
-    setShowDeleteConfirm(false);
+  const handleMarkAllRead = async () => {
+    setActionLoading(true);
+    try {
+      await apiFetch('/notifications/read-all', { method: 'PUT' });
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch (err) {
+      console.error('❌ Mark-all-read failed:', err);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleMarkAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  // ────────────────────────────────────────────────────────
+  // Preferences
+  // ────────────────────────────────────────────────────────
+  const togglePreference = (key) => {
+    setPreferences((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Overview stats
+  const handleSavePreferences = async () => {
+    setPrefSaving(true);
+    try {
+      await apiFetch('/notifications/preferences', {
+        method: 'PUT',
+        body: JSON.stringify(preferences),
+      });
+      // Reload to apply the filter
+      await loadNotifications();
+      setShowPreferences(false);
+    } catch (err) {
+      console.error('❌ Save preferences failed:', err);
+    } finally {
+      setPrefSaving(false);
+    }
+  };
+
+  // ────────────────────────────────────────────────────────
+  // Stats
+  // ────────────────────────────────────────────────────────
   const unreadCount = notifications.filter((n) => !n.read).length;
   const importantCount = notifications.filter(
-    (n) => n.priority === 'high'
+    (n) => n.priority === 'Important'
   ).length;
   const todayStr = new Date().toISOString().split('T')[0];
-  const todayCount = notifications.filter((n) => n.date === todayStr).length;
+  const todayCount = notifications.filter(
+    (n) => (n.date || '').slice(0, 10) === todayStr
+  ).length;
   const totalCount = notifications.length;
 
   const overviewCards = [
@@ -235,6 +245,33 @@ const Notifications = () => {
     { label: 'Today', value: todayCount, icon: CheckCircle2 },
     { label: 'Total', value: totalCount, icon: Inbox },
   ];
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" strokeWidth={1.75} />
+        <p className="text-sm text-muted">Loading your notifications…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4">
+        <p className="font-serif text-xl font-bold text-deep-accent">
+          We couldn&rsquo;t load your notifications
+        </p>
+        <p className="max-w-md text-center text-sm text-muted">{error}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-2 bg-primary px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-primary-deep"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -252,7 +289,7 @@ const Notifications = () => {
         <button
           type="button"
           onClick={handleMarkAllRead}
-          disabled={unreadCount === 0}
+          disabled={unreadCount === 0 || actionLoading}
           className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:bg-muted/40"
         >
           <CheckCheck className="h-4 w-4" strokeWidth={2.25} />
@@ -292,9 +329,9 @@ const Notifications = () => {
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
           >
-            {notificationCategories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
+            {notificationCategories.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
               </option>
             ))}
           </select>
@@ -329,6 +366,15 @@ const Notifications = () => {
             )}
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setShowPreferences(true)}
+          className="inline-flex min-h-[38px] items-center gap-1.5 border border-hairline bg-white px-4 py-1.5 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        >
+          <Settings className="h-3.5 w-3.5" strokeWidth={2} />
+          Manage Alerts
+        </button>
       </div>
 
       {/* Notification Container */}
@@ -348,7 +394,7 @@ const Notifications = () => {
           ) : (
             filteredNotifications.map((notification) => {
               const isSelected = selectedNotificationId === notification.id;
-              const TypeIcon = getTypeIcon(notification.type);
+              const TypeIcon = getTypeIcon(notification.category);
               return (
                 <button
                   key={notification.id}
@@ -367,7 +413,7 @@ const Notifications = () => {
                         strokeWidth={2}
                       />
                       <span className="truncate text-xs font-semibold uppercase tracking-wide text-deep-accent sm:text-[11px]">
-                        {notification.type}
+                        {notification.category}
                       </span>
                     </span>
                     <span className="shrink-0 text-[11px] text-muted sm:text-xs">
@@ -385,7 +431,7 @@ const Notifications = () => {
                     <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                       {notification.title}
                     </span>
-                    {notification.priority === 'high' && (
+                    {notification.priority === 'Important' && (
                       <span className="shrink-0 bg-[#d9534f] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                         Important
                       </span>
@@ -425,11 +471,11 @@ const Notifications = () => {
               {/* Header */}
               <div className="border-b border-hairline pb-3">
                 <div className="mb-2 inline-flex items-center gap-1.5 bg-faint px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-body">
-                  {React.createElement(getTypeIcon(selectedNotification.type), {
+                  {React.createElement(getTypeIcon(selectedNotification.category), {
                     className: 'h-3 w-3 text-primary',
                     strokeWidth: 2,
                   })}
-                  {selectedNotification.type}
+                  {selectedNotification.category}
                 </div>
                 <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
                   {selectedNotification.title}
@@ -439,7 +485,7 @@ const Notifications = () => {
                     {formatDateLong(selectedNotification.date)}
                   </span>
                 </div>
-                {selectedNotification.priority === 'high' && (
+                {selectedNotification.priority === 'Important' && (
                   <span className="mt-2 inline-block bg-[#d9534f] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                     Important
                   </span>
@@ -448,7 +494,7 @@ const Notifications = () => {
 
               {/* Body */}
               <div className="text-sm leading-relaxed text-ink sm:text-base">
-                {selectedNotification.body.split('\n').map((line, idx) => (
+                {selectedNotification.message.split('\n').map((line, idx) => (
                   <p key={idx} className="mb-2 last:mb-0">
                     {line}
                   </p>
@@ -457,14 +503,6 @@ const Notifications = () => {
 
               {/* Actions */}
               <div className="flex flex-wrap gap-2 border-t border-hairline pt-3">
-                <button
-                  type="button"
-                  onClick={handleArchive}
-                  className="inline-flex min-h-[36px] items-center gap-1.5 border border-hairline bg-white px-4 py-1.5 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
-                >
-                  <Archive className="h-3.5 w-3.5" strokeWidth={2} />
-                  Archive
-                </button>
                 <button
                   type="button"
                   onClick={() => setShowDeleteConfirm(true)}
@@ -559,17 +597,118 @@ const Notifications = () => {
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(false)}
-                className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                disabled={actionLoading}
+                className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleDelete}
-                className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-[#d9534f] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#c9302c] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d9534f]/50"
+                disabled={actionLoading}
+                className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-[#d9534f] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#c9302c] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d9534f]/50 disabled:opacity-70"
               >
-                <Trash2 className="h-4 w-4" strokeWidth={2.25} />
+                {actionLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+                ) : (
+                  <Trash2 className="h-4 w-4" strokeWidth={2.25} />
+                )}
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Alert Preferences Modal */}
+      {showPreferences && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => !prefSaving && setShowPreferences(false)}
+        >
+          <div
+            className="relative w-full max-w-[480px] border border-hairline bg-white p-6 sm:p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => !prefSaving && setShowPreferences(false)}
+              disabled={prefSaving}
+              aria-label="Close"
+              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent disabled:opacity-40"
+            >
+              <X className="h-4 w-4" strokeWidth={2.25} />
+            </button>
+
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#e7f3f5] text-primary">
+                <Settings className="h-5 w-5" strokeWidth={1.75} />
+              </span>
+              <div>
+                <h2 className="font-serif text-xl font-bold text-deep-accent">
+                  Alert Preferences
+                </h2>
+                <p className="mt-1 text-sm text-body">
+                  Choose which alerts you want to see.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col divide-y divide-faint border-y border-hairline">
+              {[
+                { key: 'account',     label: 'Account Alerts' },
+                { key: 'transaction', label: 'Transaction Alerts' },
+                { key: 'promotions',  label: 'Promotions' },
+                { key: 'security',    label: 'Security Alerts' },
+              ].map(({ key, label }) => (
+                <div
+                  key={key}
+                  className="flex items-center justify-between py-3"
+                >
+                  <span className="text-sm font-semibold text-deep-accent">
+                    {label}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => togglePreference(key)}
+                    className={`inline-flex items-center gap-1.5 border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors ${
+                      preferences[key]
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-hairline bg-faint text-muted'
+                    }`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 ${
+                        preferences[key] ? 'bg-primary' : 'bg-muted'
+                      }`}
+                    />
+                    {preferences[key] ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setShowPreferences(false)}
+                disabled={prefSaving}
+                className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSavePreferences}
+                disabled={prefSaving}
+                className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep disabled:opacity-70"
+              >
+                {prefSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" strokeWidth={2.25} />
+                )}
+                Save Preferences
               </button>
             </div>
           </div>
