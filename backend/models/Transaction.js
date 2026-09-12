@@ -15,10 +15,18 @@ const transactionSchema = new mongoose.Schema({
     index: true,
   },
 
-  // ⬇️ NEW — links loan payments back to the Loan they belong to
+  // ⬇️ Links loan payments back to the Loan they belong to
   loanId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Loan',
+    default: null,
+    index: true,
+  },
+
+  // ⬇️ Links goal contributions back to the Goal they belong to
+  goalId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Goal',
     default: null,
     index: true,
   },
@@ -47,6 +55,7 @@ const transactionSchema = new mongoose.Schema({
 
 transactionSchema.index({ userId: 1, date: -1 });
 transactionSchema.index({ userId: 1, accountId: 1, date: -1 });
+transactionSchema.index({ userId: 1, goalId: 1, date: -1 });
 
 // Synchronous hook — no next parameter
 transactionSchema.pre('save', function () {

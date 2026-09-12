@@ -16,8 +16,8 @@ import depositsRoutes from "./routes/depositsRoutes.js";
 import adminDepositsRoutes from "./routes/adminDepositsRoutes.js";
 import transactionsRoutes from "./routes/transactionsRoutes.js";
 import adminReportsRoutes from "./routes/adminReportsRoutes.js";
-import statementsRoutes from "./routes/statementsRoutes.js";              // ⬅️ NEW
-import adminStatementsRoutes from "./routes/adminStatementsRoutes.js";    // ⬅️ NEW
+import statementsRoutes from "./routes/statementsRoutes.js";
+import adminStatementsRoutes from "./routes/adminStatementsRoutes.js";
 import cardsRoutes from './routes/cardsRoutes.js';
 import adminCardsRoutes from './routes/adminCardsRoutes.js';
 import adminUsersRoutes from './routes/adminUsersRoutes.js';
@@ -26,6 +26,10 @@ import adminPaymentsRoutes from './routes/adminPaymentsRoutes.js';
 import adminTransactionsRoutes from './routes/adminTransactionsRoutes.js';
 import loansRoutes from './routes/loansRoutes.js';
 import adminLoansRoutes from './routes/adminLoansRoutes.js';
+import goalsRoutes from './routes/goalsRoutes.js';
+import adminGoalsRoutes from './routes/adminGoalsRoutes.js';
+
+import { startGoalContributionJob } from './jobs/goalContributions.js';
 
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 
@@ -133,16 +137,19 @@ app.use("/api/deposits", depositsRoutes);
 app.use("/api/admin/deposits", adminDepositsRoutes);
 app.use("/api/transactions", transactionsRoutes);
 app.use("/api/admin/reports", adminReportsRoutes);
-app.use("/api/statements", statementsRoutes);                          // ⬅️ NEW
-app.use("/api/admin/statements", adminStatementsRoutes);               // ⬅️ NEW
-app.use("/api/cards", cardsRoutes);                                   // ⬅️ NEW
-app.use("/api/admin/cards", adminCardsRoutes);                        // ⬅️ NEW
-app.use("/api/admin/accounts", adminAccountsRoutes);                   // ⬅️ NEW
-app.use("/api/admin/users", adminUsersRoutes); 
+app.use("/api/statements", statementsRoutes);
+app.use("/api/admin/statements", adminStatementsRoutes);
+app.use("/api/cards", cardsRoutes);
+app.use("/api/admin/cards", adminCardsRoutes);
+app.use("/api/admin/accounts", adminAccountsRoutes);
+app.use("/api/admin/users", adminUsersRoutes);
 app.use('/api/admin/transactions', adminTransactionsRoutes);
 app.use('/api/admin/payments', adminPaymentsRoutes);
 app.use('/api/loans', loansRoutes);
 app.use('/api/admin/loans', adminLoansRoutes);
+app.use('/api/goals', goalsRoutes);
+app.use('/api/admin/goals', adminGoalsRoutes);
+
 // Error middleware
 app.use(notFound);
 app.use(errorHandler);
@@ -154,6 +161,8 @@ if (!process.env.VERCEL) {
       console.log("✅ Connected to MongoDB");
       app.listen(PORT, "0.0.0.0", () => {
         console.log(`✅ Server running on port ${PORT}`);
+        // Start the recurring goal contribution engine
+        startGoalContributionJob();
       });
     })
     .catch((err) => {

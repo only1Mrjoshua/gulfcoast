@@ -1,48 +1,34 @@
 // src/pages/Goals.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Plus,
-  Target,
-  Wallet,
-  CheckCircle2,
-  Calendar,
-  PiggyBank,
-  TrendingUp,
-  Pencil,
-  Trash2,
-  RefreshCw,
-  X,
-  ChevronRight,
-  AlertCircle,
-  Sparkles,
-  Activity,
-  Trophy,
-  ArrowUpRight,
-  Landmark,
-  Info,
+  Plus, Target, Wallet, CheckCircle2, Calendar, PiggyBank,
+  TrendingUp, X, ChevronRight, AlertCircle, Activity, Trophy,
+  ArrowUpRight, Landmark, Loader2,
 } from 'lucide-react';
+import { apiFetch } from '../utils/api';
 
-const ACCOUNTS = [
-  { value: 'chk1', label: 'Checking •••• 4821' },
-  { value: 'sav1', label: 'Savings •••• 9134' },
+const DAYS_OF_WEEK = [
+  { value: 0, label: 'Sunday' },
+  { value: 1, label: 'Monday' },
+  { value: 2, label: 'Tuesday' },
+  { value: 3, label: 'Wednesday' },
+  { value: 4, label: 'Thursday' },
+  { value: 5, label: 'Friday' },
+  { value: 6, label: 'Saturday' },
 ];
 
-const accountLabel = (value) =>
-  ACCOUNTS.find((a) => a.value === value)?.label ?? value;
-
-const todayISO = () => new Date().toISOString().split('T')[0];
-
-const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('en-US', {
+const formatCurrency = (amount) =>
+  new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
   }).format(amount || 0);
-};
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '—';
-  const date = new Date(dateStr + 'T00:00:00');
+  const s = String(dateStr);
+  const date = s.includes('T') ? new Date(s) : new Date(s + 'T00:00:00');
+  if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -52,26 +38,14 @@ const formatDate = (dateStr) => {
 
 const formatDateLong = (dateStr) => {
   if (!dateStr) return '—';
-  const date = new Date(dateStr + 'T00:00:00');
+  const s = String(dateStr);
+  const date = s.includes('T') ? new Date(s) : new Date(s + 'T00:00:00');
+  if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   });
-};
-
-// Next contribution date based on a frequency, starting from today.
-const getNextContributionDate = (frequency) => {
-  const d = new Date();
-  if (frequency === 'Weekly') d.setDate(d.getDate() + 7);
-  else if (frequency === 'Biweekly') d.setDate(d.getDate() + 14);
-  else d.setMonth(d.getMonth() + 1);
-  return d.toISOString().split('T')[0];
-};
-
-const getProgress = (current, target) => {
-  if (!target || target <= 0) return 0;
-  return Math.min(100, Math.round((current / target) * 100));
 };
 
 const emptyCreateForm = {
@@ -80,299 +54,136 @@ const emptyCreateForm = {
   targetAmount: '',
   targetDate: '',
   startingAmount: '',
-  linkedAccount: 'chk1',
+  sourceAccountId: '',
+  linkedAccountId: '',
   autoContribution: false,
   contributionAmount: '',
   contributionFrequency: 'Monthly',
+  contributionDay: '',
 };
 
 const Goals = () => {
-  // ---------------------------------------------------------------------------
-  // State — the user has not set any goals yet, so everything starts empty.
-  // ---------------------------------------------------------------------------
+  // ---- Data -------------------------------------------------------
   const [goals, setGoals] = useState([]);
-  const [goalActivities, setGoalActivities] = useState({});
   const [completedGoals, setCompletedGoals] = useState([]);
+  const [summary, setSummary] = useState({
+    totalSaved: 0,
+    activeGoals: 0,
+    onTrack: 0,
+    upcomingTargetDate: '',
+  });
+  const [accounts, setAccounts] = useState({
+    all: [],
+    checking: [],
+    savings: [],
+  });
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // ---- UI state ---------------------------------------------------
   const [selectedGoalId, setSelectedGoalId] = useState(null);
   const [showCreateGoal, setShowCreateGoal] = useState(false);
-  const [showEditGoal, setShowEditGoal] = useState(false);
-  const [showAddMoney, setShowAddMoney] = useState(false);
-  const [showAutoSave, setShowAutoSave] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  // Create goal form state
   const [createForm, setCreateForm] = useState(emptyCreateForm);
+  const [formError, setFormError] = useState('');
 
-  // Edit goal form state
-  const [editForm, setEditForm] = useState({
-    name: '',
-    targetAmount: '',
-    targetDate: '',
-    contributionAmount: '',
-    contributionFrequency: '',
-    linkedAccount: '',
-  });
+  // ---- Load -------------------------------------------------------
+  const loadGoals = useCallback(async () => {
+    const res = await apiFetch('/goals/overview');
+    const d = res?.data ?? res;
 
-  // Add money form state
-  const [addMoneyForm, setAddMoneyForm] = useState({
-    amount: '',
-    fromAccount: 'chk1',
-  });
+    const loaded = d.goals ?? [];
+    setGoals(loaded.filter((g) => g.status !== 'Completed'));
+    setCompletedGoals(loaded.filter((g) => g.status === 'Completed'));
+    setSummary(
+      d.summary ?? {
+        totalSaved: 0,
+        activeGoals: 0,
+        onTrack: 0,
+        upcomingTargetDate: '',
+      }
+    );
+    setAccounts(d.accounts ?? { all: [], checking: [], savings: [] });
 
-  // Auto save form state
-  const [autoSaveForm, setAutoSaveForm] = useState({
-    amount: '',
-    fromAccount: 'chk1',
-    frequency: 'Monthly',
-    startDate: todayISO(),
-  });
+    setCreateForm((prev) => ({
+      ...prev,
+      sourceAccountId:
+        prev.sourceAccountId || d.accounts?.checking?.[0]?.id || '',
+      linkedAccountId:
+        prev.linkedAccountId || d.accounts?.savings?.[0]?.id || '',
+    }));
+  }, []);
 
-  const selectedGoal = goals.find((g) => g.id === selectedGoalId) || null;
-  const goalActivitiesForSelected = selectedGoal
-    ? goalActivities[selectedGoal.id] || []
-    : [];
+  useEffect(() => {
+    const boot = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        await loadGoals();
+      } catch (err) {
+        console.error('❌ Failed to load goals:', err);
+        setError(err.message || 'Failed to load goals');
+      } finally {
+        setLoading(false);
+      }
+    };
+    boot();
+  }, [loadGoals]);
 
-  // Totals
-  const totalSaved = goals.reduce((sum, goal) => sum + goal.currentAmount, 0);
-  const activeGoals = goals.length;
-  const goalsOnTrack = goals.filter((g) => g.status === 'On Track').length;
+  const selectedGoal =
+    goals.find((g) => g.id === selectedGoalId) ||
+    completedGoals.find((g) => g.id === selectedGoalId) ||
+    null;
 
-  // Soonest upcoming target date
-  const upcomingGoal =
-    goals.length > 0
-      ? goals.reduce(
-          (soonest, g) => (g.targetDate < soonest.targetDate ? g : soonest),
-          goals[0]
-        )
-      : null;
+  const goalActivitiesForSelected = selectedGoal?.activities || [];
 
-  // ---------------------------------------------------------------------------
-  // Create goal
-  // ---------------------------------------------------------------------------
-  const handleCreateGoal = () => setShowCreateGoal(true);
+  // ---- Create -----------------------------------------------------
+  const handleCreateGoal = () => {
+    setFormError('');
+    setCreateForm({
+      ...emptyCreateForm,
+      sourceAccountId: accounts.checking[0]?.id || '',
+      linkedAccountId: accounts.savings[0]?.id || '',
+    });
+    setShowCreateGoal(true);
+  };
 
   const closeCreateGoal = () => {
     setShowCreateGoal(false);
     setCreateForm(emptyCreateForm);
+    setFormError('');
   };
 
-  const handleSubmitCreateGoal = (e) => {
+  const handleSubmitCreateGoal = async (e) => {
     e.preventDefault();
-
-    const targetAmount = parseFloat(createForm.targetAmount) || 0;
-    const startingAmount = parseFloat(createForm.startingAmount) || 0;
-    const id = `goal-${Date.now()}`;
-
-    const newGoal = {
-      id,
-      name: createForm.name.trim(),
-      category: createForm.category,
-      currentAmount: startingAmount,
-      targetAmount,
-      progress: getProgress(startingAmount, targetAmount),
-      targetDate: createForm.targetDate,
-      linkedAccount: accountLabel(createForm.linkedAccount),
-      contributionAmount: createForm.autoContribution
-        ? parseFloat(createForm.contributionAmount) || 0
-        : 0,
-      contributionFrequency: createForm.autoContribution
-        ? createForm.contributionFrequency
-        : 'Monthly',
-      nextContributionDate: createForm.autoContribution
-        ? getNextContributionDate(createForm.contributionFrequency)
-        : null,
-      status: 'On Track',
-    };
-
-    setGoals((prev) => [...prev, newGoal]);
-
-    if (startingAmount > 0) {
-      setGoalActivities((prev) => ({
-        ...prev,
-        [id]: [
-          {
-            id: `act-${Date.now()}`,
-            date: todayISO(),
-            description: 'Starting balance',
-            amount: startingAmount,
-            balance: startingAmount,
-          },
-        ],
-      }));
+    setSubmitting(true);
+    setFormError('');
+    try {
+      const res = await apiFetch('/goals', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...createForm,
+          targetAmount: parseFloat(createForm.targetAmount),
+          startingAmount: parseFloat(createForm.startingAmount) || 0,
+          contributionAmount: parseFloat(createForm.contributionAmount) || 0,
+          contributionDay:
+            createForm.contributionFrequency === 'Daily'
+              ? null
+              : parseInt(createForm.contributionDay, 10),
+        }),
+      });
+      const d = res?.data ?? res;
+      await loadGoals();
+      setSelectedGoalId(d?.goal?.id ?? null);
+      closeCreateGoal();
+    } catch (err) {
+      setFormError(err.message || 'Failed to create goal');
+    } finally {
+      setSubmitting(false);
     }
-
-    setSelectedGoalId(id);
-    closeCreateGoal();
   };
 
-  // ---------------------------------------------------------------------------
-  // Edit goal
-  // ---------------------------------------------------------------------------
-  const handleEditGoal = () => {
-    if (!selectedGoal) return;
-    setEditForm({
-      name: selectedGoal.name,
-      targetAmount: selectedGoal.targetAmount,
-      targetDate: selectedGoal.targetDate,
-      contributionAmount: selectedGoal.contributionAmount,
-      contributionFrequency: selectedGoal.contributionFrequency,
-      linkedAccount: selectedGoal.linkedAccount,
-    });
-    setShowEditGoal(true);
-  };
-
-  const closeEditGoal = () => setShowEditGoal(false);
-
-  const handleSubmitEditGoal = (e) => {
-    e.preventDefault();
-    if (!selectedGoal) return;
-
-    const targetAmount = parseFloat(editForm.targetAmount) || 0;
-
-    setGoals((prev) =>
-      prev.map((g) =>
-        g.id === selectedGoal.id
-          ? {
-              ...g,
-              name: editForm.name.trim(),
-              targetAmount,
-              targetDate: editForm.targetDate,
-              contributionAmount: parseFloat(editForm.contributionAmount) || 0,
-              contributionFrequency: editForm.contributionFrequency,
-              linkedAccount: editForm.linkedAccount,
-              progress: getProgress(g.currentAmount, targetAmount),
-            }
-          : g
-      )
-    );
-
-    closeEditGoal();
-  };
-
-  // ---------------------------------------------------------------------------
-  // Add money
-  // ---------------------------------------------------------------------------
-  const handleAddMoney = () => setShowAddMoney(true);
-
-  const closeAddMoney = () => {
-    setShowAddMoney(false);
-    setAddMoneyForm({ amount: '', fromAccount: 'chk1' });
-  };
-
-  const handleSubmitAddMoney = (e) => {
-    e.preventDefault();
-    if (!selectedGoal) return;
-
-    const amount = parseFloat(addMoneyForm.amount) || 0;
-    if (amount <= 0) return;
-
-    const goalId = selectedGoal.id;
-    const newAmount = selectedGoal.currentAmount + amount;
-    const isComplete = newAmount >= selectedGoal.targetAmount;
-    const today = todayISO();
-
-    setGoalActivities((prev) => ({
-      ...prev,
-      [goalId]: [
-        {
-          id: `act-${Date.now()}`,
-          date: today,
-          description: 'Manual contribution',
-          amount,
-          balance: newAmount,
-        },
-        ...(prev[goalId] || []),
-      ],
-    }));
-
-    if (isComplete) {
-      const remaining = goals.filter((g) => g.id !== goalId);
-      setGoals(remaining);
-      setCompletedGoals((prev) => [
-        ...prev,
-        {
-          id: goalId,
-          name: selectedGoal.name,
-          category: selectedGoal.category,
-          targetAmount: selectedGoal.targetAmount,
-          completionDate: today,
-        },
-      ]);
-      setSelectedGoalId(remaining[0]?.id ?? null);
-    } else {
-      setGoals((prev) =>
-        prev.map((g) =>
-          g.id === goalId
-            ? {
-                ...g,
-                currentAmount: newAmount,
-                progress: getProgress(newAmount, g.targetAmount),
-              }
-            : g
-        )
-      );
-    }
-
-    closeAddMoney();
-  };
-
-  // ---------------------------------------------------------------------------
-  // Auto-save
-  // ---------------------------------------------------------------------------
-  const handleAutoSave = () => setShowAutoSave(true);
-
-  const closeAutoSave = () => {
-    setShowAutoSave(false);
-    setAutoSaveForm({
-      amount: '',
-      fromAccount: 'chk1',
-      frequency: 'Monthly',
-      startDate: todayISO(),
-    });
-  };
-
-  const handleSubmitAutoSave = (e) => {
-    e.preventDefault();
-    if (!selectedGoal) return;
-
-    const amount = parseFloat(autoSaveForm.amount) || 0;
-    const { frequency, startDate } = autoSaveForm;
-    const baseDate = startDate && startDate > todayISO() ? startDate : todayISO();
-
-    setGoals((prev) =>
-      prev.map((g) =>
-        g.id === selectedGoal.id
-          ? {
-              ...g,
-              contributionAmount: amount,
-              contributionFrequency: frequency,
-              nextContributionDate: baseDate,
-            }
-          : g
-      )
-    );
-
-    closeAutoSave();
-  };
-
-  // ---------------------------------------------------------------------------
-  // Delete goal
-  // ---------------------------------------------------------------------------
-  const handleDeleteGoal = () => setShowDeleteConfirm(true);
-  const closeDeleteConfirm = () => setShowDeleteConfirm(false);
-
-  const confirmDeleteGoal = () => {
-    if (!selectedGoal) return;
-    const remaining = goals.filter((g) => g.id !== selectedGoal.id);
-    setGoals(remaining);
-    setSelectedGoalId(remaining[0]?.id ?? null);
-    setShowDeleteConfirm(false);
-  };
-
-  // ---------------------------------------------------------------------------
-  // Form change handlers
-  // ---------------------------------------------------------------------------
   const handleCreateFormChange = (e) => {
     const { name, value, type, checked } = e.target;
     setCreateForm((prev) => ({
@@ -381,56 +192,50 @@ const Goals = () => {
     }));
   };
 
-  const handleEditFormChange = (e) => {
-    const { name, value } = e.target;
-    setEditForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleAddMoneyChange = (e) => {
-    const { name, value } = e.target;
-    setAddMoneyForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleAutoSaveChange = (e) => {
-    const { name, value } = e.target;
-    setAutoSaveForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  // Suggested contribution
-  const calculateSuggestedContribution = () => {
-    if (
-      !createForm.targetAmount ||
-      !createForm.targetDate ||
-      !createForm.startingAmount
-    )
-      return null;
-    const target = parseFloat(createForm.targetAmount);
-    const current = parseFloat(createForm.startingAmount) || 0;
-    const remaining = target - current;
-    if (remaining <= 0) return null;
-    const today = new Date();
-    const targetDate = new Date(createForm.targetDate + 'T00:00:00');
-    const monthsDiff =
-      (targetDate.getFullYear() - today.getFullYear()) * 12 +
-      targetDate.getMonth() -
-      today.getMonth();
-    const months = Math.max(monthsDiff, 1);
-    return remaining / months;
-  };
-
-  const suggestedContribution = calculateSuggestedContribution();
-
   // Overview config
   const overviewCards = [
-    { label: 'Total Saved', value: formatCurrency(totalSaved), icon: Wallet },
-    { label: 'Active Goals', value: activeGoals, icon: Target },
-    { label: 'On Track', value: goalsOnTrack, icon: TrendingUp },
+    {
+      label: 'Total Saved',
+      value: formatCurrency(summary.totalSaved),
+      icon: Wallet,
+    },
+    { label: 'Active Goals', value: summary.activeGoals, icon: Target },
+    { label: 'On Track', value: summary.onTrack, icon: TrendingUp },
     {
       label: 'Upcoming Target',
-      value: upcomingGoal ? formatDate(upcomingGoal.targetDate) : '—',
+      value: summary.upcomingTargetDate
+        ? formatDate(summary.upcomingTargetDate)
+        : '—',
       icon: Calendar,
     },
   ];
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" strokeWidth={1.75} />
+        <p className="text-sm text-muted">Loading your goals…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4">
+        <p className="font-serif text-xl font-bold text-deep-accent">
+          We couldn&rsquo;t load your goals
+        </p>
+        <p className="max-w-md text-center text-sm text-muted">{error}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-2 bg-primary px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-primary-deep"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -545,7 +350,6 @@ const Goals = () => {
                     {goal.name}
                   </div>
 
-                  {/* Progress */}
                   <div className="mt-3 flex flex-col gap-1.5">
                     <div className="flex items-baseline justify-between">
                       <span className="font-serif text-lg font-bold text-deep-accent">
@@ -572,7 +376,6 @@ const Goals = () => {
                     </div>
                   </div>
 
-                  {/* Meta */}
                   <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-hairline pt-3 text-xs text-muted">
                     <span className="inline-flex items-center gap-1.5">
                       <Calendar className="h-3 w-3" strokeWidth={2} />
@@ -580,7 +383,7 @@ const Goals = () => {
                     </span>
                     <span className="inline-flex items-center gap-1.5">
                       <Landmark className="h-3 w-3" strokeWidth={2} />
-                      Linked: {goal.linkedAccount}
+                      {goal.linkedAccount}
                     </span>
                   </div>
 
@@ -606,63 +409,22 @@ const Goals = () => {
           </h2>
 
           <div className="border border-hairline bg-faint p-5 sm:p-6">
-            {/* Header */}
-            <div className="mb-6 flex flex-col gap-4 border-b border-hairline pb-5 lg:flex-row lg:items-start lg:justify-between">
-              <div className="flex min-w-0 items-start gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-deep-accent text-white">
-                  <Target className="h-5 w-5" strokeWidth={1.75} />
-                </span>
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-bold text-deep-accent sm:text-base">
-                    {selectedGoal.name}
-                  </div>
-                  <div className="truncate text-xs text-body sm:text-sm">
-                    {selectedGoal.category}
-                  </div>
+            <div className="mb-6 flex min-w-0 items-start gap-3 border-b border-hairline pb-5">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-deep-accent text-white">
+                <Target className="h-5 w-5" strokeWidth={1.75} />
+              </span>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-bold text-deep-accent sm:text-base">
+                  {selectedGoal.name}
                 </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handleAddMoney}
-                  className="inline-flex min-h-[36px] items-center gap-1.5 bg-primary px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 sm:text-sm"
-                >
-                  <Wallet className="h-3.5 w-3.5" strokeWidth={2} />
-                  Add Money
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAutoSave}
-                  className="inline-flex min-h-[36px] items-center gap-1.5 border border-hairline bg-white px-4 py-1.5 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" strokeWidth={2} />
-                  Auto-Save
-                </button>
-                <button
-                  type="button"
-                  onClick={handleEditGoal}
-                  className="inline-flex min-h-[36px] items-center gap-1.5 border border-hairline bg-white px-4 py-1.5 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
-                >
-                  <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteGoal}
-                  className="inline-flex min-h-[36px] items-center gap-1.5 border border-[#d9534f] bg-white px-4 py-1.5 text-xs font-semibold text-[#d9534f] transition-colors hover:bg-[#fdf2f2] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d9534f]/40 sm:text-sm"
-                >
-                  <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                  Delete
-                </button>
+                <div className="truncate text-xs text-body sm:text-sm">
+                  {selectedGoal.category}
+                </div>
               </div>
             </div>
 
-            {/* Content */}
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-              {/* Info panel */}
               <div>
-                {/* Progress block */}
                 <div className="mb-4 border-b border-hairline pb-4">
                   <div className="mb-2 flex items-center justify-between">
                     <span className="text-xs font-semibold text-body sm:text-sm">
@@ -688,7 +450,6 @@ const Goals = () => {
                   </div>
                 </div>
 
-                {/* Info rows */}
                 <div className="flex flex-col divide-y divide-faint">
                   <DetailRow
                     label="Current Balance"
@@ -709,8 +470,12 @@ const Goals = () => {
                     value={formatDateLong(selectedGoal.targetDate)}
                   />
                   <DetailRow
-                    label="Linked Account"
-                    value={selectedGoal.linkedAccount}
+                    label="From Account"
+                    value={selectedGoal.sourceAccount || '—'}
+                  />
+                  <DetailRow
+                    label="Saving Into"
+                    value={selectedGoal.linkedAccount || '—'}
                   />
                   <DetailRow
                     label="Contribution"
@@ -729,7 +494,6 @@ const Goals = () => {
                 </div>
               </div>
 
-              {/* Recent Activity */}
               <div className="flex flex-col">
                 <div className="mb-3 flex items-center gap-2">
                   <Activity className="h-4 w-4 text-primary" strokeWidth={1.75} />
@@ -742,7 +506,7 @@ const Goals = () => {
                   {goalActivitiesForSelected.length === 0 ? (
                     <p className="py-4 text-sm text-muted">No activity yet.</p>
                   ) : (
-                    goalActivitiesForSelected.slice(0, 5).map((activity) => (
+                    goalActivitiesForSelected.slice(0, 12).map((activity) => (
                       <div
                         key={activity.id}
                         className="flex flex-col gap-2 border-b border-faint py-3 sm:flex-row sm:items-center sm:justify-between"
@@ -790,10 +554,7 @@ const Goals = () => {
         <div className="overflow-hidden border border-hairline bg-white">
           {completedGoals.length === 0 ? (
             <div className="px-6 py-10 text-center">
-              <CheckCircle2
-                className="mx-auto h-6 w-6 text-muted"
-                strokeWidth={1.5}
-              />
+              <CheckCircle2 className="mx-auto h-6 w-6 text-muted" strokeWidth={1.5} />
               <p className="mt-2.5 text-sm font-semibold text-deep-accent">
                 No completed goals yet
               </p>
@@ -824,7 +585,7 @@ const Goals = () => {
                     {formatCurrency(goal.targetAmount)}
                   </span>
                   <span className="text-xs text-muted">
-                    Completed {formatDate(goal.completionDate)}
+                    Completed {formatDate(goal.lastContributionDate)}
                   </span>
                 </div>
               </div>
@@ -833,7 +594,7 @@ const Goals = () => {
         </div>
       </section>
 
-      {/* Create Goal Modal */}
+      {/* Create Goal Modal (only action left on this page) */}
       {showCreateGoal && (
         <ModalShell onClose={closeCreateGoal}>
           <h2 className="font-serif text-xl font-bold text-deep-accent sm:text-2xl">
@@ -843,15 +604,9 @@ const Goals = () => {
             Set your savings target and start tracking your progress.
           </p>
 
-          <form
-            onSubmit={handleSubmitCreateGoal}
-            className="mt-6 flex flex-col gap-5"
-          >
+          <form onSubmit={handleSubmitCreateGoal} className="mt-6 flex flex-col gap-5">
             <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="goalName"
-                className="text-sm font-semibold text-deep-accent"
-              >
+              <label htmlFor="goalName" className="text-sm font-semibold text-deep-accent">
                 Goal Name
               </label>
               <input
@@ -867,10 +622,7 @@ const Goals = () => {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="goalCategory"
-                className="text-sm font-semibold text-deep-accent"
-              >
+              <label htmlFor="goalCategory" className="text-sm font-semibold text-deep-accent">
                 Goal Category
               </label>
               <select
@@ -894,10 +646,7 @@ const Goals = () => {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="targetAmount"
-                  className="text-sm font-semibold text-deep-accent"
-                >
+                <label htmlFor="targetAmount" className="text-sm font-semibold text-deep-accent">
                   Target Amount
                 </label>
                 <div className="flex items-center border border-hairline bg-white focus-within:border-primary">
@@ -918,10 +667,7 @@ const Goals = () => {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="targetDate"
-                  className="text-sm font-semibold text-deep-accent"
-                >
+                <label htmlFor="targetDate" className="text-sm font-semibold text-deep-accent">
                   Target Date
                 </label>
                 <input
@@ -937,10 +683,7 @@ const Goals = () => {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="startingAmount"
-                className="text-sm font-semibold text-deep-accent"
-              >
+              <label htmlFor="startingAmount" className="text-sm font-semibold text-deep-accent">
                 Starting Amount
               </label>
               <div className="flex items-center border border-hairline bg-white focus-within:border-primary">
@@ -959,39 +702,49 @@ const Goals = () => {
               </div>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="linkedAccount"
-                className="text-sm font-semibold text-deep-accent"
-              >
-                Savings Account
-              </label>
-              <select
-                id="linkedAccount"
-                name="linkedAccount"
-                value={createForm.linkedAccount}
-                onChange={handleCreateFormChange}
-                className="min-h-[40px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
-              >
-                {ACCOUNTS.map((account) => (
-                  <option key={account.value} value={account.value}>
-                    {account.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {suggestedContribution && suggestedContribution > 0 && (
-              <div className="flex items-center justify-between border border-hairline bg-faint px-4 py-3">
-                <span className="inline-flex items-center gap-2 text-xs text-body sm:text-sm">
-                  <Sparkles className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
-                  Suggested Monthly Contribution
-                </span>
-                <span className="font-serif text-base font-bold text-deep-accent">
-                  {formatCurrency(suggestedContribution)}
-                </span>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="sourceAccountId" className="text-sm font-semibold text-deep-accent">
+                  From Account (Checking)
+                </label>
+                <select
+                  id="sourceAccountId"
+                  name="sourceAccountId"
+                  value={createForm.sourceAccountId}
+                  onChange={handleCreateFormChange}
+                  required
+                  className="min-h-[40px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                >
+                  <option value="">Select account</option>
+                  {accounts.checking.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.label} — {formatCurrency(a.available)}
+                    </option>
+                  ))}
+                </select>
               </div>
-            )}
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="linkedAccountId" className="text-sm font-semibold text-deep-accent">
+                  Saving Into (Savings)
+                </label>
+                <select
+                  id="linkedAccountId"
+                  name="linkedAccountId"
+                  value={createForm.linkedAccountId}
+                  onChange={handleCreateFormChange}
+                  required
+                  className="min-h-[40px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                >
+                  <option value="">Select account</option>
+                  {accounts.savings.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.label} — {formatCurrency(a.total)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
             <label className="flex cursor-pointer items-center gap-2 text-sm text-body">
               <input
@@ -1007,10 +760,7 @@ const Goals = () => {
             {createForm.autoContribution && (
               <div className="grid grid-cols-1 gap-4 border-t border-hairline pt-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
-                  <label
-                    htmlFor="contributionAmount"
-                    className="text-sm font-semibold text-deep-accent"
-                  >
+                  <label htmlFor="contributionAmount" className="text-sm font-semibold text-deep-accent">
                     Contribution Amount
                   </label>
                   <div className="flex items-center border border-hairline bg-white focus-within:border-primary">
@@ -1030,10 +780,7 @@ const Goals = () => {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label
-                    htmlFor="contributionFrequency"
-                    className="text-sm font-semibold text-deep-accent"
-                  >
+                  <label htmlFor="contributionFrequency" className="text-sm font-semibold text-deep-accent">
                     Frequency
                   </label>
                   <select
@@ -1043,11 +790,64 @@ const Goals = () => {
                     onChange={handleCreateFormChange}
                     className="min-h-[40px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
                   >
+                    <option value="Daily">Daily</option>
                     <option value="Weekly">Weekly</option>
                     <option value="Biweekly">Biweekly</option>
                     <option value="Monthly">Monthly</option>
                   </select>
                 </div>
+
+                {(createForm.contributionFrequency === 'Weekly' ||
+                  createForm.contributionFrequency === 'Biweekly') && (
+                  <div className="flex flex-col gap-1.5 sm:col-span-2">
+                    <label htmlFor="contributionDay" className="text-sm font-semibold text-deep-accent">
+                      Day of Week
+                    </label>
+                    <select
+                      id="contributionDay"
+                      name="contributionDay"
+                      value={createForm.contributionDay}
+                      onChange={handleCreateFormChange}
+                      className="min-h-[40px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                    >
+                      <option value="">Select day</option>
+                      {DAYS_OF_WEEK.map((d) => (
+                        <option key={d.value} value={d.value}>
+                          {d.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {createForm.contributionFrequency === 'Monthly' && (
+                  <div className="flex flex-col gap-1.5 sm:col-span-2">
+                    <label htmlFor="contributionDay" className="text-sm font-semibold text-deep-accent">
+                      Day of Month
+                    </label>
+                    <select
+                      id="contributionDay"
+                      name="contributionDay"
+                      value={createForm.contributionDay}
+                      onChange={handleCreateFormChange}
+                      className="min-h-[40px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                    >
+                      <option value="">Select day</option>
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {formError && (
+              <div className="flex items-start gap-2 border border-[#f5c6cb] bg-[#f8d7da] px-4 py-2.5">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#721c24]" strokeWidth={2} />
+                <span className="text-sm text-[#721c24]">{formError}</span>
               </div>
             )}
 
@@ -1055,407 +855,31 @@ const Goals = () => {
               <button
                 type="button"
                 onClick={closeCreateGoal}
-                className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                disabled={submitting}
+                className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint disabled:opacity-60"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                disabled={submitting}
+                className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep disabled:opacity-70"
               >
-                <Plus className="h-4 w-4" strokeWidth={2.25} />
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+                ) : (
+                  <Plus className="h-4 w-4" strokeWidth={2.25} />
+                )}
                 Create Goal
               </button>
             </div>
           </form>
         </ModalShell>
       )}
-
-      {/* Edit Goal Modal */}
-      {showEditGoal && selectedGoal && (
-        <ModalShell onClose={closeEditGoal}>
-          <h2 className="font-serif text-xl font-bold text-deep-accent sm:text-2xl">
-            Edit Goal
-          </h2>
-          <p className="mt-1 text-sm text-body">Update your goal details.</p>
-
-          <form
-            onSubmit={handleSubmitEditGoal}
-            className="mt-6 flex flex-col gap-5"
-          >
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="editName"
-                className="text-sm font-semibold text-deep-accent"
-              >
-                Goal Name
-              </label>
-              <input
-                type="text"
-                id="editName"
-                name="name"
-                value={editForm.name}
-                onChange={handleEditFormChange}
-                required
-                className="min-h-[40px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="editTargetAmount"
-                  className="text-sm font-semibold text-deep-accent"
-                >
-                  Target Amount
-                </label>
-                <div className="flex items-center border border-hairline bg-white focus-within:border-primary">
-                  <span className="pl-3 pr-1 text-base font-bold text-body">$</span>
-                  <input
-                    type="number"
-                    id="editTargetAmount"
-                    name="targetAmount"
-                    value={editForm.targetAmount}
-                    onChange={handleEditFormChange}
-                    min="0.01"
-                    step="0.01"
-                    required
-                    className="min-h-[40px] w-full border-none bg-transparent px-2 py-2 text-sm font-semibold text-deep-accent outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="editTargetDate"
-                  className="text-sm font-semibold text-deep-accent"
-                >
-                  Target Date
-                </label>
-                <input
-                  type="date"
-                  id="editTargetDate"
-                  name="targetDate"
-                  value={editForm.targetDate}
-                  onChange={handleEditFormChange}
-                  required
-                  className="min-h-[40px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="editContributionAmount"
-                  className="text-sm font-semibold text-deep-accent"
-                >
-                  Contribution Amount
-                </label>
-                <div className="flex items-center border border-hairline bg-white focus-within:border-primary">
-                  <span className="pl-3 pr-1 text-base font-bold text-body">$</span>
-                  <input
-                    type="number"
-                    id="editContributionAmount"
-                    name="contributionAmount"
-                    value={editForm.contributionAmount}
-                    onChange={handleEditFormChange}
-                    min="0.01"
-                    step="0.01"
-                    className="min-h-[40px] w-full border-none bg-transparent px-2 py-2 text-sm font-semibold text-deep-accent outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="editContributionFrequency"
-                  className="text-sm font-semibold text-deep-accent"
-                >
-                  Frequency
-                </label>
-                <select
-                  id="editContributionFrequency"
-                  name="contributionFrequency"
-                  value={editForm.contributionFrequency}
-                  onChange={handleEditFormChange}
-                  className="min-h-[40px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
-                >
-                  <option value="Weekly">Weekly</option>
-                  <option value="Biweekly">Biweekly</option>
-                  <option value="Monthly">Monthly</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={closeEditGoal}
-                className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-              >
-                <CheckCircle2 className="h-4 w-4" strokeWidth={2.25} />
-                Save Changes
-              </button>
-            </div>
-          </form>
-        </ModalShell>
-      )}
-
-      {/* Add Money Modal */}
-      {showAddMoney && selectedGoal && (
-        <ModalShell onClose={closeAddMoney}>
-          <h2 className="font-serif text-xl font-bold text-deep-accent sm:text-2xl">
-            Add Money
-          </h2>
-          <p className="mt-1 text-sm text-body">
-            Add funds to {selectedGoal.name}
-          </p>
-
-          <form onSubmit={handleSubmitAddMoney} className="mt-6 flex flex-col gap-5">
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="addAmount"
-                className="text-sm font-semibold text-deep-accent"
-              >
-                Amount
-              </label>
-              <div className="flex items-center border border-hairline bg-white focus-within:border-primary">
-                <span className="pl-3 pr-1 text-base font-bold text-body">$</span>
-                <input
-                  type="number"
-                  id="addAmount"
-                  name="amount"
-                  value={addMoneyForm.amount}
-                  onChange={handleAddMoneyChange}
-                  placeholder="0.00"
-                  min="0.01"
-                  step="0.01"
-                  required
-                  className="min-h-[42px] w-full border-none bg-transparent px-2 py-2 text-lg font-semibold text-deep-accent outline-none placeholder:text-muted/60"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="addFromAccount"
-                className="text-sm font-semibold text-deep-accent"
-              >
-                From Account
-              </label>
-              <select
-                id="addFromAccount"
-                name="fromAccount"
-                value={addMoneyForm.fromAccount}
-                onChange={handleAddMoneyChange}
-                className="min-h-[40px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
-              >
-                {ACCOUNTS.map((account) => (
-                  <option key={account.value} value={account.value}>
-                    {account.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={closeAddMoney}
-                className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-              >
-                <Wallet className="h-4 w-4" strokeWidth={2.25} />
-                Add Money
-              </button>
-            </div>
-          </form>
-        </ModalShell>
-      )}
-
-      {/* Auto-Save Modal */}
-      {showAutoSave && selectedGoal && (
-        <ModalShell onClose={closeAutoSave}>
-          <h2 className="font-serif text-xl font-bold text-deep-accent sm:text-2xl">
-            Automatic Savings
-          </h2>
-          <p className="mt-1 text-sm text-body">
-            Schedule automatic contributions to {selectedGoal.name}
-          </p>
-
-          <form
-            onSubmit={handleSubmitAutoSave}
-            className="mt-6 flex flex-col gap-5"
-          >
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="autoAmount"
-                  className="text-sm font-semibold text-deep-accent"
-                >
-                  Amount
-                </label>
-                <div className="flex items-center border border-hairline bg-white focus-within:border-primary">
-                  <span className="pl-3 pr-1 text-base font-bold text-body">$</span>
-                  <input
-                    type="number"
-                    id="autoAmount"
-                    name="amount"
-                    value={autoSaveForm.amount}
-                    onChange={handleAutoSaveChange}
-                    placeholder="0.00"
-                    min="0.01"
-                    step="0.01"
-                    required
-                    className="min-h-[40px] w-full border-none bg-transparent px-2 py-2 text-sm font-semibold text-deep-accent outline-none placeholder:text-muted/60"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="autoFrequency"
-                  className="text-sm font-semibold text-deep-accent"
-                >
-                  Frequency
-                </label>
-                <select
-                  id="autoFrequency"
-                  name="frequency"
-                  value={autoSaveForm.frequency}
-                  onChange={handleAutoSaveChange}
-                  className="min-h-[40px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
-                >
-                  <option value="Weekly">Weekly</option>
-                  <option value="Biweekly">Biweekly</option>
-                  <option value="Monthly">Monthly</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="autoFromAccount"
-                className="text-sm font-semibold text-deep-accent"
-              >
-                From Account
-              </label>
-              <select
-                id="autoFromAccount"
-                name="fromAccount"
-                value={autoSaveForm.fromAccount}
-                onChange={handleAutoSaveChange}
-                className="min-h-[40px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
-              >
-                {ACCOUNTS.map((account) => (
-                  <option key={account.value} value={account.value}>
-                    {account.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="autoStartDate"
-                className="text-sm font-semibold text-deep-accent"
-              >
-                Start Date
-              </label>
-              <input
-                type="date"
-                id="autoStartDate"
-                name="startDate"
-                value={autoSaveForm.startDate}
-                onChange={handleAutoSaveChange}
-                className="min-h-[40px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
-              />
-            </div>
-
-            <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={closeAutoSave}
-                className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-              >
-                <RefreshCw className="h-4 w-4" strokeWidth={2.25} />
-                Review Contribution
-              </button>
-            </div>
-          </form>
-        </ModalShell>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && selectedGoal && (
-        <ModalShell onClose={closeDeleteConfirm}>
-          <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#fdf2f2] text-[#d9534f]">
-              <AlertCircle className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            <div>
-              <h2 className="font-serif text-xl font-bold text-deep-accent sm:text-2xl">
-                Delete Goal
-              </h2>
-              <p className="mt-1 text-sm text-body">
-                Are you sure you want to delete &ldquo;{selectedGoal.name}&rdquo;?
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 flex items-start gap-3 border border-hairline bg-faint px-4 py-3">
-            <Info
-              className="mt-0.5 h-4 w-4 shrink-0 text-primary"
-              strokeWidth={1.75}
-            />
-            <p className="text-xs text-body sm:text-sm">
-              This will remove this goal from your dashboard. The money already saved
-              remains in your linked account.
-            </p>
-          </div>
-
-          <div className="mt-6 flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={closeDeleteConfirm}
-              className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={confirmDeleteGoal}
-              className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-[#d9534f] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#c9302c] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d9534f]/50"
-            >
-              <Trash2 className="h-4 w-4" strokeWidth={2.25} />
-              Delete Goal
-            </button>
-          </div>
-        </ModalShell>
-      )}
     </div>
   );
 };
 
-// Reusable modal shell with overlay + close button
 const ModalShell = ({ children, onClose }) => (
   <div
     className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4"
@@ -1478,7 +902,6 @@ const ModalShell = ({ children, onClose }) => (
   </div>
 );
 
-// Reusable detail row
 const DetailRow = ({ label, value }) => (
   <div className="flex flex-col gap-0.5 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
     <span className="text-xs text-muted sm:text-sm">{label}</span>
