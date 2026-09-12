@@ -1,3 +1,4 @@
+// server.js
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
@@ -7,64 +8,120 @@ import dns from "dns";
 
 import authRoutes from "./routes/authRoutes.js";
 import homeRoutes from "./routes/homeRoutes.js";
-import accountsRoutes from './routes/accountsRoutes.js';
-import transfersRoutes from './routes/transfersRoutes.js';
-import adminTransfersRoutes from './routes/adminTransfersRoutes.js';
-import paymentsRoutes from './routes/paymentsRoutes.js';
-import depositsRoutes from './routes/depositsRoutes.js';
-import adminDepositsRoutes from './routes/adminDepositsRoutes.js';
-import transactionsRoutes from './routes/transactionsRoutes.js';
-import adminReportsRoutes from './routes/adminReportsRoutes.js';
-
+import accountsRoutes from "./routes/accountsRoutes.js";
+import transfersRoutes from "./routes/transfersRoutes.js";
+import adminTransfersRoutes from "./routes/adminTransfersRoutes.js";
+import paymentsRoutes from "./routes/paymentsRoutes.js";
+import depositsRoutes from "./routes/depositsRoutes.js";
+import adminDepositsRoutes from "./routes/adminDepositsRoutes.js";
+import transactionsRoutes from "./routes/transactionsRoutes.js";
+import adminReportsRoutes from "./routes/adminReportsRoutes.js";
 
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 
 dotenv.config();
 
-// ✅ Fix DNS SRV resolution issues on Windows/VPN setups
-dns.setDefaultResultOrder('ipv4first');
-dns.setServers(['8.8.8.8', '1.1.1.1']);
+// ✅ DNS fix — helps on Windows/VPN dev machines.
+//    Wrapped in try/catch because Vercel's runtime doesn't allow
+//    overriding DNS servers.
+try {
+  dns.setDefaultResultOrder("ipv4first");
+  dns.setServers(["8.8.8.8", "1.1.1.1"]);
+} catch {
+  // Ignored — Vercel manages DNS for us
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGO_URL = process.env.MONGO_URL;
 
-// ✅ Parse JSON with increased limit for base64 images
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// ─────────────────────────────────────────────────────────
+// Body parsers
+// ─────────────────────────────────────────────────────────
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 
-// ✅ CORS configuration 
+// ─────────────────────────────────────────────────────────
+// CORS
+// ─────────────────────────────────────────────────────────
 const allowedOrigins = [
-  'http://localhost:5173', // Vite default
-  'http://127.0.0.1:5173',
-  'https://www.thegulfcoasttrust.com',
-  'https://thegulfcoasttrust.com'
-  // Add your production frontend URLs here later
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "https://www.thegulfcoasttrust.com",
+  "https://thegulfcoasttrust.com",
 ];
 
-app.use(cors({
-  origin: function(origin, callback) {
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.log('Blocked origin:', origin);
-      callback(null, false);
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin (Postman, curl, server-to-server)
+      if (!origin) return callback(null, true);
 
-// ✅ Health test endpoint
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        console.log("Blocked origin:", origin);
+        callback(null, false);
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  })
+);
+
+// ─────────────────────────────────────────────────────────
+// Health check — no DB required so it works even if Mongo is down
+// ─────────────────────────────────────────────────────────
 app.get("/api/health", (req, res) => {
-  res.json({ ok: true, message: "Backend is reachable" });
+  res.json({
+    ok: true,
+    message: "Backend is reachable",
+    env: process.env.VERCEL ? "vercel" : "local",
+    time: new Date().toISOString(),
+  });
 });
 
-// ✅ Routes
+// ─────────────────────────────────────────────────────────
+// MongoDB connection — cached for serverless (Vercel) reuse
+// ─────────────────────────────────────────────────────────
+let cached = global.mongoose;
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
+
+async function connectDB() {
+  if (cached.conn) return cached.conn;
+
+  if (!cached.promise) {
+    cached.promise = mongoose
+      .connect(MONGO_URL, {
+        bufferCommands: false,       // fail fast instead of queueing
+        maxPoolSize: 10,             // cap connections
+        serverSelectionTimeoutMS: 10000,
+      })
+      .then((m) => m);
+  }
+
+  cached.conn = await cached.promise;
+  return cached.conn;
+}
+
+// Every request ensures a live DB connection before hitting routes
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error("❌ Mongo connection error:", err.message);
+    res.status(500).json({ error: "Database connection failed" });
+  }
+});
+
+// ─────────────────────────────────────────────────────────
+// Routes
+// ─────────────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/home", homeRoutes);
 app.use("/api/accounts", accountsRoutes);
@@ -76,17 +133,30 @@ app.use("/api/admin/deposits", adminDepositsRoutes);
 app.use("/api/transactions", transactionsRoutes);
 app.use("/api/admin/reports", adminReportsRoutes);
 
-// ✅ Error middleware order (notFound first)
+// ─────────────────────────────────────────────────────────
+// Error middleware — order matters (notFound first)
+// ─────────────────────────────────────────────────────────
 app.use(notFound);
 app.use(errorHandler);
 
-// ✅ Mongo + server start
-mongoose
-  .connect(MONGO_URL)
-  .then(() => {
-    console.log("✅ Connected to MongoDB");
-    app.listen(PORT, "0.0.0.0", () =>
-      console.log(`✅ Server running on port ${PORT}`)
-    );
-  })
-  .catch((err) => console.error("❌ Mongo error:", err.message));
+// ─────────────────────────────────────────────────────────
+// Local dev / Render / anywhere with a persistent process
+// ─────────────────────────────────────────────────────────
+// On Vercel, this file is imported as a serverless function.
+// Vercel handles the HTTP listener for us — no listen() needed.
+if (!process.env.VERCEL) {
+  connectDB()
+    .then(() => {
+      console.log("✅ Connected to MongoDB");
+      app.listen(PORT, "0.0.0.0", () => {
+        console.log(`✅ Server running on port ${PORT}`);
+      });
+    })
+    .catch((err) => {
+      console.error("❌ Mongo error:", err.message);
+      process.exit(1);
+    });
+}
+
+// Vercel needs the app exported so it can wrap it in a function
+export default app;
