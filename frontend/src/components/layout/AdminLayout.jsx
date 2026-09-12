@@ -13,7 +13,6 @@ import {
   Landmark, 
   Target, 
   Bell,
-  Settings, 
   LogOut,
   Menu,
   X
@@ -25,7 +24,6 @@ const AdminLayout = () => {
 
   // Strictly following your requested order
   const navItems = [
-    { label: 'Dashboard', path: '/admin', icon: LayoutDashboard, end: true },
     { label: 'Manage Users', path: '/admin/users', icon: Users },
     { label: 'Manage Accounts', path: '/admin/accounts', icon: Wallet },
     { label: 'Manage Transfers', path: '/admin/transfers', icon: ArrowRightLeft },
@@ -37,7 +35,6 @@ const AdminLayout = () => {
     { label: 'Manage Loans', path: '/admin/loans', icon: Landmark },
     { label: 'Manage Financial Goals', path: '/admin/goals', icon: Target },
     { label: 'Manage Notifications', path: '/admin/notifications', icon: Bell },
-    { label: 'Admin Settings', path: '/admin/settings', icon: Settings },
   ];
 
   const handleLogout = () => {
