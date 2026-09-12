@@ -8,7 +8,7 @@ import { notifyUser } from '../utils/notifyUser.js';
 const WIRE_FEE = 25;
 
 // ----------------------------------------------------------------
-// Helper: generate a unique transaction number
+// Helper: unique transaction number
 // ----------------------------------------------------------------
 async function generateTransactionNumber() {
   for (let i = 0; i < 5; i++) {
@@ -32,7 +32,7 @@ function getExpectedArrival(type) {
 }
 
 // ----------------------------------------------------------------
-// Helper: shape a Transfer doc for the frontend history list
+// Helper: shape a Transfer for the frontend
 // ----------------------------------------------------------------
 function formatTransferForList(t) {
   const date = new Date(t.transferDate || t.createdAt);
@@ -70,12 +70,7 @@ function formatTransferForList(t) {
 }
 
 // ----------------------------------------------------------------
-// Helper: build a human-readable notification message from a
-// transfer doc. Used by this controller and the admin one.
-//
-// @param {Object} transfer  raw Transfer doc (lean or Mongoose)
-// @param {String} statusLabel  e.g. 'pending review', 'completed',
-//                              'failed. Please contact support.'
+// Helper: build the notification message from a transfer doc
 // ----------------------------------------------------------------
 export function buildTransferNotificationMessage(transfer, statusLabel) {
   const from = transfer.fromLastFour
@@ -94,11 +89,7 @@ export function buildTransferNotificationMessage(transfer, statusLabel) {
   }
 
   const amount = Number(transfer.amount || 0).toFixed(2);
-
-  return (
-    `You just made a transfer of $${amount} from ${from} to ${to}. ` +
-    statusLabel
-  );
+  return `You just made a transfer of $${amount} from ${from} to ${to}. ${statusLabel}`;
 }
 
 // ================================================================
@@ -120,10 +111,7 @@ export const getTransfers = async (req, res) => {
     });
     const months = Array.from(monthSet).sort().reverse();
 
-    res.json({
-      transfers: formatted,
-      months,
-    });
+    res.json({ transfers: formatted, months });
   } catch (err) {
     console.error('❌ getTransfers:', err);
     res.status(500).json({ error: 'Failed to load transfers' });
@@ -132,6 +120,9 @@ export const getTransfers = async (req, res) => {
 
 // ================================================================
 // GET /api/transfers/accounts
+// Returns every account the user can transfer from OR to.
+// External accounts are flagged so the frontend can present them
+// as "linked" destinations.
 // ================================================================
 export const getTransferAccounts = async (req, res) => {
   try {
@@ -140,19 +131,36 @@ export const getTransferAccounts = async (req, res) => {
     const accounts = await Account.find({
       userId,
       status: 'Active',
-      type: { $in: ['Checking', 'Savings'] },
-    }).lean();
+      type: { $in: ['Checking', 'Savings', 'External'] },
+    })
+      .sort({ type: 1, isPrimary: -1, createdAt: 1 })
+      .lean();
 
     res.json({
-      accounts: accounts.map((acc) => ({
-        id: acc._id,
-        name: acc.subType ? `${acc.subType} ${acc.type}` : acc.type,
-        type: acc.type,
-        subType: acc.subType || null,
-        lastFour: acc.accountNumber ? acc.accountNumber.slice(-4) : '',
-        available: acc.availableBalance ?? 0,
-        totalBalance: acc.totalBalance ?? 0,
-      })),
+      accounts: accounts.map((acc) => {
+        const external = acc.type === 'External';
+        const lastFour = acc.accountNumber
+          ? acc.accountNumber.slice(-4)
+          : '';
+
+        const name = external
+          ? `${acc.institution || 'External Bank'} — ${acc.subType || 'Account'}`
+          : acc.subType
+          ? `${acc.subType} ${acc.type}`
+          : acc.type;
+
+        return {
+          id: acc._id,
+          name,
+          type: acc.type,
+          subType: acc.subType || null,
+          lastFour,
+          available: acc.availableBalance ?? 0,
+          totalBalance: acc.totalBalance ?? 0,
+          external,
+          institution: external ? acc.institution || '' : '',
+        };
+      }),
     });
   } catch (err) {
     console.error('❌ getTransferAccounts:', err);
@@ -168,7 +176,7 @@ export const createTransfer = async (req, res) => {
     const userId = req.user._id;
     const user = await User.findById(userId).select('firstName lastName');
 
-    const {
+    let {
       type,
       fromAccountId,
       toAccountId,
@@ -185,7 +193,34 @@ export const createTransfer = async (req, res) => {
       verificationMethod,
     } = req.body;
 
-    // ── Validation ────────────────────────────────────────────
+    // ── Detect linked-account destination ─────────────────────
+    // If the destination is an External account the user linked,
+    // promote this transfer to 'external' and pull the recipient
+    // details from the linked account record.
+    let linkedDestination = null;
+    if (toAccountId) {
+      linkedDestination = await Account.findOne({
+        _id: toAccountId,
+        userId,
+        type: 'External',
+        status: { $ne: 'Closed' },
+      });
+
+      if (linkedDestination) {
+        type = 'external';
+        recipientName =
+          recipientName ||
+          `${user?.firstName || ''} ${user?.lastName || ''}`.trim() ||
+          `${linkedDestination.institution} Account`;
+        recipientBankName = linkedDestination.institution || 'External Bank';
+        recipientRoutingNumber = linkedDestination.routingNumber || '';
+        recipientAccountNumber = linkedDestination.accountNumber || '';
+        recipientAccountType =
+          (linkedDestination.subType || 'Checking').toLowerCase();
+      }
+    }
+
+    // ── Validation ─────────────────────────────────────────────
     if (!['internal', 'external', 'wire', 'recurring'].includes(type)) {
       return res.status(400).json({ error: 'Invalid transfer type' });
     }
@@ -197,6 +232,12 @@ export const createTransfer = async (req, res) => {
 
     const from = await Account.findOne({ _id: fromAccountId, userId });
     if (!from) return res.status(404).json({ error: 'Source account not found' });
+
+    if (from.type === 'External') {
+      return res
+        .status(400)
+        .json({ error: 'Cannot transfer from a linked external account' });
+    }
 
     const wireFee = type === 'wire' ? WIRE_FEE : 0;
     const totalDebit = amountNum + wireFee;
@@ -212,6 +253,7 @@ export const createTransfer = async (req, res) => {
       });
     }
 
+    // Internal / recurring need an internal destination account
     let to = null;
     if (type === 'internal' || type === 'recurring') {
       to = await Account.findOne({ _id: toAccountId, userId });
@@ -219,6 +261,11 @@ export const createTransfer = async (req, res) => {
         return res
           .status(400)
           .json({ error: 'Destination account is required' });
+      if (to.type === 'External') {
+        return res
+          .status(400)
+          .json({ error: 'External accounts cannot be internal destinations' });
+      }
       if (String(to._id) === String(from._id)) {
         return res
           .status(400)
@@ -226,6 +273,7 @@ export const createTransfer = async (req, res) => {
       }
     }
 
+    // External / wire need a full recipient record
     if (type === 'external' || type === 'wire') {
       if (
         !recipientName ||
@@ -244,8 +292,13 @@ export const createTransfer = async (req, res) => {
       }
     }
 
-    // ── Build & save ──────────────────────────────────────────
+    // ── Build & save ───────────────────────────────────────────
     const transactionNumber = await generateTransactionNumber();
+
+    // For external transfers going to a linked account, keep the
+    // linked account's _id in toAccountId for history, but leave
+    // toAccountName as the institution so the frontend displays well.
+    const isLinked = !!linkedDestination;
 
     const transfer = await Transfer.create({
       userId,
@@ -258,13 +311,24 @@ export const createTransfer = async (req, res) => {
         : from.type,
       fromLastFour: from.accountNumber ? from.accountNumber.slice(-4) : '',
 
-      toAccountId: to?._id || null,
-      toAccountName: to
+      toAccountId:
+        isLinked && linkedDestination
+          ? linkedDestination._id
+          : to?._id || null,
+      toAccountName: isLinked
+        ? `${linkedDestination.institution} — ${linkedDestination.subType} •••• ${String(
+            linkedDestination.accountNumber || ''
+          ).slice(-4)}`
+        : to
         ? to.subType
           ? `${to.subType} ${to.type}`
           : to.type
         : '',
-      toLastFour: to?.accountNumber ? to.accountNumber.slice(-4) : '',
+      toLastFour: isLinked
+        ? String(linkedDestination.accountNumber || '').slice(-4)
+        : to?.accountNumber
+        ? to.accountNumber.slice(-4)
+        : '',
 
       recipient:
         type === 'external' || type === 'wire'
@@ -288,15 +352,11 @@ export const createTransfer = async (req, res) => {
       memo: memo || '',
 
       verificationMethod: verificationMethod || 'instant',
-
       senderName: `${user.firstName} ${user.lastName}`.trim(),
       status: 'Pending',
     });
 
-    // ── Fire the user notification ────────────────────────────
-    // Always succeeds here (transfer was created), but status is
-    // 'Pending' — the "completed" / "failed" notification will be
-    // sent by the admin controller when it flips the status.
+    // ── Notify the user ────────────────────────────────────────
     try {
       await notifyUser({
         userId,
@@ -325,7 +385,7 @@ export const createTransfer = async (req, res) => {
 };
 
 // ================================================================
-// GET /api/transfers/:id/receipt   → PDF download
+// GET /api/transfers/:id/receipt
 // ================================================================
 export const downloadReceipt = async (req, res) => {
   try {

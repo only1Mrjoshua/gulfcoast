@@ -30,6 +30,7 @@ import goalsRoutes from './routes/goalsRoutes.js';
 import adminGoalsRoutes from './routes/adminGoalsRoutes.js';
 import notificationsRoutes from './routes/notificationsRoutes.js';
 import adminNotificationsRoutes from './routes/adminNotificationsRoutes.js';
+import settingsRoutes from './routes/settingsRoutes.js';
 
 import { startGoalContributionJob } from './jobs/goalContributions.js';
 import { startPaymentDueJob } from './jobs/paymentDueNotifications.js';
@@ -154,7 +155,7 @@ app.use('/api/goals', goalsRoutes);
 app.use('/api/admin/goals', adminGoalsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/admin/notifications', adminNotificationsRoutes);
-
+app.use('/api/settings', settingsRoutes);
 // Error middleware
 app.use(notFound);
 app.use(errorHandler);

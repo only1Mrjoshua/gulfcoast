@@ -1,22 +1,17 @@
 // src/pages/Settings.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   UserRound,
   Mail,
   Phone,
   MapPin,
   Calendar,
-  Pencil,
   CheckCircle2,
   ShieldCheck,
   KeyRound,
   Smartphone,
   Laptop,
   LogOut,
-  Bell,
-  MessageSquare,
-  FileText,
-  Sliders,
   Link2,
   Trash2,
   Settings as SettingsIcon,
@@ -25,21 +20,26 @@ import {
   Save,
   Eye,
   EyeOff,
+  Loader2,
 } from 'lucide-react';
-import {
-  mockUserProfile,
-  mockSecuritySettings,
-  mockCommunicationPreferences,
-  mockPaperlessStatus,
-  mockAccountPreferences,
-  mockLinkedAccounts,
-} from '../data/mockSettingsData';
+import { apiFetch } from '../utils/api';
 
 // Humanize a camelCase key into Title Case
 const humanizeKey = (key) =>
   key
     .replace(/([A-Z])/g, ' $1')
     .replace(/^./, (str) => str.toUpperCase());
+
+const formatDob = (iso) => {
+  if (!iso) return '—';
+  const d = new Date(iso + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
 
 const emptyPasswordForm = {
   currentPassword: '',
@@ -48,63 +48,159 @@ const emptyPasswordForm = {
 };
 
 const Settings = () => {
-  const [profile, setProfile] = useState(mockUserProfile);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ ...profile });
-  const [twoStep, setTwoStep] = useState(mockSecuritySettings.twoStepVerification);
-  const [comms, setComms] = useState(mockCommunicationPreferences);
-  const [paperless, setPaperless] = useState(mockPaperlessStatus);
-  const [preferences, setPreferences] = useState(mockAccountPreferences);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  // Data
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Change password modal state
+  const [profile, setProfile] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    mailingAddress: '',
+    dateOfBirth: '',
+  });
+  const [trustedDevices, setTrustedDevices] = useState([]);
+  const [recentSignIns, setRecentSignIns] = useState([]);
+  const [preferences, setPreferences] = useState({
+    defaultAccount: '',
+    defaultTransferAccount: '',
+    defaultPaymentAccount: '',
+  });
+  const [linkedAccounts, setLinkedAccounts] = useState([]);
+
+  // UI state — two-step
+  const [twoStep, setTwoStep] = useState(false);
+  const [twoStepSaving, setTwoStepSaving] = useState(false);
+
+  // UI state — preferences
+  const [prefSaving, setPrefSaving] = useState(false);
+  const [prefSaved, setPrefSaved] = useState(false);
+
+  // UI state — sign-out-all
+  const [signOutSaving, setSignOutSaving] = useState(false);
+  const [signOutSuccess, setSignOutSuccess] = useState(false);
+
+  // Change password modal
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState(emptyPasswordForm);
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleEditToggle = () => {
-    if (isEditing) {
-      // Save changes
-      setProfile({ ...editForm });
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+  // ────────────────────────────────────────────────────────
+  // Load
+  // ────────────────────────────────────────────────────────
+  const loadSettings = useCallback(async () => {
+    const res = await apiFetch('/settings');
+    const d = res?.data ?? res;
+
+    setProfile(d.profile || {});
+    setTwoStep(!!d.security?.twoStepVerification);
+    setTrustedDevices(d.security?.trustedDevices || []);
+    setRecentSignIns(d.security?.recentSignIns || []);
+    setPreferences(d.preferences || {});
+    setLinkedAccounts(d.linkedAccounts || []);
+  }, []);
+
+  useEffect(() => {
+    const boot = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        await loadSettings();
+      } catch (err) {
+        console.error('❌ Failed to load settings:', err);
+        setError(err.message || 'Failed to load settings');
+      } finally {
+        setLoading(false);
+      }
+    };
+    boot();
+  }, [loadSettings]);
+
+  // ────────────────────────────────────────────────────────
+  // Two-step verification
+  // ────────────────────────────────────────────────────────
+  const handleToggleTwoStep = async () => {
+    const next = !twoStep;
+    setTwoStep(next); // optimistic
+    setTwoStepSaving(true);
+    try {
+      await apiFetch('/settings/two-step', {
+        method: 'PUT',
+        body: JSON.stringify({ enabled: next }),
+      });
+    } catch (err) {
+      console.error('❌ Failed to update two-step:', err);
+      setTwoStep(!next); // roll back
+    } finally {
+      setTwoStepSaving(false);
     }
-    setIsEditing(!isEditing);
-    if (!isEditing) {
-      setEditForm({ ...profile });
-    }
   };
 
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-    setEditForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditForm({ ...profile });
-  };
-
-  const handleCommToggle = (key) => {
-    setComms((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
+  // ────────────────────────────────────────────────────────
+  // Preferences
+  // ────────────────────────────────────────────────────────
   const handlePreferenceChange = (e) => {
     const { name, value } = e.target;
     setPreferences((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handlePaperlessToggle = () => {
-    setPaperless((prev) => ({ ...prev, enrolled: !prev.enrolled }));
+  const handleSavePreferences = async () => {
+    setPrefSaving(true);
+    try {
+      const res = await apiFetch('/settings/preferences', {
+        method: 'PUT',
+        body: JSON.stringify(preferences),
+      });
+      const d = res?.data ?? res;
+      if (d.preferences) setPreferences(d.preferences);
+      setPrefSaved(true);
+      setTimeout(() => setPrefSaved(false), 3000);
+    } catch (err) {
+      console.error('❌ Failed to save preferences:', err);
+      setError(err.message || 'Failed to save preferences');
+    } finally {
+      setPrefSaving(false);
+    }
   };
 
-  // ---------------------------------------------------------------------------
-  // Change password handlers
-  // ---------------------------------------------------------------------------
+  // ────────────────────────────────────────────────────────
+  // Linked accounts
+  // ────────────────────────────────────────────────────────
+  const handleRemoveLinkedAccount = async (id) => {
+    try {
+      await apiFetch(`/settings/linked-accounts/${id}`, {
+        method: 'DELETE',
+      });
+      setLinkedAccounts((prev) => prev.filter((a) => a.id !== id));
+    } catch (err) {
+      console.error('❌ Failed to remove linked account:', err);
+    }
+  };
+
+  // ────────────────────────────────────────────────────────
+  // Sign out all devices
+  // ────────────────────────────────────────────────────────
+  const handleSignOutAll = async () => {
+    setSignOutSaving(true);
+    try {
+      await apiFetch('/settings/sign-out-all', { method: 'POST' });
+      setSignOutSuccess(true);
+      setTimeout(() => setSignOutSuccess(false), 3000);
+    } catch (err) {
+      console.error('❌ Failed to sign out all devices:', err);
+    } finally {
+      setSignOutSaving(false);
+    }
+  };
+
+  // ────────────────────────────────────────────────────────
+  // Change password
+  // ────────────────────────────────────────────────────────
   const openChangePassword = () => {
     setPasswordForm(emptyPasswordForm);
     setPasswordError('');
@@ -116,6 +212,7 @@ const Settings = () => {
   };
 
   const closeChangePassword = () => {
+    if (passwordSaving) return;
     setShowChangePassword(false);
     setPasswordForm(emptyPasswordForm);
     setPasswordError('');
@@ -128,7 +225,7 @@ const Settings = () => {
     if (passwordError) setPasswordError('');
   };
 
-  const handleSubmitPassword = (e) => {
+  const handleSubmitPassword = async (e) => {
     e.preventDefault();
 
     const { currentPassword, newPassword, confirmPassword } = passwordForm;
@@ -137,29 +234,69 @@ const Settings = () => {
       setPasswordError('Please fill in all fields.');
       return;
     }
-
     if (newPassword.length < 8) {
       setPasswordError('New password must be at least 8 characters long.');
       return;
     }
-
     if (newPassword !== confirmPassword) {
       setPasswordError('New password and confirmation do not match.');
       return;
     }
-
     if (newPassword === currentPassword) {
-      setPasswordError('New password must be different from your current password.');
+      setPasswordError(
+        'New password must be different from your current password.'
+      );
       return;
     }
 
-    // Success — in a real app this would call your API
+    setPasswordSaving(true);
     setPasswordError('');
-    setPasswordSuccess(true);
-    setTimeout(() => {
-      closeChangePassword();
-    }, 1600);
+
+    try {
+      await apiFetch('/settings/password', {
+        method: 'PUT',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      setPasswordSuccess(true);
+      setTimeout(() => {
+        closeChangePassword();
+      }, 1600);
+    } catch (err) {
+      setPasswordError(err.message || 'Failed to update password.');
+    } finally {
+      setPasswordSaving(false);
+    }
   };
+
+  // ────────────────────────────────────────────────────────
+  // Render: loading / error
+  // ────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" strokeWidth={1.75} />
+        <p className="text-sm text-muted">Loading your settings…</p>
+      </div>
+    );
+  }
+
+  if (error && !profile.fullName) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4">
+        <p className="font-serif text-xl font-bold text-deep-accent">
+          We couldn&rsquo;t load your settings
+        </p>
+        <p className="max-w-md text-center text-sm text-muted">{error}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-2 bg-primary px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-primary-deep"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[900px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -174,145 +311,43 @@ const Settings = () => {
         </p>
       </div>
 
-      {/* Personal Information */}
+      {/* Personal Information (read-only) */}
       <section className="mb-8 border-t border-hairline pt-6">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <UserRound className="h-4 w-4 text-primary" strokeWidth={1.75} />
-            <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
-              Personal Information
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={handleEditToggle}
-            className={`inline-flex min-h-[36px] items-center gap-1.5 px-4 py-1.5 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm ${
-              isEditing
-                ? 'bg-primary text-white hover:bg-primary-deep'
-                : 'border border-primary bg-white text-primary hover:bg-faint'
-            }`}
-          >
-            <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
-            {isEditing ? 'Save Changes' : 'Edit Information'}
-          </button>
+        <div className="mb-4 flex items-center gap-2">
+          <UserRound className="h-4 w-4 text-primary" strokeWidth={1.75} />
+          <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
+            Personal Information
+          </h2>
         </div>
 
-        {saveSuccess && (
-          <div className="mb-3 flex items-start gap-2 border border-[#c3e6cb] bg-[#d4edda] px-4 py-2.5">
-            <CheckCircle2
-              className="mt-0.5 h-4 w-4 shrink-0 text-[#155724]"
-              strokeWidth={2}
-            />
-            <span className="text-sm text-[#155724]">
-              Your settings have been updated.
-            </span>
-          </div>
-        )}
-
         <div className="border border-hairline bg-white p-5">
-          {isEditing ? (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-deep-accent">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  name="fullName"
-                  value={editForm.fullName}
-                  onChange={handleEditChange}
-                  className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-deep-accent">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={editForm.email}
-                  onChange={handleEditChange}
-                  className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-deep-accent">
-                  Phone Number
-                </label>
-                <input
-                  type="text"
-                  name="phone"
-                  value={editForm.phone}
-                  onChange={handleEditChange}
-                  className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-deep-accent">
-                  Mailing Address
-                </label>
-                <input
-                  type="text"
-                  name="mailingAddress"
-                  value={editForm.mailingAddress}
-                  onChange={handleEditChange}
-                  className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-deep-accent">
-                  Date of Birth
-                </label>
-                <input
-                  type="date"
-                  name="dateOfBirth"
-                  value={editForm.dateOfBirth}
-                  onChange={handleEditChange}
-                  className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
-                />
-              </div>
-
-              <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-4 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  className="inline-flex min-h-[36px] items-center gap-1.5 border border-hairline bg-white px-4 py-1.5 text-xs font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
-                >
-                  <X className="h-3.5 w-3.5" strokeWidth={2} />
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleEditToggle}
-                  className="inline-flex min-h-[36px] items-center gap-1.5 bg-primary px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 sm:text-sm"
-                >
-                  <Save className="h-3.5 w-3.5" strokeWidth={2} />
-                  Save Changes
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col divide-y divide-faint">
-              <ProfileRow icon={UserRound} label="Full Name" value={profile.fullName} />
-              <ProfileRow icon={Mail} label="Email Address" value={profile.email} />
-              <ProfileRow icon={Phone} label="Phone Number" value={profile.phone} />
-              <ProfileRow
-                icon={MapPin}
-                label="Mailing Address"
-                value={profile.mailingAddress}
-              />
-              <ProfileRow
-                icon={Calendar}
-                label="Date of Birth"
-                value={profile.dateOfBirth}
-              />
-            </div>
-          )}
+          <div className="flex flex-col divide-y divide-faint">
+            <ProfileRow
+              icon={UserRound}
+              label="Full Name"
+              value={profile.fullName || '—'}
+            />
+            <ProfileRow
+              icon={Mail}
+              label="Email Address"
+              value={profile.email || '—'}
+            />
+            <ProfileRow
+              icon={Phone}
+              label="Phone Number"
+              value={profile.phone || '—'}
+            />
+            <ProfileRow
+              icon={MapPin}
+              label="Mailing Address"
+              value={profile.mailingAddress || '—'}
+            />
+            <ProfileRow
+              icon={Calendar}
+              label="Date of Birth"
+              value={formatDob(profile.dateOfBirth)}
+            />
+          </div>
         </div>
       </section>
 
@@ -344,10 +379,17 @@ const Settings = () => {
             </span>
             <button
               type="button"
-              onClick={() => setTwoStep(!twoStep)}
-              className="inline-flex min-h-[30px] items-center border border-primary bg-white px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              onClick={handleToggleTwoStep}
+              disabled={twoStepSaving}
+              className="inline-flex min-h-[30px] items-center border border-primary bg-white px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60"
             >
-              {twoStep ? 'Disable' : 'Enable'}
+              {twoStepSaving ? (
+                <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2} />
+              ) : twoStep ? (
+                'Disable'
+              ) : (
+                'Enable'
+              )}
             </button>
           </div>
 
@@ -373,20 +415,31 @@ const Settings = () => {
               Trusted Devices
             </span>
             <div className="flex flex-1 flex-col divide-y divide-faint">
-              {mockSecuritySettings.trustedDevices.map((device, idx) => (
-                <div
-                  key={idx}
-                  className="flex flex-col gap-0.5 py-1.5 sm:flex-row sm:items-center sm:gap-3"
-                >
-                  <span className="inline-flex min-w-0 flex-1 items-center gap-2 text-sm text-ink">
-                    <Laptop className="h-3.5 w-3.5 shrink-0 text-muted" strokeWidth={1.75} />
-                    <span className="truncate">{device.name}</span>
-                  </span>
-                  <span className="text-xs text-muted">
-                    {device.current ? 'Current device' : `Last used ${device.lastUsed}`}
-                  </span>
-                </div>
-              ))}
+              {trustedDevices.length === 0 ? (
+                <p className="py-1.5 text-xs text-muted">
+                  No trusted devices on file.
+                </p>
+              ) : (
+                trustedDevices.map((device) => (
+                  <div
+                    key={device.id}
+                    className="flex flex-col gap-0.5 py-1.5 sm:flex-row sm:items-center sm:gap-3"
+                  >
+                    <span className="inline-flex min-w-0 flex-1 items-center gap-2 text-sm text-ink">
+                      <Laptop
+                        className="h-3.5 w-3.5 shrink-0 text-muted"
+                        strokeWidth={1.75}
+                      />
+                      <span className="truncate">{device.name}</span>
+                    </span>
+                    <span className="text-xs text-muted">
+                      {device.current
+                        ? 'Current device'
+                        : `Last used ${device.lastUsed}`}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -397,28 +450,50 @@ const Settings = () => {
               Recent Sign-In Activity
             </span>
             <div className="flex flex-1 flex-col divide-y divide-faint">
-              {mockSecuritySettings.recentSignIns.map((signin, idx) => (
-                <div
-                  key={idx}
-                  className="flex flex-col gap-0.5 py-1.5 text-sm sm:flex-row sm:items-center sm:gap-4"
-                >
-                  <span className="text-xs text-muted sm:w-28">{signin.date}</span>
-                  <span className="min-w-0 flex-1 truncate text-body">
-                    {signin.location}
-                  </span>
-                  <span className="text-xs text-muted sm:w-32">{signin.device}</span>
-                </div>
-              ))}
+              {recentSignIns.length === 0 ? (
+                <p className="py-1.5 text-xs text-muted">
+                  No recent sign-in activity.
+                </p>
+              ) : (
+                recentSignIns.map((signin) => (
+                  <div
+                    key={signin.id}
+                    className="flex flex-col gap-0.5 py-1.5 text-sm sm:flex-row sm:items-center sm:gap-4"
+                  >
+                    <span className="text-xs text-muted sm:w-28">
+                      {signin.date}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-body">
+                      {signin.location}
+                    </span>
+                    <span className="text-xs text-muted sm:w-32">
+                      {signin.device}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
           {/* Sign out of all devices */}
-          <div className="flex justify-start pt-4 sm:justify-end">
+          <div className="flex flex-col gap-2 pt-4 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+            {signOutSuccess && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary">
+                <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+                Signed out of all devices.
+              </span>
+            )}
             <button
               type="button"
-              className="inline-flex min-h-[36px] items-center gap-1.5 bg-[#d9534f] px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#c9302c] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d9534f]/50 sm:text-sm"
+              onClick={handleSignOutAll}
+              disabled={signOutSaving}
+              className="inline-flex min-h-[36px] items-center gap-1.5 bg-[#d9534f] px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#c9302c] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d9534f]/50 disabled:opacity-70 sm:text-sm"
             >
-              <LogOut className="h-3.5 w-3.5" strokeWidth={2.25} />
+              {signOutSaving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.25} />
+              ) : (
+                <LogOut className="h-3.5 w-3.5" strokeWidth={2.25} />
+              )}
               Sign Out of All Devices
             </button>
           </div>
@@ -428,7 +503,7 @@ const Settings = () => {
       {/* Account Preferences */}
       <section className="mb-8 border-t border-hairline pt-6">
         <div className="mb-4 flex items-center gap-2">
-          <Sliders className="h-4 w-4 text-primary" strokeWidth={1.75} />
+          <SettingsIcon className="h-4 w-4 text-primary" strokeWidth={1.75} />
           <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
             Account Preferences
           </h2>
@@ -452,10 +527,11 @@ const Settings = () => {
                     </span>
                     <select
                       name={key}
-                      value={value}
+                      value={value || ''}
                       onChange={handlePreferenceChange}
                       className="min-h-[36px] flex-1 border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
                     >
+                      <option value="">— Select account —</option>
                       <option value="Primary Checking •••• 4821">
                         Primary Checking •••• 4821
                       </option>
@@ -471,13 +547,27 @@ const Settings = () => {
             })}
           </div>
 
-          <button
-            type="button"
-            className="mt-4 inline-flex min-h-[36px] items-center gap-1.5 bg-primary px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 sm:text-sm"
-          >
-            <Save className="h-3.5 w-3.5" strokeWidth={2} />
-            Save Preferences
-          </button>
+          <div className="mt-4 flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {prefSaved && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary">
+                <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+                Preferences saved.
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleSavePreferences}
+              disabled={prefSaving}
+              className="inline-flex min-h-[36px] items-center gap-1.5 bg-primary px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-70 sm:ml-auto sm:text-sm"
+            >
+              {prefSaving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+              ) : (
+                <Save className="h-3.5 w-3.5" strokeWidth={2} />
+              )}
+              Save Preferences
+            </button>
+          </div>
         </div>
       </section>
 
@@ -491,45 +581,54 @@ const Settings = () => {
         </div>
 
         <div className="flex flex-col divide-y divide-faint border border-hairline bg-white p-5">
-          {mockLinkedAccounts.map((acc, idx) => (
-            <div
-              key={idx}
-              className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:gap-4"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-semibold text-deep-accent">
-                  {acc.institution}
-                </div>
-                <div className="truncate text-xs text-muted">{acc.account}</div>
-              </div>
-              <span
-                className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide ${
-                  acc.status === 'Active' || acc.status === 'Verified'
-                    ? 'text-primary'
-                    : 'text-muted'
-                }`}
+          {linkedAccounts.length === 0 ? (
+            <p className="py-3 text-sm text-muted">
+              No linked accounts on file.
+            </p>
+          ) : (
+            linkedAccounts.map((acc) => (
+              <div
+                key={acc.id}
+                className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:gap-4"
               >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold text-deep-accent">
+                    {acc.institution}
+                  </div>
+                  <div className="truncate text-xs text-muted">
+                    {acc.account}
+                  </div>
+                </div>
                 <span
-                  className={`h-1.5 w-1.5 ${
+                  className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide ${
                     acc.status === 'Active' || acc.status === 'Verified'
-                      ? 'bg-primary'
-                      : 'bg-muted'
+                      ? 'text-primary'
+                      : 'text-muted'
                   }`}
-                  aria-hidden="true"
-                />
-                {acc.status}
-              </span>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="inline-flex min-h-[32px] items-center gap-1.5 border border-[#d9534f] bg-white px-3 py-1 text-xs font-semibold text-[#d9534f] transition-colors hover:bg-[#fdf2f2] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d9534f]/40"
                 >
-                  <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                  Remove
-                </button>
+                  <span
+                    className={`h-1.5 w-1.5 ${
+                      acc.status === 'Active' || acc.status === 'Verified'
+                        ? 'bg-primary'
+                        : 'bg-muted'
+                    }`}
+                    aria-hidden="true"
+                  />
+                  {acc.status}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveLinkedAccount(acc.id)}
+                    className="inline-flex min-h-[32px] items-center gap-1.5 border border-[#d9534f] bg-white px-3 py-1 text-xs font-semibold text-[#d9534f] transition-colors hover:bg-[#fdf2f2] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d9534f]/40"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                    Remove
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
 
@@ -549,9 +648,15 @@ const Settings = () => {
             </span>
             <button
               type="button"
-              className="inline-flex min-h-[34px] items-center gap-1.5 border border-hairline bg-white px-4 py-1.5 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:text-sm"
+              onClick={handleSignOutAll}
+              disabled={signOutSaving}
+              className="inline-flex min-h-[34px] items-center gap-1.5 border border-hairline bg-white px-4 py-1.5 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60 sm:text-sm"
             >
-              <LogOut className="h-3.5 w-3.5" strokeWidth={2} />
+              {signOutSaving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+              ) : (
+                <LogOut className="h-3.5 w-3.5" strokeWidth={2} />
+              )}
               Sign Out
             </button>
           </div>
@@ -596,8 +701,9 @@ const Settings = () => {
             <button
               type="button"
               onClick={closeChangePassword}
+              disabled={passwordSaving}
               aria-label="Close"
-              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-40"
             >
               <X className="h-4 w-4" strokeWidth={2.25} />
             </button>
@@ -653,7 +759,9 @@ const Settings = () => {
                     <button
                       type="button"
                       onClick={() => setShowCurrentPassword((v) => !v)}
-                      aria-label={showCurrentPassword ? 'Hide password' : 'Show password'}
+                      aria-label={
+                        showCurrentPassword ? 'Hide password' : 'Show password'
+                      }
                       className="mr-2 inline-flex h-7 w-7 shrink-0 items-center justify-center text-muted hover:text-deep-accent"
                     >
                       {showCurrentPassword ? (
@@ -687,7 +795,9 @@ const Settings = () => {
                     <button
                       type="button"
                       onClick={() => setShowNewPassword((v) => !v)}
-                      aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                      aria-label={
+                        showNewPassword ? 'Hide password' : 'Show password'
+                      }
                       className="mr-2 inline-flex h-7 w-7 shrink-0 items-center justify-center text-muted hover:text-deep-accent"
                     >
                       {showNewPassword ? (
@@ -724,7 +834,9 @@ const Settings = () => {
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword((v) => !v)}
-                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      aria-label={
+                        showConfirmPassword ? 'Hide password' : 'Show password'
+                      }
                       className="mr-2 inline-flex h-7 w-7 shrink-0 items-center justify-center text-muted hover:text-deep-accent"
                     >
                       {showConfirmPassword ? (
@@ -751,15 +863,21 @@ const Settings = () => {
                   <button
                     type="button"
                     onClick={closeChangePassword}
-                    className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                    disabled={passwordSaving}
+                    className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                    disabled={passwordSaving}
+                    className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-70"
                   >
-                    <Save className="h-4 w-4" strokeWidth={2.25} />
+                    {passwordSaving ? (
+                      <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+                    ) : (
+                      <Save className="h-4 w-4" strokeWidth={2.25} />
+                    )}
                     Update Password
                   </button>
                 </div>
@@ -783,44 +901,6 @@ const ProfileRow = ({ icon: Icon, label, value }) => (
       {value}
     </span>
   </div>
-);
-
-// Reusable notification group
-const NotificationGroup = ({ title, data, onToggle, humanize = humanizeKey }) => (
-  <>
-    <h3 className="mb-2 mt-4 font-serif text-base font-bold text-deep-accent first:mt-0 sm:text-lg">
-      {title}
-    </h3>
-    <div className="flex flex-col divide-y divide-faint">
-      {Object.entries(data).map(([key, value]) => (
-        <div key={key} className="flex items-center gap-3 py-3">
-          <span
-            className={`h-1.5 w-1.5 shrink-0 ${
-              value ? 'bg-primary' : 'bg-muted'
-            }`}
-            aria-hidden="true"
-          />
-          <span className="min-w-0 flex-1 truncate text-sm text-deep-accent">
-            {humanize(key)}
-          </span>
-          <span
-            className={`shrink-0 text-xs font-bold uppercase tracking-wide ${
-              value ? 'text-primary' : 'text-muted'
-            }`}
-          >
-            {value ? 'ON' : 'OFF'}
-          </span>
-          <button
-            type="button"
-            onClick={() => onToggle(key)}
-            className="shrink-0 border border-hairline bg-white px-3 py-1 text-xs font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-          >
-            {value ? 'Turn Off' : 'Turn On'}
-          </button>
-        </div>
-      ))}
-    </div>
-  </>
 );
 
 export default Settings;

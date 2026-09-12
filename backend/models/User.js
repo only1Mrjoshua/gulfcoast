@@ -66,6 +66,19 @@ const userSchema = new mongoose.Schema({
     payment:     { type: Boolean, default: true },
   },
 
+  // ── Settings: personal mailing address (flat string form)
+  mailingAddress: { type: String, default: '' },
+
+  // ── Settings: two-step verification flag
+  twoStepVerification: { type: Boolean, default: false },
+
+  // ── Settings: preferred default accounts
+  accountPreferences: {
+    defaultAccount:         { type: String, default: '' },
+    defaultTransferAccount: { type: String, default: '' },
+    defaultPaymentAccount:  { type: String, default: '' },
+  },
+
   // ⬇️ NEW — Optional profile fields used to prefill the loan application.
   //           All default to empty so existing records are unaffected.
   dateOfBirth:    { type: String, default: '' },
