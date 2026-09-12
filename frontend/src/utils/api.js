@@ -1,5 +1,5 @@
 // Production (Render) — update this to your actual service URL
-const RENDER_BACKEND_URL = 'https://gulf-coast-trust-backend.onrender.com/api';
+const RENDER_BACKEND_URL = 'https://backend-lilac-delta-18.vercel.app/api';
 
 // Local development fallback
 const LOCAL_BACKEND_URL = 'http://localhost:5000/api';
