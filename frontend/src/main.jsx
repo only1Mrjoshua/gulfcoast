@@ -6,6 +6,10 @@ import {
 } from 'react-router-dom';
 import App from './App';
 import AppLayout from './components/layout/AppLayout';
+import AdminLayout from './components/layout/AdminLayout';
+import ProtectedRoute from './components/ProtectedRoute';
+import { AuthProvider } from './context/AuthContext';
+
 import Home from './pages/Home';
 import Accounts from './pages/Accounts';
 import Transfers from './pages/Transfers';
@@ -24,10 +28,26 @@ import PlaceholderPage from './pages/PlaceholderPage';
 import LocationsPage from './pages/LocationsPage';
 import ContactsPage from './pages/ContactsPage';
 import HistoryPage from './pages/HistoryPage';
+
+// Admin Pages
+import AdminDashboard from './pages/admin/AdminDashboard';
+import ManageUsers from './pages/admin/ManageUsers';
+import ManageAccounts from './pages/admin/ManageAccounts';
+import ManageTransfers from './pages/admin/ManageTransfers';
+import ManagePayments from './pages/admin/ManagePayments';
+import ManageDeposits from './pages/admin/ManageDeposits';
+import ManageTransactions from './pages/admin/ManageTransactions';
+import ManageStatements from './pages/admin/ManageStatements';
+import ManageCards from './pages/admin/ManageCards';
+import ManageLoans from './pages/admin/ManageLoans';
+import ManageGoals from './pages/admin/ManageGoals';
+import ManageNotifications from './pages/admin/ManageNotifications';
+import AdminSettings from './pages/admin/AdminSettings';
+
 import './index.css';
 
 const router = createBrowserRouter([
-  // ----- Public routes (with Navbar + Footer) -----
+  // ----- Public routes (Navbar + Footer) -----
   {
     element: <App />,
     children: [
@@ -54,9 +74,13 @@ const router = createBrowserRouter([
     ],
   },
 
-  // ----- Authenticated routes (with sidebar) -----
+  // ----- Authenticated user routes (sidebar layout) -----
   {
-    element: <AppLayout />,
+    element: (
+      <ProtectedRoute allowedRoles={['user']}>
+        <AppLayout />
+      </ProtectedRoute>
+    ),
     children: [
       { path: 'home', element: <Home /> },
       { path: 'accounts', element: <Accounts /> },
@@ -73,10 +97,36 @@ const router = createBrowserRouter([
       { path: 'settings', element: <Settings /> },
     ],
   },
+
+  // ----- Admin routes -----
+  {
+    element: (
+      <ProtectedRoute allowedRoles={['admin']}>
+        <AdminLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      { path: 'admin', element: <AdminDashboard /> },
+      { path: 'admin/users', element: <ManageUsers /> },
+      { path: 'admin/accounts', element: <ManageAccounts /> },
+      { path: 'admin/transfers', element: <ManageTransfers /> },
+      { path: 'admin/payments', element: <ManagePayments /> },
+      { path: 'admin/deposits', element: <ManageDeposits /> },
+      { path: 'admin/transactions', element: <ManageTransactions /> },
+      { path: 'admin/statements', element: <ManageStatements /> },
+      { path: 'admin/cards', element: <ManageCards /> },
+      { path: 'admin/loans', element: <ManageLoans /> },
+      { path: 'admin/goals', element: <ManageGoals /> },
+      { path: 'admin/notifications', element: <ManageNotifications /> },
+      { path: 'admin/settings', element: <AdminSettings /> },
+    ],
+  },
 ]);
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <RouterProvider router={router} />
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
   </React.StrictMode>
 );

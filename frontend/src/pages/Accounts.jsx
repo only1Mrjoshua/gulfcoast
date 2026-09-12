@@ -1,5 +1,5 @@
 // src/pages/Accounts.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Eye,
@@ -7,8 +7,6 @@ import {
   Plus,
   ChevronRight,
   Search,
-  Download,
-  X,
   Wallet,
   PiggyBank,
   CreditCard,
@@ -21,24 +19,25 @@ import {
   HelpCircle,
   ArrowRight,
   Info,
+  Loader2,
 } from 'lucide-react';
-import {
-  mockAccountDetails,
-  mockRecentTransactions,
-  mockStatements,
-  mockAlerts,
-  totalBalance,
-  availableBalance,
-  pendingAmount,
-} from '../data/mockAccountsData';
+import { apiFetch } from '../utils/api';
 
-// Helper
+// ---------- Formatting helpers ----------
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
-  }).format(Math.abs(amount));
+  }).format(Math.abs(amount ?? 0));
+};
+
+const formatShortDate = (dateStr) => {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
 };
 
 // Helper for account type label
@@ -63,8 +62,17 @@ const getAccountIcon = (type) => {
   return map[type] || Wallet;
 };
 
+// The 5 alert types
+const ALERT_DEFINITIONS = [
+  { key: 'lowBalance',       name: 'Low balance alert' },
+  { key: 'largeTransaction', name: 'Large transaction alert' },
+  { key: 'deposit',          name: 'Deposit notification' },
+  { key: 'paymentReminder',  name: 'Payment reminder' },
+  { key: 'monthlyStatement', name: 'Monthly statement notification' },
+];
+
 // Account Card Component
-const AccountCard = ({ account, showBalance, onView }) => {
+const AccountCard = ({ account, showBalance, onView, isSelected }) => {
   const Icon = getAccountIcon(account.type);
 
   const getBalanceDisplay = () => {
@@ -78,7 +86,7 @@ const AccountCard = ({ account, showBalance, onView }) => {
   };
 
   const getSecondaryInfo = () => {
-    if (account.type === 'savings') {
+    if (account.type === 'savings' && account.interestRate != null) {
       return `Interest Rate ${account.interestRate}% APY`;
     } else if (account.type === 'credit') {
       return `Available Credit ${formatCurrency(account.availableCredit)}`;
@@ -89,7 +97,12 @@ const AccountCard = ({ account, showBalance, onView }) => {
   };
 
   return (
-    <div className="group flex flex-col border border-hairline bg-white p-5 transition-colors hover:border-primary sm:p-6">
+    <div
+      onClick={onView}
+      className={`group flex flex-col border bg-white p-5 transition-colors sm:p-6 cursor-pointer ${
+        isSelected ? 'border-primary' : 'border-hairline hover:border-primary'
+      }`}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
@@ -115,7 +128,6 @@ const AccountCard = ({ account, showBalance, onView }) => {
       {getSecondaryInfo() && (
         <div className="mt-1 text-xs text-body">{getSecondaryInfo()}</div>
       )}
-
     </div>
   );
 };
@@ -132,52 +144,205 @@ const SectionHeading = ({ title, subtitle }) => (
 
 const Accounts = () => {
   const [showBalance, setShowBalance] = useState(true);
-  const [selectedAccountId, setSelectedAccountId] = useState('chk1');
-  const [filterType, setFilterType] = useState('all');
-  const [filterDate, setFilterDate] = useState('');
+  const [selectedAccountId, setSelectedAccountId] = useState(null);
 
-  // Get all accounts from categories for easy lookup
-  const allAccounts = [
-    ...mockAccountDetails.checking,
-    ...mockAccountDetails.savings,
-    ...mockAccountDetails.creditCards,
-    ...mockAccountDetails.loans,
-  ];
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Find selected account
-  const selectedAccount = allAccounts.find((acc) => acc.id === selectedAccountId);
+  const [data, setData] = useState({
+    balances: { total: 0, available: 0, pending: 0 },
+    accounts: { checking: [], savings: [], credit: [] },
+    loans: [],
+    primaryChecking: null,
+    alertPreferences: {
+      lowBalance: true,
+      largeTransaction: true,
+      deposit: true,
+      paymentReminder: true,
+      monthlyStatement: true,
+    },
+  });
 
-  // Get transactions for selected account
-  const accountTransactions = mockRecentTransactions
-    .filter((tx) => tx.accountId === selectedAccountId)
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
+  // ------------------------------------------------------------
+  // Fetch from backend
+  // ------------------------------------------------------------
+  useEffect(() => {
+    const fetchOverview = async () => {
+      try {
+        setLoading(true);
+        setError('');
 
-  // Filter transactions by type (credit/debit) and date
-  const filteredTransactions = accountTransactions
-    .filter((tx) => {
-      if (filterType === 'all') return true;
-      if (filterType === 'credit') return tx.amount > 0;
-      if (filterType === 'debit') return tx.amount < 0;
-      return true;
-    })
-    .filter((tx) => {
-      if (!filterDate) return true;
-      return tx.date === filterDate;
-    });
+        const res = await apiFetch('/accounts/overview');
+        const d = res?.data ?? res;
 
-  // Toggle balance visibility
-  const toggleBalance = () => setShowBalance(!showBalance);
+        const transformAccount = (acc) => {
+          let name = getAccountTypeLabel(acc.type.toLowerCase());
+          if (acc.type.toLowerCase() === 'savings' && acc.subType) {
+            name = `${acc.subType} Savings`;
+          }
+          return {
+            id: acc.id,
+            type: acc.type.toLowerCase(),
+            name,
+            subType: acc.subType,
+            lastFour: acc.lastFour,
+            accountNumber: acc.accountNumber,
+            status: acc.status,
+            currentBalance: acc.totalBalance,
+            totalBalance: acc.totalBalance,
+            availableBalance: acc.availableBalance,
+            pendingBalance: acc.pendingBalance,
+            interestRate: acc.interestRate,
+            availableCredit: acc.availableBalance,
+          };
+        };
 
-  // Handle account selection
-  const handleViewAccount = (accountId) => {
-    setSelectedAccountId(accountId);
+        const transformedLoans = (d.loans || []).map((loan) => ({
+          id: loan.id,
+          type: 'loan',
+          name: loan.name,
+          lastFour: loan.lastFour,
+          status: loan.status,
+          outstandingBalance: loan.currentBalance,
+          currentBalance: loan.currentBalance,
+          availableBalance: loan.currentBalance,
+          nextPayment: loan.monthlyPayment,
+          nextPaymentDue: formatShortDate(loan.nextPaymentDate),
+          interestRate: loan.interestRate,
+        }));
+
+        const transformedPrimaryChecking = d.primaryChecking
+          ? {
+              ...transformAccount({
+                ...d.primaryChecking,
+                type: 'Checking',
+                subType: null,
+              }),
+            }
+          : null;
+
+        const checkingList = (d.accounts.checking || []).map((acc) => {
+          if (transformedPrimaryChecking && acc.id === transformedPrimaryChecking.id) {
+            return transformedPrimaryChecking;
+          }
+          return transformAccount(acc);
+        });
+
+        setData({
+          balances: {
+            total: d.balances?.total ?? 0,
+            available: d.balances?.available ?? 0,
+            pending: d.balances?.pending ?? 0,
+          },
+          accounts: {
+            checking: checkingList,
+            savings: (d.accounts.savings || []).map(transformAccount),
+            credit: (d.accounts.credit || []).map(transformAccount),
+          },
+          loans: transformedLoans,
+          primaryChecking: transformedPrimaryChecking,
+          alertPreferences: {
+            lowBalance:       d.alertPreferences?.lowBalance       ?? true,
+            largeTransaction: d.alertPreferences?.largeTransaction ?? true,
+            deposit:          d.alertPreferences?.deposit          ?? true,
+            paymentReminder:  d.alertPreferences?.paymentReminder  ?? true,
+            monthlyStatement: d.alertPreferences?.monthlyStatement ?? true,
+          },
+        });
+
+        if (transformedPrimaryChecking) {
+          setSelectedAccountId(transformedPrimaryChecking.id);
+        }
+      } catch (err) {
+        console.error('❌ Failed to load accounts:', err);
+        setError(err.message || 'Failed to load accounts');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOverview();
+  }, []);
+
+  // ------------------------------------------------------------
+  // Toggle an alert preference
+  // ------------------------------------------------------------
+  const handleToggleAlert = async (key) => {
+    const currentValue = data.alertPreferences[key];
+    const newValue = !currentValue;
+
+    setData((prev) => ({
+      ...prev,
+      alertPreferences: { ...prev.alertPreferences, [key]: newValue },
+    }));
+
+    try {
+      await apiFetch('/accounts/alerts', {
+        method: 'PUT',
+        body: JSON.stringify({ [key]: newValue }),
+      });
+    } catch (err) {
+      setData((prev) => ({
+        ...prev,
+        alertPreferences: { ...prev.alertPreferences, [key]: currentValue },
+      }));
+      console.error('❌ Failed to update alert:', err);
+    }
   };
 
+  const toggleBalance = () => setShowBalance(!showBalance);
+  const handleViewAccount = (accountId) => setSelectedAccountId(accountId);
+
+  // ------------------------------------------------------------
+  // Loading state
+  // ------------------------------------------------------------
+  if (loading) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" strokeWidth={1.75} />
+        <p className="text-sm text-muted">Loading your accounts…</p>
+      </div>
+    );
+  }
+
+  // ------------------------------------------------------------
+  // Error state
+  // ------------------------------------------------------------
+  if (error) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4">
+        <p className="font-serif text-xl font-bold text-deep-accent">
+          We couldn&rsquo;t load your accounts
+        </p>
+        <p className="max-w-md text-center text-sm text-muted">{error}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-2 bg-primary px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-primary-deep"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  // ------------------------------------------------------------
+  // Derived values
+  // ------------------------------------------------------------
+  const allAccounts = [
+    ...data.accounts.checking,
+    ...data.accounts.savings,
+    ...data.accounts.credit,
+    ...data.loans,
+  ];
+
+  const selectedAccount = allAccounts.find((acc) => acc.id === selectedAccountId);
+
   const categories = [
-    { key: 'checking', title: 'Checking', accounts: mockAccountDetails.checking },
-    { key: 'savings', title: 'Savings', accounts: mockAccountDetails.savings },
-    { key: 'creditCards', title: 'Credit Cards', accounts: mockAccountDetails.creditCards },
-    { key: 'loans', title: 'Loans', accounts: mockAccountDetails.loans },
+    { key: 'checking', title: 'Checking', accounts: data.accounts.checking },
+    { key: 'savings', title: 'Savings', accounts: data.accounts.savings },
+    { key: 'creditCards', title: 'Credit Cards', accounts: data.accounts.credit },
+    ...(data.loans.length > 0 ? [{ key: 'loans', title: 'Loans', accounts: data.loans }] : []),
   ];
 
   return (
@@ -216,20 +381,20 @@ const Accounts = () => {
           </div>
 
           <div className="mt-3 font-serif text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-[2.75rem]">
-            {showBalance ? formatCurrency(totalBalance) : '•••••••'}
+            {showBalance ? formatCurrency(data.balances.total) : '•••••••'}
           </div>
 
           <div className="mt-6 flex flex-col gap-4 border-t border-white/15 pt-5 sm:flex-row sm:gap-12">
             <div className="flex items-baseline justify-between gap-3 sm:flex-col sm:items-start sm:gap-1">
               <span className="text-xs uppercase tracking-wide text-white/60">Available</span>
               <span className="text-sm font-semibold text-white sm:text-base">
-                {showBalance ? formatCurrency(availableBalance) : '•••••••'}
+                {showBalance ? formatCurrency(data.balances.available) : '•••••••'}
               </span>
             </div>
             <div className="flex items-baseline justify-between gap-3 sm:flex-col sm:items-start sm:gap-1">
               <span className="text-xs uppercase tracking-wide text-white/60">Pending</span>
               <span className="text-sm font-semibold text-white sm:text-base">
-                {showBalance ? formatCurrency(pendingAmount) : '•••••••'}
+                {showBalance ? formatCurrency(data.balances.pending) : '•••••••'}
               </span>
             </div>
           </div>
@@ -248,6 +413,7 @@ const Accounts = () => {
                   account={acc}
                   showBalance={showBalance}
                   onView={() => handleViewAccount(acc.id)}
+                  isSelected={acc.id === selectedAccountId}
                 />
               ))}
             </div>
@@ -255,7 +421,7 @@ const Accounts = () => {
         ))}
       </section>
 
-      {/* Account Detail Panel (when account selected) */}
+      {/* Account Detail Panel */}
       {selectedAccount && (
         <section className="mb-12 border-t-2 border-hairline pt-8">
           {/* Detail Header */}
@@ -317,89 +483,6 @@ const Accounts = () => {
             </div>
           </div>
 
-          {/* Transaction Filter */}
-          <div className="mb-6 flex flex-col gap-4 border-y border-hairline py-4 lg:flex-row lg:flex-wrap lg:items-center lg:gap-6">
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="text-sm font-medium text-body">Show:</label>
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="min-h-[38px] border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
-              >
-                <option value="all">All Transactions</option>
-                <option value="credit">Credits</option>
-                <option value="debit">Debits</option>
-              </select>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="text-sm font-medium text-body">Date:</label>
-              <input
-                type="date"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
-                className="min-h-[38px] border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
-              />
-              {filterDate && (
-                <button
-                  type="button"
-                  onClick={() => setFilterDate('')}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-                >
-                  <X className="h-3.5 w-3.5" strokeWidth={2.25} />
-                  Clear
-                </button>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
-              <button
-                type="button"
-                className="inline-flex min-h-[38px] items-center gap-1.5 border border-hairline bg-white px-4 py-1.5 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              >
-                <Download className="h-3.5 w-3.5" strokeWidth={2.25} />
-                Download
-              </button>
-            </div>
-          </div>
-
-          {/* Transaction List */}
-          <div className="mb-8 border-t border-hairline">
-            {filteredTransactions.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted">No transactions found.</p>
-            ) : (
-              filteredTransactions.map((tx) => {
-                const isPositive = tx.amount >= 0;
-                return (
-                  <div
-                    key={tx.id}
-                    className="flex items-center justify-between gap-4 border-b border-faint py-3"
-                  >
-                    <div className="flex min-w-0 flex-col">
-                      <span className="truncate text-sm font-semibold text-ink">
-                        {tx.description}
-                      </span>
-                      <span className="truncate text-xs text-muted">{tx.category}</span>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-4">
-                      <span className="hidden text-xs text-muted sm:inline">{tx.date}</span>
-                      <span
-                        className={`text-sm font-semibold ${
-                          isPositive ? 'text-primary' : 'text-[#d9534f]'
-                        }`}
-                      >
-                        {isPositive ? '+' : '-'}
-                        {formatCurrency(tx.amount)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-
-
           {/* Account Alerts */}
           <div className="mb-8 border-t border-hairline pt-6">
             <div className="mb-4 flex items-center gap-2">
@@ -410,30 +493,31 @@ const Accounts = () => {
             </div>
 
             <div className="divide-y divide-faint border-t border-hairline">
-              {mockAlerts.map((alert, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between gap-4 py-3"
-                >
-                  <span className="text-sm font-medium text-ink">{alert.name}</span>
-                  <span
-                    className={`text-xs font-bold uppercase tracking-wide ${
-                      alert.status === 'ON' ? 'text-primary' : 'text-[#d9534f]'
-                    }`}
+              {ALERT_DEFINITIONS.map((alert) => {
+                const isOn = data.alertPreferences[alert.key] === true;
+                return (
+                  <div
+                    key={alert.key}
+                    className="flex items-center justify-between gap-4 py-3"
                   >
-                    {alert.status}
-                  </span>
-                </div>
-              ))}
+                    <span className="text-sm font-medium text-ink">{alert.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAlert(alert.key)}
+                      className={`text-xs font-bold uppercase tracking-wide cursor-pointer transition-colors ${
+                        isOn ? 'text-primary' : 'text-[#d9534f]'
+                      }`}
+                      aria-label={`Toggle ${alert.name}`}
+                    >
+                      {isOn ? 'ON' : 'OFF'}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
-
-
         </section>
       )}
-
-
-
     </div>
   );
 };

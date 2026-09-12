@@ -1,5 +1,5 @@
 // src/pages/Transactions.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Download,
   Search,
@@ -8,6 +8,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   ChevronRight,
+  ChevronDown,
   Clock,
   CheckCircle2,
   FileText,
@@ -18,22 +19,33 @@ import {
   Store,
   Hash,
   Calendar,
+  Loader2,
+  Send,
 } from 'lucide-react';
-import {
-  mockTransactionAccounts,
-  mockTransactions,
-  transactionCategories,
-} from '../data/mockTransactionsData';
+import { apiFetch } from '../utils/api';
 
+const PAGE_SIZE = 15;
+
+// ---------- Formatting helpers ----------
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
-  }).format(Math.abs(amount));
+  }).format(Math.abs(amount ?? 0));
+};
+
+const toISODate = (d) => {
+  if (!d) return '';
+  const dt = new Date(d);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const day = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 };
 
 const formatDate = (dateStr) => {
+  if (!dateStr) return '';
   const date = new Date(dateStr + 'T00:00:00');
   return date.toLocaleDateString('en-US', {
     month: 'short',
@@ -43,6 +55,7 @@ const formatDate = (dateStr) => {
 };
 
 const getDateGroup = (dateStr) => {
+  if (!dateStr) return '';
   const date = new Date(dateStr + 'T00:00:00');
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -54,116 +67,220 @@ const getDateGroup = (dateStr) => {
   return formatDate(dateStr);
 };
 
+const currentMonthKey = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
+
 const Transactions = () => {
-  // State
+  // ── Core data ────────────────────────────────────────
+  const [months, setMonths] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  const [categories, setCategories] = useState([]);
+
+  // ── Filters ──────────────────────────────────────────
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthKey());
   const [selectedAccount, setSelectedAccount] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [dateRange, setDateRange] = useState('last30');
+  const [dateRange, setDateRange] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [transactionType, setTransactionType] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [minAmount, setMinAmount] = useState('');
   const [maxAmount, setMaxAmount] = useState('');
-  const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Filter logic — unchanged from original
-  const filteredTransactions = useMemo(() => {
-    let filtered = mockTransactions;
+  // ── Results ──────────────────────────────────────────
+  const [transactions, setTransactions] = useState([]);
+  const [summary, setSummary] = useState({ totalIn: 0, totalOut: 0, net: 0, count: 0 });
 
-    if (selectedAccount !== 'all') {
-      filtered = filtered.filter((tx) => tx.accountId === selectedAccount);
-    }
+  // ── Pagination ───────────────────────────────────────
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState(0);
 
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(
-        (tx) =>
-          tx.description.toLowerCase().includes(query) ||
-          tx.category.toLowerCase().includes(query) ||
-          tx.merchant.toLowerCase().includes(query) ||
-          tx.referenceNumber.toLowerCase().includes(query)
-      );
-    }
+  // ── UI state ─────────────────────────────────────────
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [listLoading, setListLoading] = useState(false);
+  const [error, setError] = useState('');
 
-    if (dateRange !== 'custom') {
-      const now = new Date();
-      let start = new Date();
-      switch (dateRange) {
-        case 'today':
-          start.setHours(0, 0, 0, 0);
-          break;
-        case 'last7':
-          start.setDate(now.getDate() - 7);
-          start.setHours(0, 0, 0, 0);
-          break;
-        case 'last30':
-          start.setDate(now.getDate() - 30);
-          start.setHours(0, 0, 0, 0);
-          break;
-        case 'thismonth':
-          start = new Date(now.getFullYear(), now.getMonth(), 1);
-          break;
-        case 'lastmonth':
-          start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          const end = new Date(now.getFullYear(), now.getMonth(), 0);
-          filtered = filtered.filter((tx) => {
-            const d = new Date(tx.date + 'T00:00:00');
-            return d >= start && d <= end;
-          });
-          break;
-        default:
-          break;
+  // ── Modals ───────────────────────────────────────────
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+
+  // Download modal
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadFrom, setDownloadFrom] = useState('');
+  const [downloadTo, setDownloadTo] = useState('');
+  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
+
+  // Report modal
+  const [reportTransaction, setReportTransaction] = useState(null);
+  const [reportReason, setReportReason] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState('');
+  const [reportSuccess, setReportSuccess] = useState(null);
+
+  // ============================================================
+  // Initial load
+  // ============================================================
+  useEffect(() => {
+    const loadInitial = async () => {
+      try {
+        setInitialLoading(true);
+        setError('');
+
+        const [monthsRes, optionsRes] = await Promise.all([
+          apiFetch('/transactions/months'),
+          apiFetch('/transactions/filter-options'),
+        ]);
+
+        const m = monthsRes.data?.months ?? monthsRes.months ?? [];
+        const opts = optionsRes.data ?? optionsRes;
+
+        setMonths(m);
+        setAccounts(opts.accounts ?? []);
+        setCategories(opts.categories ?? []);
+
+        if (m.length > 0 && !m.find((x) => x.key === currentMonthKey())) {
+          setSelectedMonth(m[0].key);
+        }
+      } catch (err) {
+        console.error('❌ Failed to load transactions init:', err);
+        setError(err.message || 'Failed to load transactions');
+      } finally {
+        setInitialLoading(false);
       }
-      if (dateRange !== 'lastmonth') {
-        filtered = filtered.filter((tx) => {
-          const d = new Date(tx.date + 'T00:00:00');
-          return d >= start;
+    };
+    loadInitial();
+  }, []);
+
+  // ============================================================
+  // Build query params for a given page
+  // ============================================================
+  const buildQueryParams = useCallback(
+    (pageNum) => {
+      const params = new URLSearchParams();
+
+      // Date scope
+      if (dateRange === 'custom' && (startDate || endDate)) {
+        if (startDate) params.append('fromDate', startDate);
+        if (endDate) params.append('toDate', endDate);
+      } else {
+        const now = new Date();
+        let from = null, to = null;
+
+        if (dateRange === 'today') {
+          from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          to = from;
+        } else if (dateRange === 'last7') {
+          to = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          from = new Date(to); from.setDate(from.getDate() - 6);
+        } else if (dateRange === 'last30') {
+          to = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          from = new Date(to); from.setDate(from.getDate() - 29);
+        } else if (dateRange === 'thismonth') {
+          from = new Date(now.getFullYear(), now.getMonth(), 1);
+          to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        } else if (dateRange === 'lastmonth') {
+          from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          to = new Date(now.getFullYear(), now.getMonth(), 0);
+        }
+
+        if (from && to) {
+          params.append('fromDate', toISODate(from));
+          params.append('toDate', toISODate(to));
+        } else if (selectedMonth) {
+          params.append('month', selectedMonth);
+        }
+      }
+
+      if (selectedAccount !== 'all') params.append('accountId', selectedAccount);
+      if (searchQuery.trim()) params.append('search', searchQuery.trim());
+      if (transactionType !== 'all') params.append('type', transactionType);
+      if (selectedCategory !== 'All') params.append('category', selectedCategory);
+      if (minAmount) params.append('minAmount', minAmount);
+      if (maxAmount) params.append('maxAmount', maxAmount);
+
+      params.append('page', pageNum);
+      params.append('limit', PAGE_SIZE);
+
+      return params;
+    },
+    [
+      selectedMonth,
+      selectedAccount,
+      searchQuery,
+      dateRange,
+      startDate,
+      endDate,
+      transactionType,
+      selectedCategory,
+      minAmount,
+      maxAmount,
+    ]
+  );
+
+  // ============================================================
+  // Fetch a page. `replace=true` → replaces list (fresh load).
+  //                `replace=false` → appends (See more).
+  // ============================================================
+  const fetchPage = useCallback(
+    async (pageNum, replace) => {
+      try {
+        setListLoading(true);
+        setError('');
+
+        const params = buildQueryParams(pageNum);
+        const res = await apiFetch(`/transactions?${params.toString()}`);
+        const d = res?.data ?? res;
+
+        const mapped = (d.transactions ?? []).map((tx) => ({
+          id: tx.id,
+          description: tx.description,
+          category: tx.category || 'Uncategorized',
+          merchant: tx.merchant || '',
+          referenceNumber: tx.referenceNumber || '',
+          accountId: tx.accountId,
+          accountName: tx.accountName,
+          accountLastFour: tx.accountLastFour,
+          date: toISODate(tx.date),
+          amount: tx.amount,
+          balance: tx.balance,
+          type: tx.type,
+          status: tx.status,
+          location: tx.location || '',
+          paymentMethod: tx.paymentMethod || '',
+        }));
+
+        setTransactions((prev) => (replace ? mapped : [...prev, ...mapped]));
+        setSummary({
+          totalIn:  d.summary?.totalIn  ?? 0,
+          totalOut: d.summary?.totalOut ?? 0,
+          net:      d.summary?.net      ?? 0,
+          count:    d.summary?.count    ?? 0,
         });
+        setHasMore(d.pagination?.hasMore ?? false);
+        setTotal(d.pagination?.total ?? mapped.length);
+        setPage(pageNum);
+      } catch (err) {
+        console.error('❌ Failed to load transactions:', err);
+        setError(err.message || 'Failed to load transactions');
+      } finally {
+        setListLoading(false);
       }
-    } else {
-      if (startDate) {
-        const start = new Date(startDate + 'T00:00:00');
-        filtered = filtered.filter((tx) => {
-          const d = new Date(tx.date + 'T00:00:00');
-          return d >= start;
-        });
-      }
-      if (endDate) {
-        const end = new Date(endDate + 'T00:00:00');
-        filtered = filtered.filter((tx) => {
-          const d = new Date(tx.date + 'T00:00:00');
-          return d <= end;
-        });
-      }
-    }
+    },
+    [buildQueryParams]
+  );
 
-    if (transactionType !== 'all') {
-      filtered = filtered.filter((tx) => tx.type === transactionType);
-    }
-
-    if (selectedCategory !== 'All') {
-      filtered = filtered.filter((tx) => tx.category === selectedCategory);
-    }
-
-    if (minAmount) {
-      const min = parseFloat(minAmount);
-      if (!isNaN(min)) {
-        filtered = filtered.filter((tx) => Math.abs(tx.amount) >= min);
-      }
-    }
-    if (maxAmount) {
-      const max = parseFloat(maxAmount);
-      if (!isNaN(max)) {
-        filtered = filtered.filter((tx) => Math.abs(tx.amount) <= max);
-      }
-    }
-
-    filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    return filtered;
+  // Reset to page 1 whenever any filter changes
+  useEffect(() => {
+    if (initialLoading) return;
+    fetchPage(1, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    selectedMonth,
     selectedAccount,
     searchQuery,
     dateRange,
@@ -173,31 +290,42 @@ const Transactions = () => {
     selectedCategory,
     minAmount,
     maxAmount,
+    initialLoading,
   ]);
 
+  const loadMore = () => {
+    if (!hasMore || listLoading) return;
+    fetchPage(page + 1, false);
+  };
+
+  // ============================================================
+  // Grouping
+  // ============================================================
   const groupedTransactions = useMemo(() => {
     const groups = {};
-    filteredTransactions.forEach((tx) => {
+    transactions.forEach((tx) => {
       const key = getDateGroup(tx.date);
       if (!groups[key]) groups[key] = [];
       groups[key].push(tx);
     });
     return groups;
-  }, [filteredTransactions]);
+  }, [transactions]);
 
-  const totalIn = filteredTransactions
-    .filter((tx) => tx.amount > 0)
-    .reduce((sum, tx) => sum + tx.amount, 0);
-  const totalOut = filteredTransactions
-    .filter((tx) => tx.amount < 0)
-    .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
-  const net = totalIn - totalOut;
-  const count = filteredTransactions.length;
+  const summaryItems = [
+    { label: 'Money In',  value: `+${formatCurrency(summary.totalIn)}`,  color: 'text-primary' },
+    { label: 'Money Out', value: `-${formatCurrency(summary.totalOut)}`, color: 'text-[#d9534f]' },
+    {
+      label: 'Net',
+      value: `${summary.net >= 0 ? '+' : ''}${formatCurrency(summary.net)}`,
+      color: summary.net >= 0 ? 'text-primary' : 'text-[#d9534f]',
+    },
+    { label: 'Transactions', value: summary.count, color: 'text-deep-accent' },
+  ];
 
   const handleClearFilters = () => {
     setSelectedAccount('all');
     setSearchQuery('');
-    setDateRange('last30');
+    setDateRange('all');
     setStartDate('');
     setEndDate('');
     setTransactionType('all');
@@ -214,16 +342,139 @@ const Transactions = () => {
     setSelectedTransaction(null);
   };
 
-  const summaryItems = [
-    { label: 'Money In', value: `+${formatCurrency(totalIn)}`, color: 'text-primary' },
-    { label: 'Money Out', value: `-${formatCurrency(totalOut)}`, color: 'text-[#d9534f]' },
-    {
-      label: 'Net',
-      value: `${net >= 0 ? '+' : ''}${formatCurrency(net)}`,
-      color: net >= 0 ? 'text-primary' : 'text-[#d9534f]',
-    },
-    { label: 'Transactions', value: count, color: 'text-deep-accent' },
-  ];
+  // ============================================================
+  // Download modal
+  // ============================================================
+  const openDownloadModal = () => {
+    const [y, m] = (selectedMonth || currentMonthKey()).split('-').map(Number);
+    const first = new Date(y, m - 1, 1);
+    const last  = new Date(y, m, 0);
+    setDownloadFrom(toISODate(first));
+    setDownloadTo(toISODate(last));
+    setDownloadError('');
+    setShowDownloadModal(true);
+  };
+
+  const handleDownload = async () => {
+    setDownloadError('');
+    setDownloadLoading(true);
+
+    try {
+      const API_URL =
+        import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const token = localStorage.getItem('token');
+
+      const params = new URLSearchParams();
+      if (downloadFrom) params.append('fromDate', downloadFrom);
+      if (downloadTo)   params.append('toDate', downloadTo);
+
+      if (selectedAccount !== 'all') params.append('accountId', selectedAccount);
+      if (searchQuery.trim()) params.append('search', searchQuery.trim());
+      if (transactionType !== 'all') params.append('type', transactionType);
+      if (selectedCategory !== 'All') params.append('category', selectedCategory);
+      if (minAmount) params.append('minAmount', minAmount);
+      if (maxAmount) params.append('maxAmount', maxAmount);
+
+      const response = await fetch(
+        `${API_URL}/transactions/download?${params.toString()}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+      );
+
+      if (!response.ok) {
+        throw new Error('Download failed. Please try again.');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const label = `${downloadFrom}_to_${downloadTo}`.replace(/[^0-9-]/g, '');
+      a.download = `transactions-${label}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setShowDownloadModal(false);
+    } catch (err) {
+      setDownloadError(err.message || 'Download failed');
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
+
+  // ============================================================
+  // Report modal
+  // ============================================================
+  const openReportModal = (tx) => {
+    setSelectedTransaction(null);
+    setReportTransaction(tx);
+    setReportReason('');
+    setReportError('');
+    setReportSuccess(null);
+  };
+
+  const closeReportModal = () => {
+    setReportTransaction(null);
+    setReportReason('');
+    setReportError('');
+    setReportSuccess(null);
+  };
+
+  const handleSubmitReport = async () => {
+    setReportError('');
+    if (!reportReason.trim()) {
+      setReportError('Please enter a reason for the report.');
+      return;
+    }
+
+    setReportLoading(true);
+    try {
+      const res = await apiFetch(`/transactions/${reportTransaction.id}/report`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: reportReason.trim() }),
+      });
+
+      const report = res.data?.report ?? res.report;
+      setReportSuccess(report);
+    } catch (err) {
+      setReportError(err.message || 'Failed to submit report');
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  // ============================================================
+  // Full-page states
+  // ============================================================
+  if (initialLoading) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" strokeWidth={1.75} />
+        <p className="text-sm text-muted">Loading your transactions…</p>
+      </div>
+    );
+  }
+
+  if (error && transactions.length === 0) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4">
+        <p className="font-serif text-xl font-bold text-deep-accent">
+          We couldn&rsquo;t load your transactions
+        </p>
+        <p className="max-w-md text-center text-sm text-muted">{error}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-2 bg-primary px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-primary-deep"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const remaining = Math.max(0, total - transactions.length);
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -237,13 +488,38 @@ const Transactions = () => {
             View and search your recent account activity.
           </p>
         </div>
-        <button
-          type="button"
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 border border-primary bg-white px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-        >
-          <Download className="h-4 w-4" strokeWidth={2.25} />
-          Download Transactions
-        </button>
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="monthSelect"
+              className="text-[11px] font-bold uppercase tracking-wide text-muted"
+            >
+              Month
+            </label>
+            <select
+              id="monthSelect"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="min-h-[44px] border border-hairline bg-white px-3 py-2 text-sm font-semibold text-deep-accent focus:border-primary focus:outline-none"
+            >
+              {months.map((m) => (
+                <option key={m.key} value={m.key}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="button"
+            onClick={openDownloadModal}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 border border-primary bg-white px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          >
+            <Download className="h-4 w-4" strokeWidth={2.25} />
+            Download Transactions
+          </button>
+        </div>
       </div>
 
       {/* Summary */}
@@ -262,7 +538,6 @@ const Transactions = () => {
 
       {/* Filters */}
       <div className="mb-6 border border-hairline bg-faint p-4 sm:p-5">
-        {/* Primary filter row */}
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <div className="flex flex-col gap-1.5 sm:min-w-[180px]">
             <label
@@ -277,9 +552,10 @@ const Transactions = () => {
               onChange={(e) => setSelectedAccount(e.target.value)}
               className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
             >
-              {mockTransactionAccounts.map((acc) => (
+              <option value="all">All accounts</option>
+              {accounts.map((acc) => (
                 <option key={acc.id} value={acc.id}>
-                  {acc.name}
+                  {acc.name} {acc.lastFour ? `•••• ${acc.lastFour}` : ''}
                 </option>
               ))}
             </select>
@@ -328,7 +604,6 @@ const Transactions = () => {
           </button>
         </div>
 
-        {/* Advanced filters */}
         {showFilters && (
           <div className="mt-4 flex flex-col gap-3 border-t border-hairline pt-4 sm:flex-row sm:flex-wrap sm:items-end">
             <div className="flex flex-col gap-1.5 sm:min-w-[160px]">
@@ -338,6 +613,7 @@ const Transactions = () => {
                 onChange={(e) => setDateRange(e.target.value)}
                 className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
               >
+                <option value="all">Selected Month</option>
                 <option value="today">Today</option>
                 <option value="last7">Last 7 Days</option>
                 <option value="last30">Last 30 Days</option>
@@ -395,7 +671,8 @@ const Transactions = () => {
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
               >
-                {transactionCategories.map((cat) => (
+                <option value="All">All</option>
+                {categories.map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
                   </option>
@@ -441,7 +718,7 @@ const Transactions = () => {
 
       {/* Transaction List */}
       <div className="mb-6">
-        {Object.keys(groupedTransactions).length === 0 ? (
+        {transactions.length === 0 && !listLoading ? (
           <div className="border border-hairline bg-faint py-12 text-center">
             <AlertCircle className="mx-auto h-8 w-8 text-muted" strokeWidth={1.5} />
             <p className="mt-3 text-sm font-semibold text-deep-accent">
@@ -537,6 +814,40 @@ const Transactions = () => {
             </div>
           ))
         )}
+
+        {/* See more button */}
+        {transactions.length > 0 && hasMore && (
+          <div className="mt-6 flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={loadMore}
+              disabled={listLoading}
+              className="inline-flex min-h-[48px] w-full max-w-md items-center justify-center gap-2 border border-hairline bg-white px-6 py-3 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {listLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+                  Loading…
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4" strokeWidth={2.25} />
+                  See more ({remaining} remaining)
+                </>
+              )}
+            </button>
+            <span className="text-xs text-muted">
+              Showing {transactions.length} of {total}
+            </span>
+          </div>
+        )}
+
+        {/* Fully-loaded indicator */}
+        {transactions.length > 0 && !hasMore && total > PAGE_SIZE && (
+          <div className="mt-6 text-center text-xs text-muted">
+            Showing all {total} transactions
+          </div>
+        )}
       </div>
 
       {/* Statements link */}
@@ -608,7 +919,6 @@ const Transactions = () => {
               </div>
             </div>
 
-            {/* Detail rows */}
             <div className="mt-4 flex flex-col divide-y divide-faint">
               <ModalRow
                 icon={FileText}
@@ -670,10 +980,10 @@ const Transactions = () => {
               )}
             </div>
 
-            {/* Actions */}
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <button
                 type="button"
+                onClick={openDownloadModal}
                 className="inline-flex min-h-[40px] items-center justify-center gap-1.5 border border-hairline bg-white px-4 py-2 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
                 <Download className="h-3.5 w-3.5" strokeWidth={2.25} />
@@ -681,6 +991,7 @@ const Transactions = () => {
               </button>
               <button
                 type="button"
+                onClick={() => openReportModal(selectedTransaction)}
                 className="inline-flex min-h-[40px] items-center justify-center gap-1.5 border border-hairline bg-white px-4 py-2 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
                 <AlertCircle className="h-3.5 w-3.5" strokeWidth={2.25} />
@@ -690,11 +1001,272 @@ const Transactions = () => {
           </div>
         </div>
       )}
+
+      {/* Download Modal */}
+      {showDownloadModal && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setShowDownloadModal(false)}
+        >
+          <div
+            className="relative w-full max-w-[480px] border border-hairline bg-white p-6 sm:p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setShowDownloadModal(false)}
+              aria-label="Close"
+              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent"
+            >
+              <X className="h-4 w-4" strokeWidth={2.25} />
+            </button>
+
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#e7f3f5] text-primary">
+                <Download className="h-5 w-5" strokeWidth={1.75} />
+              </span>
+              <div>
+                <h2 className="font-serif text-xl font-bold text-deep-accent">
+                  Download Transactions
+                </h2>
+                <p className="mt-1 text-sm text-body">
+                  Choose a date range for your PDF statement.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-semibold text-deep-accent">From</label>
+                  <input
+                    type="date"
+                    value={downloadFrom}
+                    onChange={(e) => setDownloadFrom(e.target.value)}
+                    className="min-h-[40px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-semibold text-deep-accent">To</label>
+                  <input
+                    type="date"
+                    value={downloadTo}
+                    onChange={(e) => setDownloadTo(e.target.value)}
+                    className="min-h-[40px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {downloadError && (
+                <div className="flex items-start gap-2 border border-[#f5c6cb] bg-[#f8d7da] px-4 py-2.5">
+                  <AlertCircle
+                    className="mt-0.5 h-4 w-4 shrink-0 text-[#721c24]"
+                    strokeWidth={2}
+                  />
+                  <span className="text-sm text-[#721c24]">{downloadError}</span>
+                </div>
+              )}
+
+              <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowDownloadModal(false)}
+                  disabled={downloadLoading}
+                  className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent hover:bg-faint disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  disabled={downloadLoading}
+                  className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-deep disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {downloadLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+                      Preparing…
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4" strokeWidth={2.25} />
+                      Download PDF
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report a Problem Modal */}
+      {reportTransaction && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4"
+          onClick={closeReportModal}
+        >
+          <div
+            className="relative w-full max-w-[520px] border border-hairline bg-white p-6 sm:p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={closeReportModal}
+              aria-label="Close"
+              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent"
+            >
+              <X className="h-4 w-4" strokeWidth={2.25} />
+            </button>
+
+            {reportSuccess ? (
+              <div className="flex flex-col items-center py-4 text-center">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center bg-[#e7f3f5]">
+                  <CheckCircle2 className="h-8 w-8 text-primary" strokeWidth={1.75} />
+                </div>
+                <h2 className="font-serif text-xl font-bold text-deep-accent">
+                  Report Submitted
+                </h2>
+                <p className="mx-auto mt-2 max-w-sm text-sm text-body">
+                  A designated agent will reach out to you shortly regarding this
+                  transaction.
+                </p>
+
+                <div className="mt-4 w-full border border-hairline bg-faint px-4 py-3 text-left">
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-xs text-muted sm:text-sm">Reference</span>
+                    <span className="font-mono text-xs font-semibold text-deep-accent">
+                      {reportSuccess.referenceNumber}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-xs text-muted sm:text-sm">Status</span>
+                    <span className="text-sm font-semibold text-[#b8860b]">
+                      {reportSuccess.status}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeReportModal}
+                  className="mt-6 inline-flex min-h-[40px] w-full items-center justify-center bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#e7f3f5] text-primary">
+                    <AlertCircle className="h-5 w-5" strokeWidth={1.75} />
+                  </span>
+                  <div>
+                    <h2 className="font-serif text-xl font-bold text-deep-accent">
+                      Report a Problem
+                    </h2>
+                    <p className="mt-1 text-sm text-body">
+                      Tell us what&rsquo;s wrong with this transaction.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5 border border-hairline bg-faint px-4 py-3">
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-xs text-muted sm:text-sm">Transaction</span>
+                    <span className="text-sm font-semibold text-deep-accent text-right">
+                      {reportTransaction.description}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-xs text-muted sm:text-sm">Amount</span>
+                    <span
+                      className={`text-sm font-semibold ${
+                        reportTransaction.amount >= 0
+                          ? 'text-primary'
+                          : 'text-[#d9534f]'
+                      }`}
+                    >
+                      {reportTransaction.amount >= 0 ? '+' : '-'}
+                      {formatCurrency(reportTransaction.amount)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-xs text-muted sm:text-sm">Date</span>
+                    <span className="text-sm font-semibold text-deep-accent">
+                      {formatDate(reportTransaction.date)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-5 flex flex-col gap-1.5">
+                  <label className="text-sm font-semibold text-deep-accent">
+                    Reason for report
+                  </label>
+                  <textarea
+                    rows="4"
+                    placeholder="e.g. I don't recognize this charge."
+                    value={reportReason}
+                    onChange={(e) => {
+                      setReportReason(e.target.value);
+                      if (reportError) setReportError('');
+                    }}
+                    maxLength={2000}
+                    className="w-full border border-hairline bg-white p-3 text-sm text-deep-accent outline-none focus:border-primary placeholder:text-muted/60 resize-none"
+                  />
+                  <p className="text-[11px] text-muted">
+                    {reportReason.length} / 2000 characters
+                  </p>
+                </div>
+
+                {reportError && (
+                  <div className="mt-4 flex items-start gap-2 border border-[#f5c6cb] bg-[#f8d7da] px-4 py-2.5">
+                    <AlertCircle
+                      className="mt-0.5 h-4 w-4 shrink-0 text-[#721c24]"
+                      strokeWidth={2}
+                    />
+                    <span className="text-sm text-[#721c24]">{reportError}</span>
+                  </div>
+                )}
+
+                <div className="mt-6 flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={closeReportModal}
+                    disabled={reportLoading}
+                    className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent hover:bg-faint disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmitReport}
+                    disabled={reportLoading || !reportReason.trim()}
+                    className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-deep disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {reportLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+                        Submitting…
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4" strokeWidth={2.25} />
+                        Submit Report
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-// Reusable modal row with icon + label + value
+// Reusable modal row
 const ModalRow = ({ icon: Icon, label, value, valueColor = 'text-ink' }) => (
   <div className="flex items-start justify-between gap-4 py-2.5">
     <span className="inline-flex items-center gap-1.5 text-xs text-muted sm:text-sm">

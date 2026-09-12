@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import styles from './AppLayout.module.css';
+import { useAuth } from '../../context/AuthContext';
 
 // SVG icons (unchanged)
 const Icon = ({ name, className }) => {
@@ -126,6 +127,7 @@ const AppLayout = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const toggleDrawer = () => setDrawerOpen((prev) => !prev);
   const closeDrawer = () => setDrawerOpen(false);
@@ -135,8 +137,9 @@ const AppLayout = () => {
   };
 
   const handleConfirmLogout = () => {
+    logout();
     setShowLogoutModal(false);
-    navigate('/');
+    navigate('/', { replace: true });
   };
 
   const handleCancelLogout = () => {

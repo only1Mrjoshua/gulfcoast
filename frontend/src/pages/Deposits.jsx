@@ -1,5 +1,5 @@
 // src/pages/Deposits.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus,
   Camera,
@@ -19,42 +19,134 @@ import {
   Upload,
   Send,
   ChevronRight,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
-import {
-  mockDepositAccounts,
-  mockRecentDeposits,
-} from '../data/mockDepositsData';
+import { apiFetch } from '../utils/api';
 
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
-  }).format(amount);
+  }).format(Math.abs(amount ?? 0));
 };
 
-// Deposit status color helper (mirrors old CSS module classes)
+const formatShortDate = (dateStr) => {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+};
+
+const toISODate = (dateStr) => {
+  if (!dateStr) return '';
+  return new Date(dateStr).toISOString().split('T')[0];
+};
+
+// Status color helper — matches the new Processing / Accepted / Rejected enum
 const statusColor = (status) => {
-  const s = status.toLowerCase();
-  if (s === 'completed') return 'text-primary';
-  if (s === 'rejected' || s === 'canceled') return 'text-[#d9534f]';
-  return 'text-[#b8860b]'; // processing / pending
+  const s = (status || '').toLowerCase();
+  if (s === 'accepted') return 'text-primary';
+  if (s === 'rejected' || s === 'canceled' || s === 'cancelled') return 'text-[#d9534f]';
+  return 'text-[#b8860b]'; // processing
+};
+
+const statusDotColor = (status) => {
+  const s = (status || '').toLowerCase();
+  if (s === 'accepted') return 'bg-primary';
+  if (s === 'rejected' || s === 'canceled' || s === 'cancelled') return 'bg-[#d9534f]';
+  return 'bg-[#b8860b]';
 };
 
 const Deposits = () => {
   // State
-  const [currentStep, setCurrentStep] = useState('overview'); // 'overview' | 'form' | 'review' | 'success'
-  const [selectedAccountId, setSelectedAccountId] = useState('chk1');
+  const [currentStep, setCurrentStep] = useState('overview');
+  const [selectedAccountId, setSelectedAccountId] = useState('');
   const [amount, setAmount] = useState('');
+
+  // Preview (base64) for showing the user
   const [frontImage, setFrontImage] = useState(null);
   const [backImage, setBackImage] = useState(null);
+  // Actual File objects for upload
+  const [frontImageFile, setFrontImageFile] = useState(null);
+  const [backImageFile, setBackImageFile] = useState(null);
+
   const [filterType, setFilterType] = useState('all');
   const [filterDate, setFilterDate] = useState('');
-  const [confirmationNumber] = useState('DEP-482193');
 
+  const [confirmationNumber, setConfirmationNumber] = useState('');
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
+
+  // Backend data
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [data, setData] = useState({
+    overview: {
+      depositedThisMonth: 0,
+      pendingDeposits: 0,
+      availableDeposits: 0,
+    },
+    accounts: [],
+    recentDeposits: [],
+  });
+
+  // ------------------------------------------------------------
+  // Fetch overview on mount
+  // ------------------------------------------------------------
+  const loadOverview = async () => {
+    const res = await apiFetch('/deposits/overview');
+    const d = res?.data ?? res;
+
+    setData({
+      overview: d.overview ?? {
+        depositedThisMonth: 0,
+        pendingDeposits: 0,
+        availableDeposits: 0,
+      },
+      accounts: d.accounts ?? [],
+      recentDeposits: d.recentDeposits ?? [],
+    });
+
+    return d;
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const d = await loadOverview();
+        // Default to first account
+        if (d.accounts?.length > 0) {
+          setSelectedAccountId((prev) => prev || d.accounts[0].id);
+        }
+      } catch (err) {
+        console.error('❌ Failed to load deposits:', err);
+        setError(err.message || 'Failed to load deposits');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // ------------------------------------------------------------
   // Handlers
+  // ------------------------------------------------------------
   const handleStartDeposit = () => {
     setCurrentStep('form');
+    setConfirmError('');
+    if (data.accounts?.length > 0) {
+      setSelectedAccountId(data.accounts[0].id);
+    }
+    setAmount('');
+    setFrontImage(null);
+    setBackImage(null);
+    setFrontImageFile(null);
+    setBackImageFile(null);
   };
 
   const handleAccountChange = (e) => {
@@ -63,18 +155,24 @@ const Deposits = () => {
 
   const handleAmountChange = (e) => {
     setAmount(e.target.value);
+    if (confirmError) setConfirmError('');
   };
 
   const handleImageUpload = (side) => (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (side === 'front') setFrontImage(event.target.result);
-        else setBackImage(event.target.result);
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+
+    // Save the File for upload
+    if (side === 'front') setFrontImageFile(file);
+    else setBackImageFile(file);
+
+    // Generate a preview URL
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (side === 'front') setFrontImage(event.target.result);
+      else setBackImage(event.target.result);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = (e) => {
@@ -82,8 +180,32 @@ const Deposits = () => {
     setCurrentStep('review');
   };
 
-  const handleConfirm = () => {
-    setCurrentStep('success');
+  const handleConfirm = async () => {
+    setConfirmError('');
+    setConfirmLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('accountId', selectedAccountId);
+      formData.append('amount', parseFloat(amount));
+      formData.append('method', 'Mobile Check Deposit');
+      if (frontImageFile) formData.append('frontImage', frontImageFile);
+      if (backImageFile) formData.append('backImage', backImageFile);
+
+      const res = await apiFetch('/deposits', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const deposit = res.data?.deposit ?? res.deposit;
+      setConfirmationNumber(deposit?.confirmationNumber || '');
+      await loadOverview();
+      setCurrentStep('success');
+    } catch (err) {
+      setConfirmError(err.message || 'Failed to submit deposit');
+    } finally {
+      setConfirmLoading(false);
+    }
   };
 
   const handleNewDeposit = () => {
@@ -91,47 +213,48 @@ const Deposits = () => {
     setAmount('');
     setFrontImage(null);
     setBackImage(null);
-    setSelectedAccountId('chk1');
+    setFrontImageFile(null);
+    setBackImageFile(null);
+    setConfirmError('');
+    if (data.accounts?.length > 0) {
+      setSelectedAccountId(data.accounts[0].id);
+    }
   };
 
-  const getAccount = (id) => mockDepositAccounts.find((a) => a.id === id);
+  const getAccount = (id) =>
+    data.accounts.find((a) => String(a.id) === String(id));
 
   // Filter deposits
-  const filteredDeposits = mockRecentDeposits
+  const filteredDeposits = data.recentDeposits
     .filter((dep) => {
       if (filterType === 'all') return true;
-      if (filterType === 'mobile') return dep.type === 'Mobile Check Deposit';
-      if (filterType === 'direct') return dep.type === 'Direct Deposit';
+      if (filterType === 'mobile') return dep.method === 'Mobile Check Deposit';
+      if (filterType === 'direct') return dep.method === 'Direct Deposit';
       if (filterType === 'other')
-        return !['Mobile Check Deposit', 'Direct Deposit'].includes(dep.type);
+        return !['Mobile Check Deposit', 'Direct Deposit'].includes(dep.method);
       return true;
     })
     .filter((dep) => {
       if (!filterDate) return true;
-      return dep.date === filterDate;
+      return toISODate(dep.submittedAt) === filterDate;
     });
 
-  // Summary
-  const totalDeposited = mockRecentDeposits
-    .filter((d) => d.status === 'Completed')
-    .reduce((sum, d) => sum + d.amount, 0);
-
-  const pendingDeposits = mockRecentDeposits
-    .filter((d) => d.status === 'Processing' || d.status === 'Pending')
-    .reduce((sum, d) => sum + d.amount, 0);
-
-  const availableDeposits = mockRecentDeposits
-    .filter(
-      (d) =>
-        d.status === 'Completed' &&
-        new Date(d.date) >= new Date(new Date().setDate(new Date().getDate() - 30))
-    )
-    .reduce((sum, d) => sum + d.amount, 0);
-
   const overviewCards = [
-    { label: 'Deposited This Month', value: totalDeposited, icon: BadgeCheck },
-    { label: 'Pending Deposits', value: pendingDeposits, icon: Clock },
-    { label: 'Available Deposits', value: availableDeposits, icon: Wallet },
+    {
+      label: 'Deposited This Month',
+      value: data.overview.depositedThisMonth,
+      icon: BadgeCheck,
+    },
+    {
+      label: 'Pending Deposits',
+      value: data.overview.pendingDeposits,
+      icon: Clock,
+    },
+    {
+      label: 'Available Deposits',
+      value: data.overview.availableDeposits,
+      icon: Wallet,
+    },
   ];
 
   const depositSteps = [
@@ -141,6 +264,39 @@ const Deposits = () => {
     'Enter the amount',
     'Review and submit',
   ];
+
+  // ------------------------------------------------------------
+  // Loading state
+  // ------------------------------------------------------------
+  if (loading) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" strokeWidth={1.75} />
+        <p className="text-sm text-muted">Loading your deposits…</p>
+      </div>
+    );
+  }
+
+  // ------------------------------------------------------------
+  // Error state
+  // ------------------------------------------------------------
+  if (error) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4">
+        <p className="font-serif text-xl font-bold text-deep-accent">
+          We couldn&rsquo;t load your deposits
+        </p>
+        <p className="max-w-md text-center text-sm text-muted">{error}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-2 bg-primary px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-primary-deep"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1000px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -279,13 +435,17 @@ const Deposits = () => {
                   >
                     <div className="flex min-w-0 flex-col">
                       <span className="truncate text-sm font-semibold text-ink">
-                        {dep.type}
+                        {dep.method}
                       </span>
-                      <span className="truncate text-xs text-muted">{dep.accountName}</span>
+                      <span className="truncate text-xs text-muted">
+                        {dep.accountName} •••• {dep.accountLastFour}
+                      </span>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:justify-end">
-                      <span className="text-xs text-muted">{dep.date}</span>
+                      <span className="text-xs text-muted">
+                        {formatShortDate(dep.submittedAt)}
+                      </span>
                       <span className="text-sm font-semibold text-primary">
                         +{formatCurrency(dep.amount)}
                       </span>
@@ -295,14 +455,7 @@ const Deposits = () => {
                         )}`}
                       >
                         <span
-                          className={`h-1.5 w-1.5 ${
-                            dep.status.toLowerCase() === 'completed'
-                              ? 'bg-primary'
-                              : dep.status.toLowerCase() === 'rejected' ||
-                                dep.status.toLowerCase() === 'canceled'
-                              ? 'bg-[#d9534f]'
-                              : 'bg-[#b8860b]'
-                          }`}
+                          className={`h-1.5 w-1.5 ${statusDotColor(dep.status)}`}
                           aria-hidden="true"
                         />
                         {dep.status}
@@ -336,9 +489,11 @@ const Deposits = () => {
                 id="depositAccount"
                 value={selectedAccountId}
                 onChange={handleAccountChange}
+                required
                 className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
               >
-                {mockDepositAccounts.map((acc) => (
+                <option value="">Select account</option>
+                {data.accounts.map((acc) => (
                   <option key={acc.id} value={acc.id}>
                     {acc.name} •••• {acc.lastFour} (Available:{' '}
                     {formatCurrency(acc.available)})
@@ -513,21 +668,42 @@ const Deposits = () => {
             </div>
           </div>
 
+          {confirmError && (
+            <div className="mb-6 flex items-start gap-2 border border-[#f5c6cb] bg-[#f8d7da] px-4 py-3">
+              <AlertCircle
+                className="mt-0.5 h-4 w-4 shrink-0 text-[#721c24]"
+                strokeWidth={2}
+              />
+              <span className="text-sm text-[#721c24]">{confirmError}</span>
+            </div>
+          )}
+
           <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-6 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={() => setCurrentStep('form')}
-              className="min-h-[44px] border border-hairline bg-white px-6 py-2.5 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              disabled={confirmLoading}
+              className="min-h-[44px] border border-hairline bg-white px-6 py-2.5 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60"
             >
               Back
             </button>
             <button
               type="button"
               onClick={handleConfirm}
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              disabled={confirmLoading}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              <Send className="h-4 w-4" strokeWidth={2.25} />
-              Submit Deposit
+              {confirmLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+                  Submitting…
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" strokeWidth={2.25} />
+                  Submit Deposit
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -583,18 +759,17 @@ const Deposits = () => {
           </div>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-<button
-  type="button"
-  onClick={handleNewDeposit}
-  className="inline-flex min-h-[44px] items-center justify-center gap-2 border border-primary bg-white px-6 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
->
-  View Deposit
-  <ChevronRight className="h-4 w-4" strokeWidth={2.25} />
-</button>            
+            <button
+              type="button"
+              onClick={handleNewDeposit}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 border border-primary bg-white px-6 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              View Deposit
+              <ChevronRight className="h-4 w-4" strokeWidth={2.25} />
+            </button>
           </div>
         </div>
       )}
-
     </div>
   );
 };

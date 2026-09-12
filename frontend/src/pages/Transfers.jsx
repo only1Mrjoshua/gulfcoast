@@ -22,41 +22,30 @@ import {
   Check,
   Hash,
   FileText,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
-import {
-  mockTransferAccounts,
-  mockScheduledTransfers,
-  mockTransferHistory,
-  mockTransferMonths,
-  ACCOUNT_HOLDER_NAME,
-} from '../data/mockTransfersData';
+import { apiFetch } from '../utils/api';
 
 const WIRE_FEE = 25;
+const ACCOUNT_HOLDER_NAME = ''; // fallback; real name comes from backend
 
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
-  }).format(amount);
+  }).format(amount ?? 0);
 };
-
-const getAccountById = (id) => mockTransferAccounts.find((acc) => acc.id === id);
 
 const statusColor = (status) => {
   const s = status.toLowerCase();
   if (s === 'completed') return 'text-primary';
-  if (s === 'failed' || s === 'canceled') return 'text-[#d9534f]';
+  if (s === 'failed' || s === 'canceled' || s === 'cancelled') return 'text-[#d9534f]';
   return 'text-[#b8860b]';
 };
 
-const getProcessingLabel = (type) => {
-  if (type === 'wire') return 'Same business day';
-  if (type === 'external') return '1–3 business days';
-  return 'Immediately';
-};
-
-const getArrivalText = (type, dateStr) => {
+const getArrivalText = (type) => {
   if (type === 'wire') return 'Same business day (if submitted before 4 PM ET)';
   if (type === 'external') return '1–3 business days';
   if (type === 'recurring') return 'On the scheduled date';
@@ -69,8 +58,6 @@ const formatExternalRecipient = (formData) => {
   const name = formData.recipientName || '—';
   return `${name} · ${formData.recipientBankName || '—'} •••• ${last4} (${type})`;
 };
-
-// ---- History helpers -------------------------------------------------
 
 const TRANSFER_TYPE_META = {
   internal: { label: 'Internal', icon: ArrowLeftRight },
@@ -85,11 +72,13 @@ const MONTH_NAMES = [
 ];
 
 const formatMonthLabel = (monthKey) => {
+  if (!monthKey) return '';
   const [year, month] = monthKey.split('-').map(Number);
   return `${MONTH_NAMES[month - 1]} ${year}`;
 };
 
 const formatHistoryDate = (dateStr) => {
+  if (!dateStr) return '';
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(year, month - 1, day).toLocaleDateString('en-US', {
     month: 'short',
@@ -100,76 +89,52 @@ const formatHistoryDate = (dateStr) => {
 
 const isExternalRecipient = (type) => type === 'external' || type === 'wire';
 
-// Build the plain-text receipt that gets downloaded
-const buildReceiptText = (t) => {
-  const meta = TRANSFER_TYPE_META[t.type] || TRANSFER_TYPE_META.internal;
-  const line = '========================================';
-  const divider = '----------------------------------------';
+// ─── PDF receipt download from backend ────────────────────────
+const downloadReceipt = async (transfer) => {
+  try {
+    const API_URL =
+      import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const token = localStorage.getItem('token');
 
-  const rows = [
-    line,
-    '           TRANSFER RECEIPT',
-    line,
-    '',
-    `Transaction Number : ${t.transactionNumber}`,
-    `Date               : ${formatHistoryDate(t.date)}`,
-    `Time               : ${t.time}`,
-    `Status             : ${t.status}`,
-    `Transfer Type      : ${meta.label}`,
-    '',
-    divider,
-    'SENDER',
-    divider,
-    `Name               : ${t.senderName || ACCOUNT_HOLDER_NAME}`,
-    `Account            : ${t.from} •••• ${t.fromLastFour}`,
-    '',
-    divider,
-    'RECIPIENT',
-    divider,
-    `Name               : ${t.recipientName || t.to}`,
-    `Account            : ${t.to} •••• ${t.toLastFour}`,
-    '',
-    divider,
-    'DETAILS',
-    divider,
-    `Amount             : ${formatCurrency(t.amount)}`,
-  ];
+    const response = await fetch(`${API_URL}/transfers/${transfer.id}/receipt`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
 
-  if (t.type === 'wire') {
-    rows.push(`Wire Fee           : ${formatCurrency(WIRE_FEE)}`);
-    rows.push(`Total Debited      : ${formatCurrency(t.amount + WIRE_FEE)}`);
+    if (!response.ok) throw new Error('Failed to download receipt');
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `receipt-${transfer.transactionNumber}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('Receipt download failed:', err);
+    alert('Could not download the receipt. Please try again.');
   }
-
-  if (t.memo) {
-    rows.push(`Memo               : ${t.memo}`);
-  }
-
-  rows.push('', line);
-  rows.push('   Thank you for banking with us.');
-  rows.push('   This receipt is for your records only.');
-  rows.push(line);
-
-  return rows.join('\n');
-};
-
-const downloadReceipt = (t) => {
-  const text = buildReceiptText(t);
-  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `receipt-${t.transactionNumber}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 };
 
 const Transfers = () => {
   const [currentStep, setCurrentStep] = useState('type');
   const [selectedType, setSelectedType] = useState(null);
-  const [selectedMonth, setSelectedMonth] = useState(mockTransferMonths[0]);
   const [selectedTransfer, setSelectedTransfer] = useState(null);
+
+  // Data from backend
+  const [accounts, setAccounts] = useState([]);
+  const [transfers, setTransfers] = useState([]);
+  const [months, setMonths] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState('');
+
+  const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState('');
+
+  // Confirm flow state
+  const [confirmationNumber, setConfirmationNumber] = useState('');
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
 
   const [formData, setFormData] = useState({
     fromAccountId: '',
@@ -188,8 +153,6 @@ const Transfers = () => {
     verificationMethod: 'instant',
   });
 
-  const [confirmationNumber] = useState('TRX-482193');
-
   const resetForm = (type) => ({
     fromAccountId: '',
     toAccountId: '',
@@ -207,15 +170,69 @@ const Transfers = () => {
     verificationMethod: 'instant',
   });
 
+  // ────────────────────────────────────────────────────────────
+  // Fetch accounts + transfers on mount
+  // ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        setPageError('');
+
+        const [accRes, txnRes] = await Promise.all([
+          apiFetch('/transfers/accounts'),
+          apiFetch('/transfers'),
+        ]);
+
+        const accountList = accRes.data.accounts || [];
+        const txnList = txnRes.data.transfers || [];
+        const monthList = txnRes.data.months || [];
+
+        setAccounts(accountList);
+        setTransfers(txnList);
+
+        const currentMonthKey = new Date().toISOString().slice(0, 7);
+        const effectiveMonths = monthList.length > 0 ? monthList : [currentMonthKey];
+        setMonths(effectiveMonths);
+        setSelectedMonth(effectiveMonths[0]);
+      } catch (err) {
+        console.error('❌ Failed to load transfers:', err);
+        setPageError(err.message || 'Failed to load transfers');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const refreshTransfers = async () => {
+    try {
+      const res = await apiFetch('/transfers');
+      const txnList = res.data.transfers || [];
+      const monthList = res.data.months || [];
+      setTransfers(txnList);
+      const currentMonthKey = new Date().toISOString().slice(0, 7);
+      const effectiveMonths = monthList.length > 0 ? monthList : [currentMonthKey];
+      setMonths(effectiveMonths);
+      if (!effectiveMonths.includes(selectedMonth)) {
+        setSelectedMonth(effectiveMonths[0]);
+      }
+    } catch (err) {
+      console.error('Failed to refresh transfers:', err);
+    }
+  };
+
   const handleTypeSelect = (type) => {
     setSelectedType(type);
     setCurrentStep('form');
     setFormData(resetForm(type));
+    setConfirmError('');
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (confirmError) setConfirmError('');
   };
 
   const handleSubmit = (e) => {
@@ -223,24 +240,108 @@ const Transfers = () => {
     setCurrentStep('review');
   };
 
-  const handleConfirm = () => setCurrentStep('success');
+  // ────────────────────────────────────────────────────────────
+  // CONFIRM — POST to backend
+  // ────────────────────────────────────────────────────────────
+  const handleConfirm = async () => {
+    setConfirmError('');
+    setConfirmLoading(true);
+
+    try {
+      const payload = {
+        type: selectedType,
+        fromAccountId: formData.fromAccountId,
+        amount: parseFloat(formData.amount),
+        date: formData.date,
+        memo: formData.memo,
+      };
+
+      if (selectedType === 'internal' || selectedType === 'recurring') {
+        payload.toAccountId = formData.toAccountId;
+        if (selectedType === 'recurring') {
+          payload.frequency = formData.frequency;
+        }
+      } else {
+        payload.recipientName = formData.recipientName;
+        payload.recipientBankName = formData.recipientBankName;
+        payload.recipientRoutingNumber = formData.recipientRoutingNumber;
+        payload.recipientAccountNumber = formData.recipientAccountNumber;
+        payload.recipientAccountType = formData.recipientAccountType;
+        if (selectedType === 'wire') {
+          payload.recipientBankAddress = formData.recipientBankAddress;
+        }
+      }
+
+      const res = await apiFetch('/transfers', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      const newTransfer = res.data.transfer;
+      setConfirmationNumber(newTransfer.transactionNumber);
+      setCurrentStep('success');
+      // Refresh history in the background so the new pending transfer shows up
+      refreshTransfers();
+    } catch (err) {
+      setConfirmError(err.message || 'Failed to create transfer');
+    } finally {
+      setConfirmLoading(false);
+    }
+  };
 
   const handleNewTransfer = () => {
     setCurrentStep('type');
     setSelectedType(null);
+    setConfirmationNumber('');
+    setConfirmError('');
     setFormData(resetForm(null));
   };
 
-  const getFromAccount = () => getAccountById(formData.fromAccountId);
-  const getToAccount = () => getAccountById(formData.toAccountId);
+  const getFromAccount = () =>
+    accounts.find((a) => a.id === formData.fromAccountId);
+  const getToAccount = () =>
+    accounts.find((a) => a.id === formData.toAccountId);
 
-  const amountValue = parseFloat(formData.amount) || 0;
-  const isWire = selectedType === 'wire';
-
-  const monthTransfers = mockTransferHistory.filter((t) =>
-    t.date.startsWith(selectedMonth)
+  const monthTransfers = transfers.filter((t) =>
+    t.date?.startsWith(selectedMonth)
   );
-  const monthTotal = monthTransfers.reduce((sum, t) => sum + t.amount, 0);
+  const monthTotal = monthTransfers.reduce(
+    (sum, t) => sum + (t.totalDebit ?? t.amount),
+    0
+  );
+
+  // ────────────────────────────────────────────────────────────
+  // Loading state
+  // ────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" strokeWidth={1.75} />
+        <p className="text-sm text-muted">Loading your transfers…</p>
+      </div>
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // Error state
+  // ────────────────────────────────────────────────────────────
+  if (pageError) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4">
+        <p className="font-serif text-xl font-bold text-deep-accent">
+          We couldn&rsquo;t load your transfers
+        </p>
+        <p className="max-w-md text-center text-sm text-muted">{pageError}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-2 bg-primary px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-primary-deep"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1000px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -275,7 +376,7 @@ const Transfers = () => {
             formData={formData}
             onChange={handleInputChange}
             onSubmit={handleSubmit}
-            accounts={mockTransferAccounts}
+            accounts={accounts}
             selectedType={selectedType}
             onCancel={() => setCurrentStep('type')}
           />
@@ -289,6 +390,8 @@ const Transfers = () => {
             selectedType={selectedType}
             onConfirm={handleConfirm}
             onBack={() => setCurrentStep('form')}
+            loading={confirmLoading}
+            error={confirmError}
           />
         )}
 
@@ -340,7 +443,7 @@ const Transfers = () => {
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="min-h-[44px] border border-hairline bg-white px-3 py-2 text-sm font-semibold text-deep-accent focus:border-primary focus:outline-none"
             >
-              {mockTransferMonths.map((monthKey) => (
+              {months.map((monthKey) => (
                 <option key={monthKey} value={monthKey}>
                   {formatMonthLabel(monthKey)}
                 </option>
@@ -386,9 +489,7 @@ const Transfers = () => {
                     className="h-3.5 w-3.5 shrink-0 text-primary"
                     strokeWidth={2}
                   />
-                  <span className="truncate">
-                    {showRecipient ? (t.recipientName || t.to) : t.from}
-                  </span>
+                  <span className="truncate">{t.from}</span>
                   <ArrowRight className="h-3 w-3 shrink-0 text-muted" strokeWidth={2} />
                   <span className="truncate">
                     {showRecipient ? t.to : t.to}
@@ -401,9 +502,8 @@ const Transfers = () => {
                 </span>
 
                 <span className="text-sm font-semibold text-deep-accent sm:text-right">
-                  {formatCurrency(t.amount)}
+                  {formatCurrency(t.totalDebit ?? t.amount)}
                 </span>
-
                 <span className="flex items-center justify-between gap-2 sm:justify-end">
                   <span
                     className={`text-xs font-bold uppercase tracking-wide sm:text-right sm:text-sm sm:normal-case ${statusColor(
@@ -435,7 +535,7 @@ const Transfers = () => {
 };
 
 // ============================================================
-// Transfer Type Selection
+// Transfer Type Selection  (unchanged)
 // ============================================================
 const TransferTypeSelection = ({ onSelect }) => {
   const options = [
@@ -505,7 +605,7 @@ const TransferTypeSelection = ({ onSelect }) => {
 };
 
 // ============================================================
-// Transfer Form
+// Transfer Form  (added inline insufficient-funds validation)
 // ============================================================
 const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, onCancel }) => {
   const fromAccount = accounts.find((a) => a.id === formData.fromAccountId);
@@ -516,9 +616,22 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
   const isInternal = selectedType === 'internal' || selectedType === 'recurring';
 
   const amountValue = parseFloat(formData.amount) || 0;
+  const totalDebit = isWire ? amountValue + WIRE_FEE : amountValue;
+
+  // Real-time insufficient funds check
+  const insufficientFunds =
+    fromAccount &&
+    amountValue > 0 &&
+    fromAccount.available < totalDebit;
+
+  const handleSubmitLocal = (e) => {
+    e.preventDefault();
+    if (insufficientFunds) return;
+    onSubmit(e);
+  };
 
   return (
-    <form onSubmit={onSubmit} className="border border-hairline bg-faint p-6 sm:p-8">
+    <form onSubmit={handleSubmitLocal} className="border border-hairline bg-faint p-6 sm:p-8">
       <h2 className="mb-6 font-serif text-xl font-bold text-deep-accent sm:text-2xl">
         {isWire ? 'New Wire Transfer' : isExternal ? 'New ACH Transfer' : 'New Transfer'}
       </h2>
@@ -618,7 +731,6 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
             </h3>
           </div>
 
-          {/* Recipient full name — required so we can show it in history + receipt */}
           <div className="mb-4">
             <label
               htmlFor="recipientName"
@@ -763,7 +875,11 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
         <label htmlFor="amount" className="mb-1.5 block text-sm font-semibold text-deep-accent">
           Amount
         </label>
-        <div className="flex items-center border border-hairline bg-white focus-within:border-primary">
+        <div
+          className={`flex items-center border bg-white focus-within:border-primary ${
+            insufficientFunds ? 'border-[#d9534f]' : 'border-hairline'
+          }`}
+        >
           <span className="pl-3 pr-1 text-base font-bold text-body">$</span>
           <input
             type="number"
@@ -779,7 +895,22 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
           />
         </div>
 
-        {isWire && amountValue > 0 && (
+        {/* Insufficient funds message */}
+        {insufficientFunds && (
+          <div className="mt-2 flex items-start gap-2 border border-[#f5c6cb] bg-[#f8d7da] px-4 py-2.5">
+            <AlertCircle
+              className="mt-0.5 h-4 w-4 shrink-0 text-[#721c24]"
+              strokeWidth={2}
+            />
+            <span className="text-sm text-[#721c24]">
+              Insufficient funds in your {fromAccount.subType || fromAccount.name}{' '}
+              account. Available: {formatCurrency(fromAccount.available)}
+              {isWire ? `, required: ${formatCurrency(totalDebit)} (incl. $25 wire fee)` : ''}
+            </span>
+          </div>
+        )}
+
+        {isWire && amountValue > 0 && !insufficientFunds && (
           <div className="mt-2 flex items-center justify-between border border-hairline bg-white px-3 py-2 text-xs sm:text-sm">
             <span className="text-muted">Total to be debited (incl. wire fee)</span>
             <span className="font-bold text-deep-accent">
@@ -857,7 +988,8 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
         </button>
         <button
           type="submit"
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          disabled={insufficientFunds}
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Review Transfer
           <ArrowRight className="h-4 w-4" strokeWidth={2.25} />
@@ -868,7 +1000,7 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
 };
 
 // ============================================================
-// Transfer Review
+// Transfer Review  (added loading + error props)
 // ============================================================
 const TransferReview = ({
   formData,
@@ -877,6 +1009,8 @@ const TransferReview = ({
   selectedType,
   onConfirm,
   onBack,
+  loading = false,
+  error = '',
 }) => {
   const isWire = selectedType === 'wire';
   const isExternal = selectedType === 'external';
@@ -985,21 +1119,42 @@ const TransferReview = ({
         </div>
       )}
 
+      {error && (
+        <div className="mb-6 flex items-start gap-2 border border-[#f5c6cb] bg-[#f8d7da] px-4 py-3">
+          <AlertCircle
+            className="mt-0.5 h-4 w-4 shrink-0 text-[#721c24]"
+            strokeWidth={2}
+          />
+          <span className="text-sm text-[#721c24]">{error}</span>
+        </div>
+      )}
+
       <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-6 sm:flex-row sm:justify-end">
         <button
           type="button"
           onClick={onBack}
-          className="min-h-[44px] border border-hairline bg-white px-6 py-2.5 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          disabled={loading}
+          className="min-h-[44px] border border-hairline bg-white px-6 py-2.5 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60"
         >
           Back
         </button>
         <button
           type="button"
           onClick={onConfirm}
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          disabled={loading}
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          <Send className="h-4 w-4" strokeWidth={2.25} />
-          Confirm Transfer
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+              Confirming…
+            </>
+          ) : (
+            <>
+              <Send className="h-4 w-4" strokeWidth={2.25} />
+              Confirm Transfer
+            </>
+          )}
         </button>
       </div>
     </div>
@@ -1014,7 +1169,7 @@ const Row = ({ label, children }) => (
 );
 
 // ============================================================
-// Transfer Success
+// Transfer Success  (unchanged apart from using real confirmation number)
 // ============================================================
 const TransferSuccess = ({
   confirmationNumber,
@@ -1077,12 +1232,6 @@ const TransferSuccess = ({
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
         <button
           type="button"
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 border border-primary bg-white px-6 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-        >
-          View Transfer
-        </button>
-        <button
-          type="button"
           onClick={onNewTransfer}
           className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         >
@@ -1102,12 +1251,12 @@ const SummaryRow = ({ label, value }) => (
 );
 
 // ============================================================
-// Transfer Details Modal
+// Transfer Details Modal  (download now fetches PDF from backend)
 // ============================================================
 const TransferDetailsModal = ({ transfer, onClose }) => {
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
-  // Close on Escape + lock body scroll while open
   useEffect(() => {
     const handleKey = (e) => {
       if (e.key === 'Escape') onClose();
@@ -1136,9 +1285,15 @@ const TransferDetailsModal = ({ transfer, onClose }) => {
     }
   };
 
-  const handleDownload = () => downloadReceipt(transfer);
+  const handleDownload = async () => {
+    setDownloading(true);
+    await downloadReceipt(transfer);
+    setDownloading(false);
+  };
 
-  const recipientTitle = isExternal ? transfer.recipientName || transfer.to : 'Between Accounts';
+  const recipientTitle = isExternal
+    ? transfer.recipientName || transfer.to
+    : 'Between Accounts';
 
   return (
     <div
@@ -1258,14 +1413,14 @@ const TransferDetailsModal = ({ transfer, onClose }) => {
                 <DetailRow
                   icon={Zap}
                   label="Wire Fee"
-                  value={formatCurrency(WIRE_FEE)}
+                  value={formatCurrency(transfer.wireFee ?? WIRE_FEE)}
                 />
                 <DetailRow
                   icon={Zap}
                   label="Total Debited"
                   value={
                     <span className="font-serif text-base font-bold text-primary">
-                      {formatCurrency(transfer.amount + WIRE_FEE)}
+                      {formatCurrency(transfer.totalDebit ?? transfer.amount + WIRE_FEE)}
                     </span>
                   }
                 />
@@ -1290,10 +1445,20 @@ const TransferDetailsModal = ({ transfer, onClose }) => {
           <button
             type="button"
             onClick={handleDownload}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            disabled={downloading}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-70"
           >
-            <Download className="h-4 w-4" strokeWidth={2.25} />
-            Download Receipt
+            {downloading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+                Preparing…
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4" strokeWidth={2.25} />
+                Download Receipt
+              </>
+            )}
           </button>
         </div>
       </div>
