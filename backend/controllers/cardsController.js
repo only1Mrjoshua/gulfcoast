@@ -8,11 +8,7 @@ const maskNumber = (num) => {
   return `•••• ${num.slice(-4)}`;
 };
 
-const getCardStatus = (card) => {
-  // If controls.locked is on, status reflects that
-  if (card.controls?.locked) return 'Locked';
-  return card.status;
-};
+const getCardStatus = (card) => card.status;
 
 const formatCardForList = (card, user) => {
   const exp = card.expiryMonth && card.expiryYear

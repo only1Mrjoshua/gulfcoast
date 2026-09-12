@@ -255,7 +255,15 @@ export const adminUpdateCard = async (req, res) => {
     // ── Scalar fields ──
     if (typeof body.cardName === 'string')       card.cardName = body.cardName;
     if (typeof body.type === 'string')           card.type = body.type;
-    if (typeof body.status === 'string')         card.status = body.status;
+    if (typeof body.status === 'string') {
+    card.status = body.status;
+    // Keep controls.locked in sync with status so the user side reads the right value
+    if (body.status === 'Locked') {
+        card.controls.locked = true;
+    } else if (body.status === 'Active' || body.status === 'Temporary Locked') {
+        card.controls.locked = false;
+    }
+    }
     if (typeof body.cvv === 'string')            card.cvv = body.cvv;
     if (typeof body.expiryMonth === 'string')    card.expiryMonth = body.expiryMonth;
     if (typeof body.expiryYear === 'string')     card.expiryYear = body.expiryYear;
