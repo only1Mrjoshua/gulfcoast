@@ -31,6 +31,8 @@ import adminGoalsRoutes from './routes/adminGoalsRoutes.js';
 import notificationsRoutes from './routes/notificationsRoutes.js';
 import adminNotificationsRoutes from './routes/adminNotificationsRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
+import messagesRoutes from './routes/messagesRoutes.js';
+import adminMessagesRoutes from './routes/adminMessagesRoutes.js';
 
 import { startGoalContributionJob } from './jobs/goalContributions.js';
 import { startPaymentDueJob } from './jobs/paymentDueNotifications.js';
@@ -156,6 +158,8 @@ app.use('/api/admin/goals', adminGoalsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/admin/notifications', adminNotificationsRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/messages', messagesRoutes);
+app.use('/api/admin/messages', adminMessagesRoutes);
 // Error middleware
 app.use(notFound);
 app.use(errorHandler);

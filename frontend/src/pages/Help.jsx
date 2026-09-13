@@ -1,5 +1,5 @@
 // src/pages/Help.jsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Search,
   X,
@@ -30,11 +30,14 @@ import {
   Receipt,
   PiggyBank,
   Send,
+  Loader2,
 } from 'lucide-react';
 import {
   mockHelpFAQs,
   mockSupportChannels,
 } from '../data/mockHelpData';
+import { apiFetch } from '../utils/api';
+import { usePolling } from '../hooks/usePolling';
 
 // Map help-topic emojis/labels to professional Lucide icons
 const getTopicIcon = (topic) => {
@@ -64,36 +67,138 @@ const getSupportIcon = (channel) => {
   return LifeBuoy;
 };
 
-const getNow = () =>
-  new Date().toLocaleTimeString('en-US', {
+const formatClock = (iso) => {
+  if (!iso) return '';
+  return new Date(iso).toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
   });
+};
+
+const WELCOME_MESSAGE = {
+  id: 'welcome',
+  senderRole: 'admin',
+  text: 'Hi there! You are connected with a Gulf Coast Trust support specialist. How can we help you today?',
+  createdAt: null,
+  isWelcome: true,
+};
 
 const Help = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedFAQ, setExpandedFAQ] = useState(null);
 
-  // Live chat state
+  // ─── Live chat state ──────────────────────────────
   const [showLiveChat, setShowLiveChat] = useState(false);
   const [chatInput, setChatInput] = useState('');
-  const [chatMessages, setChatMessages] = useState([
-    {
-      id: 'm1',
-      from: 'agent',
-      text: 'Hi there! You are connected with a Gulf Coast Trust support specialist. How can we help you today?',
-      time: getNow(),
-    },
-  ]);
+  const [messages, setMessages] = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState('');
   const [agentTyping, setAgentTyping] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
   const chatEndRef = useRef(null);
+  const lastRealIdRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   // Auto-scroll chat to newest message
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [chatMessages, agentTyping, showLiveChat]);
+  }, [messages, agentTyping, showLiveChat]);
+
+  // ─── Load history when the modal opens ───────────
+  const loadHistory = useCallback(async () => {
+    try {
+      setChatLoading(true);
+      setChatError('');
+      const res = await apiFetch('/messages');
+      const d = res?.data ?? res;
+      const list = d.messages || [];
+      setMessages(list);
+      if (list.length > 0) {
+        lastRealIdRef.current = list[list.length - 1].id;
+      } else {
+        lastRealIdRef.current = null;
+      }
+      // Mark any admin messages as read
+      try {
+        await apiFetch('/messages/read', { method: 'PUT' });
+      } catch (err) {
+        console.warn('mark-read failed:', err?.message);
+      }
+    } catch (err) {
+      console.error('❌ Failed to load messages:', err);
+      setChatError(err.message || 'Failed to load messages');
+    } finally {
+      setChatLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showLiveChat) {
+      loadHistory();
+      setUnreadCount(0); // opening the chat clears the badge
+    }
+  }, [showLiveChat, loadHistory]);
+
+  // ─── Poll for new messages while modal is open ───
+  const pollChat = useCallback(async () => {
+    if (!lastRealIdRef.current) return;
+    try {
+      const res = await apiFetch(`/messages?since=${lastRealIdRef.current}`);
+      const d = res?.data ?? res;
+      const incoming = d.messages || [];
+
+      if (incoming.length === 0) return;
+
+      // Brief typing flourish so the incoming message feels alive
+      setAgentTyping(true);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        setAgentTyping(false);
+        setMessages((prev) => {
+          const seen = new Set(prev.map((m) => m.id));
+          const toAdd = incoming.filter((m) => !seen.has(m.id));
+          return [...prev, ...toAdd];
+        });
+        lastRealIdRef.current = incoming[incoming.length - 1].id;
+      }, 700);
+
+      // Mark as read straight away (before the flourish shows it)
+      try {
+        await apiFetch('/messages/read', { method: 'PUT' });
+      } catch (err) {
+        console.warn('mark-read failed:', err?.message);
+      }
+    } catch (err) {
+      console.warn('chat poll failed:', err?.message);
+    }
+  }, []);
+
+  usePolling(pollChat, {
+    intervalMs: 3000,
+    enabled: showLiveChat && !chatLoading,
+  });
+
+  // ─── Poll for unread count (always, not just when modal is open) ───
+  const pollUnread = useCallback(async () => {
+    try {
+      const res = await apiFetch('/messages/unread');
+      const d = res?.data ?? res;
+      setUnreadCount(d.count || 0);
+    } catch (err) {
+      // silent — the badge is secondary
+    }
+  }, []);
+
+  usePolling(pollUnread, { intervalMs: 10000 });
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, []);
 
   const handleFAQToggle = (id) => {
     setExpandedFAQ(expandedFAQ === id ? null : id);
@@ -107,31 +212,45 @@ const Help = () => {
 
   const handleSearch = (e) => setSearchQuery(e.target.value);
 
-  const handleSendChat = (e) => {
+  // ─── Send a message (optimistic) ─────────────────
+  const handleSendChat = async (e) => {
     e.preventDefault();
     const text = chatInput.trim();
     if (!text) return;
 
-    setChatMessages((prev) => [
-      ...prev,
-      { id: `u-${Date.now()}`, from: 'user', text, time: getNow() },
-    ]);
-    setChatInput('');
-    setAgentTyping(true);
+    const tempId = `temp-${Date.now()}`;
+    const optimistic = {
+      id: tempId,
+      senderRole: 'user',
+      text,
+      status: 'sending',
+      createdAt: new Date().toISOString(),
+    };
 
-    // Simulated agent reply
-    setTimeout(() => {
-      setAgentTyping(false);
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          id: `a-${Date.now()}`,
-          from: 'agent',
-          text: 'Thanks for reaching out. A specialist will follow up with you shortly. Is there anything else you would like to add?',
-          time: getNow(),
-        },
-      ]);
-    }, 1400);
+    setMessages((prev) => [...prev, optimistic]);
+    setChatInput('');
+
+    try {
+      const res = await apiFetch('/messages', {
+        method: 'POST',
+        body: JSON.stringify({ text }),
+      });
+      const d = res?.data ?? res;
+      const real = d.message;
+
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? real : m))
+      );
+
+      if (!lastRealIdRef.current) lastRealIdRef.current = real.id;
+    } catch (err) {
+      console.error('❌ Send failed:', err);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempId ? { ...m, status: 'failed' } : m
+        )
+      );
+    }
   };
 
   const contactOptions = [
@@ -180,6 +299,12 @@ const Help = () => {
       </button>
     );
   };
+
+  // What to actually render in the modal
+  const renderedMessages =
+    messages.length === 0
+      ? [WELCOME_MESSAGE]
+      : messages;
 
   return (
     <div className="mx-auto max-w-[1000px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -371,9 +496,11 @@ const Help = () => {
         className="fixed bottom-5 right-5 z-[9000] inline-flex h-14 w-14 items-center justify-center bg-primary text-white shadow-lg transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 sm:bottom-8 sm:right-8 sm:h-16 sm:w-16"
       >
         <MessageCircle className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={2} />
-        <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center bg-[#d9534f] text-[10px] font-bold text-white">
-          1
-        </span>
+        {unreadCount > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#d9534f] px-1.5 text-[10px] font-bold text-white">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
       </button>
 
       {/* Live Chat Modal */}
@@ -412,43 +539,71 @@ const Help = () => {
 
             {/* Chat messages */}
             <div className="flex-1 overflow-y-auto bg-faint px-4 py-4">
-              <div className="flex flex-col gap-3">
-                {chatMessages.map((msg) => {
-                  const isUser = msg.from === 'user';
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
-                    >
+              {chatLoading ? (
+                <div className="flex h-full items-center justify-center">
+                  <Loader2
+                    className="h-6 w-6 animate-spin text-muted"
+                    strokeWidth={1.75}
+                  />
+                </div>
+              ) : chatError ? (
+                <div className="flex h-full flex-col items-center justify-center text-center">
+                  <AlertCircle
+                    className="h-6 w-6 text-[#d9534f]"
+                    strokeWidth={1.75}
+                  />
+                  <p className="mt-3 text-sm text-body">{chatError}</p>
+                  <button
+                    type="button"
+                    onClick={loadHistory}
+                    className="mt-4 inline-flex min-h-[36px] items-center gap-1.5 border border-primary bg-white px-4 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {renderedMessages.map((msg) => {
+                    const isUser = msg.senderRole === 'user';
+                    return (
                       <div
-                        className={`max-w-[85%] px-3.5 py-2 text-sm leading-relaxed ${
-                          isUser
-                            ? 'bg-primary text-white'
-                            : 'border border-hairline bg-white text-ink'
-                        }`}
+                        key={msg.id}
+                        className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
                       >
-                        {msg.text}
+                        <div
+                          className={`max-w-[85%] px-3.5 py-2 text-sm leading-relaxed ${
+                            isUser
+                              ? 'bg-primary text-white'
+                              : 'border border-hairline bg-white text-ink'
+                          } ${msg.status === 'failed' ? 'opacity-60' : ''}`}
+                        >
+                          {msg.text}
+                        </div>
+                        {msg.createdAt && (
+                          <span className="mt-1 text-[10px] text-muted">
+                            {formatClock(msg.createdAt)}
+                          </span>
+                        )}
                       </div>
-                      <span className="mt-1 text-[10px] text-muted">{msg.time}</span>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
 
-                {agentTyping && (
-                  <div className="flex items-center gap-2 self-start border border-hairline bg-white px-3.5 py-2.5">
-                    <span className="h-1.5 w-1.5 animate-bounce bg-muted" />
-                    <span
-                      className="h-1.5 w-1.5 animate-bounce bg-muted"
-                      style={{ animationDelay: '0.15s' }}
-                    />
-                    <span
-                      className="h-1.5 w-1.5 animate-bounce bg-muted"
-                      style={{ animationDelay: '0.3s' }}
-                    />
-                  </div>
-                )}
-                <div ref={chatEndRef} />
-              </div>
+                  {agentTyping && (
+                    <div className="flex items-center gap-2 self-start border border-hairline bg-white px-3.5 py-2.5">
+                      <span className="h-1.5 w-1.5 animate-bounce bg-muted" />
+                      <span
+                        className="h-1.5 w-1.5 animate-bounce bg-muted"
+                        style={{ animationDelay: '0.15s' }}
+                      />
+                      <span
+                        className="h-1.5 w-1.5 animate-bounce bg-muted"
+                        style={{ animationDelay: '0.3s' }}
+                      />
+                    </div>
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
+              )}
             </div>
 
             {/* Chat input */}

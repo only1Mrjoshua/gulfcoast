@@ -42,7 +42,7 @@ import ManageCards from './pages/admin/ManageCards';
 import ManageLoans from './pages/admin/ManageLoans';
 import ManageGoals from './pages/admin/ManageGoals';
 import ManageNotifications from './pages/admin/ManageNotifications';
-import AdminSettings from './pages/admin/AdminSettings';
+import ManageMessages from './pages/admin/ManageMessages';
 
 import './index.css';
 
@@ -121,7 +121,7 @@ const router = createBrowserRouter([
       { path: 'loans', element: <ManageLoans /> },
       { path: 'goals', element: <ManageGoals /> },
       { path: 'notifications', element: <ManageNotifications /> },
-      { path: 'settings', element: <AdminSettings /> },
+      { path: 'messages', element: <ManageMessages /> },
     ],
   },
 ]);

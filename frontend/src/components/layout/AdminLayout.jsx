@@ -13,6 +13,7 @@ import {
   Landmark,
   Target,
   Bell,
+  MessageSquare,   // ← add this
   LogOut,
   Menu,
   X,
@@ -40,6 +41,7 @@ const AdminLayout = () => {
     { label: 'Manage Loans', path: '/admin/loans', icon: Landmark },
     { label: 'Manage Financial Goals', path: '/admin/goals', icon: Target },
     { label: 'Manage Notifications', path: '/admin/notifications', icon: Bell },
+    { label: 'Manage Messages', path: '/admin/messages', icon: MessageSquare },
   ];
 
   const handleLogoutClick = () => {
