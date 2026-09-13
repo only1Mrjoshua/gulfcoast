@@ -91,7 +91,7 @@ const buildOTPEmailText = ({ name, otp, device, ip }) =>
   [
     `Hi ${name || 'there'},`,
     '',
-    'We noticed a sign-in attempt to your Gulf Coast Trust account from a new device or location.',
+    'We noticed a sign-in attempt to your account from a new device or location.',
     'Enter the code below to continue.',
     '',
     `Your verification code: ${otp}`,
