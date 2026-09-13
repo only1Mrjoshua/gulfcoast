@@ -93,7 +93,6 @@ const Transactions = () => {
 
   // ── Results ──────────────────────────────────────────
   const [transactions, setTransactions] = useState([]);
-  const [summary, setSummary] = useState({ totalIn: 0, totalOut: 0, net: 0, count: 0 });
 
   // ── Pagination ───────────────────────────────────────
   const [page, setPage] = useState(1);
@@ -255,12 +254,6 @@ const Transactions = () => {
         }));
 
         setTransactions((prev) => (replace ? mapped : [...prev, ...mapped]));
-        setSummary({
-          totalIn:  d.summary?.totalIn  ?? 0,
-          totalOut: d.summary?.totalOut ?? 0,
-          net:      d.summary?.net      ?? 0,
-          count:    d.summary?.count    ?? 0,
-        });
         setHasMore(d.pagination?.hasMore ?? false);
         setTotal(d.pagination?.total ?? mapped.length);
         setPage(pageNum);
@@ -310,17 +303,6 @@ const Transactions = () => {
     });
     return groups;
   }, [transactions]);
-
-  const summaryItems = [
-    { label: 'Money In',  value: `+${formatCurrency(summary.totalIn)}`,  color: 'text-primary' },
-    { label: 'Money Out', value: `-${formatCurrency(summary.totalOut)}`, color: 'text-[#d9534f]' },
-    {
-      label: 'Net',
-      value: `${summary.net >= 0 ? '+' : ''}${formatCurrency(summary.net)}`,
-      color: summary.net >= 0 ? 'text-primary' : 'text-[#d9534f]',
-    },
-    { label: 'Transactions', value: summary.count, color: 'text-deep-accent' },
-  ];
 
   const handleClearFilters = () => {
     setSelectedAccount('all');
@@ -477,10 +459,10 @@ const Transactions = () => {
   const remaining = Math.max(0, total - transactions.length);
 
   return (
-    <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+    <div className="mx-auto max-w-[1200px] overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Page Header */}
       <div className="mb-6 flex flex-col gap-4 border-b border-hairline pb-5 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <h1 className="font-serif text-2xl font-bold leading-tight text-deep-accent sm:text-3xl">
             Transactions
           </h1>
@@ -520,20 +502,6 @@ const Transactions = () => {
             Download Transactions
           </button>
         </div>
-      </div>
-
-      {/* Summary */}
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {summaryItems.map(({ label, value, color }) => (
-          <div key={label} className="border border-hairline bg-faint px-4 py-3">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted sm:text-xs">
-              {label}
-            </span>
-            <div className={`mt-1 font-serif text-xl font-bold sm:text-2xl ${color}`}>
-              {value}
-            </div>
-          </div>
-        ))}
       </div>
 
       {/* Filters */}
@@ -579,13 +547,13 @@ const Transactions = () => {
                 placeholder="Search transactions..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="min-h-[38px] w-full border-none bg-transparent px-2 py-1.5 text-sm text-deep-accent outline-none placeholder:text-muted/70"
+                className="min-h-[38px] w-full min-w-0 border-none bg-transparent px-2 py-1.5 text-sm text-deep-accent outline-none placeholder:text-muted/70"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="mr-2 inline-flex h-6 w-6 items-center justify-center text-muted hover:text-deep-accent"
+                  className="mr-2 inline-flex h-6 w-6 shrink-0 items-center justify-center text-muted hover:text-deep-accent"
                   aria-label="Clear search"
                 >
                   <X className="h-3.5 w-3.5" strokeWidth={2.25} />
@@ -866,30 +834,30 @@ const Transactions = () => {
       {/* Transaction Detail Modal */}
       {selectedTransaction && (
         <div
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-[10000] flex items-stretch justify-center bg-black/40 sm:items-center sm:p-4"
           onClick={closeDetail}
         >
           <div
-            className="relative max-h-[90vh] w-full max-w-[600px] overflow-y-auto border border-hairline bg-white p-6 sm:p-8"
+            className="relative flex max-h-full w-full flex-col overflow-y-auto overflow-x-hidden border-0 bg-white p-5 sm:max-h-[90vh] sm:max-w-[600px] sm:border sm:border-hairline sm:p-8"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
               onClick={closeDetail}
               aria-label="Close"
-              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               <X className="h-4 w-4" strokeWidth={2.25} />
             </button>
 
             <div className="flex flex-col gap-1 pr-8">
-              <h2 className="font-serif text-xl font-bold text-deep-accent sm:text-2xl">
+              <h2 className="break-words font-serif text-lg font-bold text-deep-accent sm:text-2xl">
                 {selectedTransaction.description}
               </h2>
 
               <div className="mt-3 flex items-center gap-3 border-b border-faint pb-4">
                 <span
-                  className={`flex h-11 w-11 items-center justify-center ${
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center ${
                     selectedTransaction.amount >= 0
                       ? 'bg-[#e7f3f5] text-primary'
                       : 'bg-faint text-body'
@@ -901,9 +869,9 @@ const Transactions = () => {
                     <ArrowUpRight className="h-5 w-5" strokeWidth={1.75} />
                   )}
                 </span>
-                <div>
+                <div className="min-w-0">
                   <div
-                    className={`font-serif text-2xl font-bold ${
+                    className={`font-serif text-xl font-bold sm:text-2xl ${
                       selectedTransaction.amount >= 0
                         ? 'text-primary'
                         : 'text-[#d9534f]'
@@ -1005,28 +973,28 @@ const Transactions = () => {
       {/* Download Modal */}
       {showDownloadModal && (
         <div
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-[10000] flex items-stretch justify-center bg-black/40 sm:items-center sm:p-4"
           onClick={() => setShowDownloadModal(false)}
         >
           <div
-            className="relative w-full max-w-[480px] border border-hairline bg-white p-6 sm:p-8"
+            className="relative flex max-h-full w-full flex-col overflow-y-auto overflow-x-hidden border-0 bg-white p-5 sm:max-h-[90vh] sm:max-w-[480px] sm:border sm:border-hairline sm:p-8"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
               onClick={() => setShowDownloadModal(false)}
               aria-label="Close"
-              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent"
+              className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent"
             >
               <X className="h-4 w-4" strokeWidth={2.25} />
             </button>
 
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-3 pr-8">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#e7f3f5] text-primary">
                 <Download className="h-5 w-5" strokeWidth={1.75} />
               </span>
-              <div>
-                <h2 className="font-serif text-xl font-bold text-deep-accent">
+              <div className="min-w-0">
+                <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
                   Download Transactions
                 </h2>
                 <p className="mt-1 text-sm text-body">
@@ -1103,18 +1071,18 @@ const Transactions = () => {
       {/* Report a Problem Modal */}
       {reportTransaction && (
         <div
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-[10000] flex items-stretch justify-center bg-black/40 sm:items-center sm:p-4"
           onClick={closeReportModal}
         >
           <div
-            className="relative w-full max-w-[520px] border border-hairline bg-white p-6 sm:p-8"
+            className="relative flex max-h-full w-full flex-col overflow-y-auto overflow-x-hidden border-0 bg-white p-5 sm:max-h-[90vh] sm:max-w-[520px] sm:border sm:border-hairline sm:p-8"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
               onClick={closeReportModal}
               aria-label="Close"
-              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent"
+              className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent"
             >
               <X className="h-4 w-4" strokeWidth={2.25} />
             </button>
@@ -1133,13 +1101,13 @@ const Transactions = () => {
                 </p>
 
                 <div className="mt-4 w-full border border-hairline bg-faint px-4 py-3 text-left">
-                  <div className="flex items-center justify-between py-1">
+                  <div className="flex items-center justify-between gap-3 py-1">
                     <span className="text-xs text-muted sm:text-sm">Reference</span>
-                    <span className="font-mono text-xs font-semibold text-deep-accent">
+                    <span className="break-all font-mono text-xs font-semibold text-deep-accent">
                       {reportSuccess.referenceNumber}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between py-1">
+                  <div className="flex items-center justify-between gap-3 py-1">
                     <span className="text-xs text-muted sm:text-sm">Status</span>
                     <span className="text-sm font-semibold text-[#b8860b]">
                       {reportSuccess.status}
@@ -1157,12 +1125,12 @@ const Transactions = () => {
               </div>
             ) : (
               <>
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-3 pr-8">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#e7f3f5] text-primary">
                     <AlertCircle className="h-5 w-5" strokeWidth={1.75} />
                   </span>
-                  <div>
-                    <h2 className="font-serif text-xl font-bold text-deep-accent">
+                  <div className="min-w-0">
+                    <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
                       Report a Problem
                     </h2>
                     <p className="mt-1 text-sm text-body">
@@ -1172,13 +1140,15 @@ const Transactions = () => {
                 </div>
 
                 <div className="mt-5 border border-hairline bg-faint px-4 py-3">
-                  <div className="flex items-center justify-between py-1">
-                    <span className="text-xs text-muted sm:text-sm">Transaction</span>
-                    <span className="text-sm font-semibold text-deep-accent text-right">
+                  <div className="flex items-start justify-between gap-3 py-1">
+                    <span className="shrink-0 text-xs text-muted sm:text-sm">
+                      Transaction
+                    </span>
+                    <span className="break-words text-right text-sm font-semibold text-deep-accent">
                       {reportTransaction.description}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between py-1">
+                  <div className="flex items-center justify-between gap-3 py-1">
                     <span className="text-xs text-muted sm:text-sm">Amount</span>
                     <span
                       className={`text-sm font-semibold ${
@@ -1191,7 +1161,7 @@ const Transactions = () => {
                       {formatCurrency(reportTransaction.amount)}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between py-1">
+                  <div className="flex items-center justify-between gap-3 py-1">
                     <span className="text-xs text-muted sm:text-sm">Date</span>
                     <span className="text-sm font-semibold text-deep-accent">
                       {formatDate(reportTransaction.date)}
@@ -1212,7 +1182,7 @@ const Transactions = () => {
                       if (reportError) setReportError('');
                     }}
                     maxLength={2000}
-                    className="w-full border border-hairline bg-white p-3 text-sm text-deep-accent outline-none focus:border-primary placeholder:text-muted/60 resize-none"
+                    className="w-full resize-none border border-hairline bg-white p-3 text-sm text-deep-accent outline-none focus:border-primary placeholder:text-muted/60"
                   />
                   <p className="text-[11px] text-muted">
                     {reportReason.length} / 2000 characters
@@ -1266,14 +1236,17 @@ const Transactions = () => {
   );
 };
 
-// Reusable modal row
+// Reusable modal row — value wraps and shrinks so long text never
+// stretches the modal wider than the viewport.
 const ModalRow = ({ icon: Icon, label, value, valueColor = 'text-ink' }) => (
   <div className="flex items-start justify-between gap-4 py-2.5">
-    <span className="inline-flex items-center gap-1.5 text-xs text-muted sm:text-sm">
+    <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-muted sm:text-sm">
       <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
       {label}
     </span>
-    <span className={`text-sm font-semibold text-right ${valueColor}`}>{value}</span>
+    <span className={`min-w-0 break-words text-right text-sm font-semibold ${valueColor}`}>
+      {value}
+    </span>
   </div>
 );
 
