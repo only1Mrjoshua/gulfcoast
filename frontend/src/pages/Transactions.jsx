@@ -72,6 +72,44 @@ const currentMonthKey = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
 
+// ─────────────────────────────────────────────────────────────
+//  Body scroll lock — prevents the page behind a full-screen
+//  modal from expanding or scrolling on mobile.
+// ─────────────────────────────────────────────────────────────
+const useBodyScrollLock = (isLocked) => {
+  useEffect(() => {
+    if (!isLocked) return;
+
+    const scrollY = window.scrollY;
+    const body = document.body;
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
+    body.style.overflow = 'hidden';
+
+    return () => {
+      body.style.position = prev.position;
+      body.style.top = prev.top;
+      body.style.left = prev.left;
+      body.style.right = prev.right;
+      body.style.width = prev.width;
+      body.style.overflow = prev.overflow;
+      window.scrollTo(0, scrollY);
+    };
+  }, [isLocked]);
+};
+
 const Transactions = () => {
   // ── Core data ────────────────────────────────────────
   const [months, setMonths] = useState([]);
@@ -121,6 +159,11 @@ const Transactions = () => {
   const [reportError, setReportError] = useState('');
   const [reportSuccess, setReportSuccess] = useState(null);
 
+  // Lock the body whenever any modal is open
+  const anyModalOpen =
+    !!selectedTransaction || showDownloadModal || !!reportTransaction;
+  useBodyScrollLock(anyModalOpen);
+
   // ============================================================
   // Initial load
   // ============================================================
@@ -162,23 +205,25 @@ const Transactions = () => {
     (pageNum) => {
       const params = new URLSearchParams();
 
-      // Date scope
       if (dateRange === 'custom' && (startDate || endDate)) {
         if (startDate) params.append('fromDate', startDate);
         if (endDate) params.append('toDate', endDate);
       } else {
         const now = new Date();
-        let from = null, to = null;
+        let from = null,
+          to = null;
 
         if (dateRange === 'today') {
           from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
           to = from;
         } else if (dateRange === 'last7') {
           to = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          from = new Date(to); from.setDate(from.getDate() - 6);
+          from = new Date(to);
+          from.setDate(from.getDate() - 6);
         } else if (dateRange === 'last30') {
           to = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          from = new Date(to); from.setDate(from.getDate() - 29);
+          from = new Date(to);
+          from.setDate(from.getDate() - 29);
         } else if (dateRange === 'thismonth') {
           from = new Date(now.getFullYear(), now.getMonth(), 1);
           to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -221,10 +266,6 @@ const Transactions = () => {
     ]
   );
 
-  // ============================================================
-  // Fetch a page. `replace=true` → replaces list (fresh load).
-  //                `replace=false` → appends (See more).
-  // ============================================================
   const fetchPage = useCallback(
     async (pageNum, replace) => {
       try {
@@ -267,7 +308,6 @@ const Transactions = () => {
     [buildQueryParams]
   );
 
-  // Reset to page 1 whenever any filter changes
   useEffect(() => {
     if (initialLoading) return;
     fetchPage(1, true);
@@ -291,9 +331,6 @@ const Transactions = () => {
     fetchPage(page + 1, false);
   };
 
-  // ============================================================
-  // Grouping
-  // ============================================================
   const groupedTransactions = useMemo(() => {
     const groups = {};
     transactions.forEach((tx) => {
@@ -316,13 +353,8 @@ const Transactions = () => {
     setMaxAmount('');
   };
 
-  const handleTransactionClick = (tx) => {
-    setSelectedTransaction(tx);
-  };
-
-  const closeDetail = () => {
-    setSelectedTransaction(null);
-  };
+  const handleTransactionClick = (tx) => setSelectedTransaction(tx);
+  const closeDetail = () => setSelectedTransaction(null);
 
   // ============================================================
   // Download modal
@@ -330,7 +362,7 @@ const Transactions = () => {
   const openDownloadModal = () => {
     const [y, m] = (selectedMonth || currentMonthKey()).split('-').map(Number);
     const first = new Date(y, m - 1, 1);
-    const last  = new Date(y, m, 0);
+    const last = new Date(y, m, 0);
     setDownloadFrom(toISODate(first));
     setDownloadTo(toISODate(last));
     setDownloadError('');
@@ -348,7 +380,7 @@ const Transactions = () => {
 
       const params = new URLSearchParams();
       if (downloadFrom) params.append('fromDate', downloadFrom);
-      if (downloadTo)   params.append('toDate', downloadTo);
+      if (downloadTo) params.append('toDate', downloadTo);
 
       if (selectedAccount !== 'all') params.append('accountId', selectedAccount);
       if (searchQuery.trim()) params.append('search', searchQuery.trim());
@@ -459,7 +491,7 @@ const Transactions = () => {
   const remaining = Math.max(0, total - transactions.length);
 
   return (
-    <div className="mx-auto max-w-[1200px] overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+    <div className="mx-auto w-full max-w-[1200px] overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Page Header */}
       <div className="mb-6 flex flex-col gap-4 border-b border-hairline pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
@@ -529,7 +561,7 @@ const Transactions = () => {
             </select>
           </div>
 
-          <div className="flex flex-1 flex-col gap-1.5">
+          <div className="flex flex-1 flex-col gap-1.5 min-w-0">
             <label
               htmlFor="searchInput"
               className="text-xs font-semibold text-deep-accent"
@@ -719,9 +751,9 @@ const Transactions = () => {
                       key={tx.id}
                       type="button"
                       onClick={() => handleTransactionClick(tx)}
-                      className="group flex flex-col gap-2 border-b border-faint px-3 py-3 text-left transition-colors hover:bg-faint sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                      className="group flex w-full flex-col gap-2 border-b border-faint px-3 py-3 text-left transition-colors hover:bg-faint sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                     >
-                      <div className="flex min-w-0 items-start gap-3">
+                      <div className="flex w-full min-w-0 items-start gap-3 sm:w-auto">
                         <span
                           className={`flex h-9 w-9 shrink-0 items-center justify-center ${
                             isPositive
@@ -756,7 +788,7 @@ const Transactions = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between gap-4 sm:justify-end">
+                      <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:justify-end">
                         <div className="flex flex-col items-start sm:items-end">
                           <span
                             className={`text-sm font-bold ${
@@ -771,7 +803,7 @@ const Transactions = () => {
                           </span>
                         </div>
                         <ChevronRight
-                          className="hidden h-4 w-4 text-muted transition-transform group-hover:translate-x-0.5 sm:block"
+                          className="hidden h-4 w-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5 sm:block"
                           strokeWidth={2}
                         />
                       </div>
@@ -783,7 +815,6 @@ const Transactions = () => {
           ))
         )}
 
-        {/* See more button */}
         {transactions.length > 0 && hasMore && (
           <div className="mt-6 flex flex-col items-center gap-2">
             <button
@@ -810,7 +841,6 @@ const Transactions = () => {
           </div>
         )}
 
-        {/* Fully-loaded indicator */}
         {transactions.length > 0 && !hasMore && total > PAGE_SIZE && (
           <div className="mt-6 text-center text-xs text-muted">
             Showing all {total} transactions
@@ -831,404 +861,423 @@ const Transactions = () => {
         </a>
       </div>
 
-      {/* Transaction Detail Modal */}
+      {/* ============================================================
+          Transaction Detail Modal
+          ------------------------------------------------------------
+          On mobile: full-viewport, block-level scroll inside content.
+          On desktop: centered dialog with 90vh max height.
+         ============================================================ */}
       {selectedTransaction && (
         <div
           className="fixed inset-0 z-[10000] flex items-stretch justify-center bg-black/40 sm:items-center sm:p-4"
           onClick={closeDetail}
         >
           <div
-            className="relative flex max-h-full w-full flex-col overflow-y-auto overflow-x-hidden border-0 bg-white p-5 sm:max-h-[90vh] sm:max-w-[600px] sm:border sm:border-hairline sm:p-8"
+            className="relative flex h-full max-h-full w-full max-w-full flex-col bg-white sm:h-auto sm:max-h-[90vh] sm:max-w-[600px] sm:border sm:border-hairline"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
               onClick={closeDetail}
               aria-label="Close"
-              className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center bg-white/90 text-muted transition-colors hover:bg-faint hover:text-deep-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               <X className="h-4 w-4" strokeWidth={2.25} />
             </button>
 
-            <div className="flex flex-col gap-1 pr-8">
-              <h2 className="break-words font-serif text-lg font-bold text-deep-accent sm:text-2xl">
-                {selectedTransaction.description}
-              </h2>
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-5 sm:p-8">
+              <div className="flex flex-col gap-1 pr-8">
+                <h2 className="break-words font-serif text-lg font-bold text-deep-accent sm:text-2xl">
+                  {selectedTransaction.description}
+                </h2>
 
-              <div className="mt-3 flex items-center gap-3 border-b border-faint pb-4">
-                <span
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center ${
-                    selectedTransaction.amount >= 0
-                      ? 'bg-[#e7f3f5] text-primary'
-                      : 'bg-faint text-body'
-                  }`}
-                >
-                  {selectedTransaction.amount >= 0 ? (
-                    <ArrowDownLeft className="h-5 w-5" strokeWidth={1.75} />
-                  ) : (
-                    <ArrowUpRight className="h-5 w-5" strokeWidth={1.75} />
-                  )}
-                </span>
-                <div className="min-w-0">
-                  <div
-                    className={`font-serif text-xl font-bold sm:text-2xl ${
+                <div className="mt-3 flex items-center gap-3 border-b border-faint pb-4">
+                  <span
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center ${
                       selectedTransaction.amount >= 0
-                        ? 'text-primary'
-                        : 'text-[#d9534f]'
+                        ? 'bg-[#e7f3f5] text-primary'
+                        : 'bg-faint text-body'
                     }`}
                   >
-                    {selectedTransaction.amount >= 0 ? '+' : '-'}
-                    {formatCurrency(selectedTransaction.amount)}
-                  </div>
-                  <div className="text-xs text-muted">
-                    {formatDate(selectedTransaction.date)}
+                    {selectedTransaction.amount >= 0 ? (
+                      <ArrowDownLeft className="h-5 w-5" strokeWidth={1.75} />
+                    ) : (
+                      <ArrowUpRight className="h-5 w-5" strokeWidth={1.75} />
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <div
+                      className={`font-serif text-xl font-bold sm:text-2xl ${
+                        selectedTransaction.amount >= 0
+                          ? 'text-primary'
+                          : 'text-[#d9534f]'
+                      }`}
+                    >
+                      {selectedTransaction.amount >= 0 ? '+' : '-'}
+                      {formatCurrency(selectedTransaction.amount)}
+                    </div>
+                    <div className="text-xs text-muted">
+                      {formatDate(selectedTransaction.date)}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="mt-4 flex flex-col divide-y divide-faint">
-              <ModalRow
-                icon={FileText}
-                label="Account"
-                value={selectedTransaction.accountName}
-              />
-              <ModalRow
-                icon={Tag}
-                label="Category"
-                value={selectedTransaction.category}
-              />
-              <ModalRow
-                icon={SlidersHorizontal}
-                label="Transaction Type"
-                value={
-                  selectedTransaction.type.charAt(0).toUpperCase() +
-                  selectedTransaction.type.slice(1)
-                }
-              />
-              <ModalRow
-                icon={
-                  selectedTransaction.status === 'Pending'
-                    ? Clock
-                    : CheckCircle2
-                }
-                label="Status"
-                value={selectedTransaction.status}
-                valueColor={
-                  selectedTransaction.status === 'Pending'
-                    ? 'text-[#b8860b]'
-                    : 'text-primary'
-                }
-              />
-              <ModalRow
-                icon={Hash}
-                label="Reference Number"
-                value={selectedTransaction.referenceNumber}
-              />
-              {selectedTransaction.merchant && (
+              <div className="mt-4 flex flex-col divide-y divide-faint">
                 <ModalRow
-                  icon={Store}
-                  label="Merchant"
-                  value={selectedTransaction.merchant}
+                  icon={FileText}
+                  label="Account"
+                  value={selectedTransaction.accountName}
                 />
-              )}
-              {selectedTransaction.location && (
                 <ModalRow
-                  icon={MapPin}
-                  label="Location"
-                  value={selectedTransaction.location}
+                  icon={Tag}
+                  label="Category"
+                  value={selectedTransaction.category}
                 />
-              )}
-              {selectedTransaction.paymentMethod && (
                 <ModalRow
-                  icon={CreditCard}
-                  label="Payment Method"
-                  value={selectedTransaction.paymentMethod}
+                  icon={SlidersHorizontal}
+                  label="Transaction Type"
+                  value={
+                    selectedTransaction.type.charAt(0).toUpperCase() +
+                    selectedTransaction.type.slice(1)
+                  }
                 />
-              )}
-            </div>
+                <ModalRow
+                  icon={
+                    selectedTransaction.status === 'Pending'
+                      ? Clock
+                      : CheckCircle2
+                  }
+                  label="Status"
+                  value={selectedTransaction.status}
+                  valueColor={
+                    selectedTransaction.status === 'Pending'
+                      ? 'text-[#b8860b]'
+                      : 'text-primary'
+                  }
+                />
+                <ModalRow
+                  icon={Hash}
+                  label="Reference Number"
+                  value={selectedTransaction.referenceNumber}
+                  breakAll
+                />
+                {selectedTransaction.merchant && (
+                  <ModalRow
+                    icon={Store}
+                    label="Merchant"
+                    value={selectedTransaction.merchant}
+                  />
+                )}
+                {selectedTransaction.location && (
+                  <ModalRow
+                    icon={MapPin}
+                    label="Location"
+                    value={selectedTransaction.location}
+                  />
+                )}
+                {selectedTransaction.paymentMethod && (
+                  <ModalRow
+                    icon={CreditCard}
+                    label="Payment Method"
+                    value={selectedTransaction.paymentMethod}
+                  />
+                )}
+              </div>
 
-            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              <button
-                type="button"
-                onClick={openDownloadModal}
-                className="inline-flex min-h-[40px] items-center justify-center gap-1.5 border border-hairline bg-white px-4 py-2 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              >
-                <Download className="h-3.5 w-3.5" strokeWidth={2.25} />
-                Download
-              </button>
-              <button
-                type="button"
-                onClick={() => openReportModal(selectedTransaction)}
-                className="inline-flex min-h-[40px] items-center justify-center gap-1.5 border border-hairline bg-white px-4 py-2 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              >
-                <AlertCircle className="h-3.5 w-3.5" strokeWidth={2.25} />
-                Report a Problem
-              </button>
+              <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <button
+                  type="button"
+                  onClick={openDownloadModal}
+                  className="inline-flex min-h-[40px] items-center justify-center gap-1.5 border border-hairline bg-white px-4 py-2 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                >
+                  <Download className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  Download
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openReportModal(selectedTransaction)}
+                  className="inline-flex min-h-[40px] items-center justify-center gap-1.5 border border-hairline bg-white px-4 py-2 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                >
+                  <AlertCircle className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  Report a Problem
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Download Modal */}
+      {/* ============================================================
+          Download Modal
+         ============================================================ */}
       {showDownloadModal && (
         <div
-          className="fixed inset-0 z-[10000] flex items-stretch justify-center bg-black/40 sm:items-center sm:p-4"
+          className="fixed inset-0 z-[10001] flex items-stretch justify-center bg-black/40 sm:items-center sm:p-4"
           onClick={() => setShowDownloadModal(false)}
         >
           <div
-            className="relative flex max-h-full w-full flex-col overflow-y-auto overflow-x-hidden border-0 bg-white p-5 sm:max-h-[90vh] sm:max-w-[480px] sm:border sm:border-hairline sm:p-8"
+            className="relative flex h-full max-h-full w-full max-w-full flex-col bg-white sm:h-auto sm:max-h-[90vh] sm:max-w-[480px] sm:border sm:border-hairline"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
               onClick={() => setShowDownloadModal(false)}
               aria-label="Close"
-              className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent"
+              className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center bg-white/90 text-muted transition-colors hover:bg-faint hover:text-deep-accent"
             >
               <X className="h-4 w-4" strokeWidth={2.25} />
             </button>
 
-            <div className="flex items-start gap-3 pr-8">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#e7f3f5] text-primary">
-                <Download className="h-5 w-5" strokeWidth={1.75} />
-              </span>
-              <div className="min-w-0">
-                <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
-                  Download Transactions
-                </h2>
-                <p className="mt-1 text-sm text-body">
-                  Choose a date range for your PDF statement.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-col gap-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-semibold text-deep-accent">From</label>
-                  <input
-                    type="date"
-                    value={downloadFrom}
-                    onChange={(e) => setDownloadFrom(e.target.value)}
-                    className="min-h-[40px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-semibold text-deep-accent">To</label>
-                  <input
-                    type="date"
-                    value={downloadTo}
-                    onChange={(e) => setDownloadTo(e.target.value)}
-                    className="min-h-[40px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {downloadError && (
-                <div className="flex items-start gap-2 border border-[#f5c6cb] bg-[#f8d7da] px-4 py-2.5">
-                  <AlertCircle
-                    className="mt-0.5 h-4 w-4 shrink-0 text-[#721c24]"
-                    strokeWidth={2}
-                  />
-                  <span className="text-sm text-[#721c24]">{downloadError}</span>
-                </div>
-              )}
-
-              <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowDownloadModal(false)}
-                  disabled={downloadLoading}
-                  className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent hover:bg-faint disabled:opacity-60"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  disabled={downloadLoading}
-                  className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-deep disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {downloadLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
-                      Preparing…
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4" strokeWidth={2.25} />
-                      Download PDF
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Report a Problem Modal */}
-      {reportTransaction && (
-        <div
-          className="fixed inset-0 z-[10000] flex items-stretch justify-center bg-black/40 sm:items-center sm:p-4"
-          onClick={closeReportModal}
-        >
-          <div
-            className="relative flex max-h-full w-full flex-col overflow-y-auto overflow-x-hidden border-0 bg-white p-5 sm:max-h-[90vh] sm:max-w-[520px] sm:border sm:border-hairline sm:p-8"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={closeReportModal}
-              aria-label="Close"
-              className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center text-muted transition-colors hover:bg-faint hover:text-deep-accent"
-            >
-              <X className="h-4 w-4" strokeWidth={2.25} />
-            </button>
-
-            {reportSuccess ? (
-              <div className="flex flex-col items-center py-4 text-center">
-                <div className="mb-4 flex h-14 w-14 items-center justify-center bg-[#e7f3f5]">
-                  <CheckCircle2 className="h-8 w-8 text-primary" strokeWidth={1.75} />
-                </div>
-                <h2 className="font-serif text-xl font-bold text-deep-accent">
-                  Report Submitted
-                </h2>
-                <p className="mx-auto mt-2 max-w-sm text-sm text-body">
-                  A designated agent will reach out to you shortly regarding this
-                  transaction.
-                </p>
-
-                <div className="mt-4 w-full border border-hairline bg-faint px-4 py-3 text-left">
-                  <div className="flex items-center justify-between gap-3 py-1">
-                    <span className="text-xs text-muted sm:text-sm">Reference</span>
-                    <span className="break-all font-mono text-xs font-semibold text-deep-accent">
-                      {reportSuccess.referenceNumber}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 py-1">
-                    <span className="text-xs text-muted sm:text-sm">Status</span>
-                    <span className="text-sm font-semibold text-[#b8860b]">
-                      {reportSuccess.status}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={closeReportModal}
-                  className="mt-6 inline-flex min-h-[40px] w-full items-center justify-center bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep"
-                >
-                  Done
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-start gap-3 pr-8">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#e7f3f5] text-primary">
-                    <AlertCircle className="h-5 w-5" strokeWidth={1.75} />
-                  </span>
-                  <div className="min-w-0">
-                    <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
-                      Report a Problem
-                    </h2>
-                    <p className="mt-1 text-sm text-body">
-                      Tell us what&rsquo;s wrong with this transaction.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 border border-hairline bg-faint px-4 py-3">
-                  <div className="flex items-start justify-between gap-3 py-1">
-                    <span className="shrink-0 text-xs text-muted sm:text-sm">
-                      Transaction
-                    </span>
-                    <span className="break-words text-right text-sm font-semibold text-deep-accent">
-                      {reportTransaction.description}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 py-1">
-                    <span className="text-xs text-muted sm:text-sm">Amount</span>
-                    <span
-                      className={`text-sm font-semibold ${
-                        reportTransaction.amount >= 0
-                          ? 'text-primary'
-                          : 'text-[#d9534f]'
-                      }`}
-                    >
-                      {reportTransaction.amount >= 0 ? '+' : '-'}
-                      {formatCurrency(reportTransaction.amount)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 py-1">
-                    <span className="text-xs text-muted sm:text-sm">Date</span>
-                    <span className="text-sm font-semibold text-deep-accent">
-                      {formatDate(reportTransaction.date)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-5 flex flex-col gap-1.5">
-                  <label className="text-sm font-semibold text-deep-accent">
-                    Reason for report
-                  </label>
-                  <textarea
-                    rows="4"
-                    placeholder="e.g. I don't recognize this charge."
-                    value={reportReason}
-                    onChange={(e) => {
-                      setReportReason(e.target.value);
-                      if (reportError) setReportError('');
-                    }}
-                    maxLength={2000}
-                    className="w-full resize-none border border-hairline bg-white p-3 text-sm text-deep-accent outline-none focus:border-primary placeholder:text-muted/60"
-                  />
-                  <p className="text-[11px] text-muted">
-                    {reportReason.length} / 2000 characters
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-5 sm:p-8">
+              <div className="flex items-start gap-3 pr-8">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#e7f3f5] text-primary">
+                  <Download className="h-5 w-5" strokeWidth={1.75} />
+                </span>
+                <div className="min-w-0">
+                  <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
+                    Download Transactions
+                  </h2>
+                  <p className="mt-1 text-sm text-body">
+                    Choose a date range for your PDF statement.
                   </p>
                 </div>
+              </div>
 
-                {reportError && (
-                  <div className="mt-4 flex items-start gap-2 border border-[#f5c6cb] bg-[#f8d7da] px-4 py-2.5">
+              <div className="mt-6 flex flex-col gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5 min-w-0">
+                    <label className="text-sm font-semibold text-deep-accent">From</label>
+                    <input
+                      type="date"
+                      value={downloadFrom}
+                      onChange={(e) => setDownloadFrom(e.target.value)}
+                      className="min-h-[40px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5 min-w-0">
+                    <label className="text-sm font-semibold text-deep-accent">To</label>
+                    <input
+                      type="date"
+                      value={downloadTo}
+                      onChange={(e) => setDownloadTo(e.target.value)}
+                      className="min-h-[40px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {downloadError && (
+                  <div className="flex items-start gap-2 border border-[#f5c6cb] bg-[#f8d7da] px-4 py-2.5">
                     <AlertCircle
                       className="mt-0.5 h-4 w-4 shrink-0 text-[#721c24]"
                       strokeWidth={2}
                     />
-                    <span className="text-sm text-[#721c24]">{reportError}</span>
+                    <span className="text-sm text-[#721c24]">{downloadError}</span>
                   </div>
                 )}
 
-                <div className="mt-6 flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">
+                <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">
                   <button
                     type="button"
-                    onClick={closeReportModal}
-                    disabled={reportLoading}
+                    onClick={() => setShowDownloadModal(false)}
+                    disabled={downloadLoading}
                     className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent hover:bg-faint disabled:opacity-60"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
-                    onClick={handleSubmitReport}
-                    disabled={reportLoading || !reportReason.trim()}
+                    onClick={handleDownload}
+                    disabled={downloadLoading}
                     className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-deep disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    {reportLoading ? (
+                    {downloadLoading ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
-                        Submitting…
+                        Preparing…
                       </>
                     ) : (
                       <>
-                        <Send className="h-4 w-4" strokeWidth={2.25} />
-                        Submit Report
+                        <Download className="h-4 w-4" strokeWidth={2.25} />
+                        Download PDF
                       </>
                     )}
                   </button>
                 </div>
-              </>
-            )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================
+          Report a Problem Modal
+         ============================================================ */}
+      {reportTransaction && (
+        <div
+          className="fixed inset-0 z-[10002] flex items-stretch justify-center bg-black/40 sm:items-center sm:p-4"
+          onClick={closeReportModal}
+        >
+          <div
+            className="relative flex h-full max-h-full w-full max-w-full flex-col bg-white sm:h-auto sm:max-h-[90vh] sm:max-w-[520px] sm:border sm:border-hairline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={closeReportModal}
+              aria-label="Close"
+              className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center bg-white/90 text-muted transition-colors hover:bg-faint hover:text-deep-accent"
+            >
+              <X className="h-4 w-4" strokeWidth={2.25} />
+            </button>
+
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-5 sm:p-8">
+              {reportSuccess ? (
+                <div className="flex flex-col items-center py-4 text-center">
+                  <div className="mb-4 flex h-14 w-14 items-center justify-center bg-[#e7f3f5]">
+                    <CheckCircle2 className="h-8 w-8 text-primary" strokeWidth={1.75} />
+                  </div>
+                  <h2 className="font-serif text-xl font-bold text-deep-accent">
+                    Report Submitted
+                  </h2>
+                  <p className="mx-auto mt-2 max-w-sm text-sm text-body">
+                    A designated agent will reach out to you shortly regarding this
+                    transaction.
+                  </p>
+
+                  <div className="mt-4 w-full border border-hairline bg-faint px-4 py-3 text-left">
+                    <div className="flex items-center justify-between gap-3 py-1">
+                      <span className="shrink-0 text-xs text-muted sm:text-sm">
+                        Reference
+                      </span>
+                      <span className="min-w-0 break-all font-mono text-xs font-semibold text-deep-accent">
+                        {reportSuccess.referenceNumber}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 py-1">
+                      <span className="text-xs text-muted sm:text-sm">Status</span>
+                      <span className="text-sm font-semibold text-[#b8860b]">
+                        {reportSuccess.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={closeReportModal}
+                    className="mt-6 inline-flex min-h-[40px] w-full items-center justify-center bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-deep"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-start gap-3 pr-8">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#e7f3f5] text-primary">
+                      <AlertCircle className="h-5 w-5" strokeWidth={1.75} />
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
+                        Report a Problem
+                      </h2>
+                      <p className="mt-1 text-sm text-body">
+                        Tell us what&rsquo;s wrong with this transaction.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 border border-hairline bg-faint px-4 py-3">
+                    <div className="flex items-start justify-between gap-3 py-1">
+                      <span className="shrink-0 text-xs text-muted sm:text-sm">
+                        Transaction
+                      </span>
+                      <span className="min-w-0 break-words text-right text-sm font-semibold text-deep-accent">
+                        {reportTransaction.description}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 py-1">
+                      <span className="text-xs text-muted sm:text-sm">Amount</span>
+                      <span
+                        className={`text-sm font-semibold ${
+                          reportTransaction.amount >= 0
+                            ? 'text-primary'
+                            : 'text-[#d9534f]'
+                        }`}
+                      >
+                        {reportTransaction.amount >= 0 ? '+' : '-'}
+                        {formatCurrency(reportTransaction.amount)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 py-1">
+                      <span className="text-xs text-muted sm:text-sm">Date</span>
+                      <span className="text-sm font-semibold text-deep-accent">
+                        {formatDate(reportTransaction.date)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex flex-col gap-1.5">
+                    <label className="text-sm font-semibold text-deep-accent">
+                      Reason for report
+                    </label>
+                    <textarea
+                      rows="4"
+                      placeholder="e.g. I don't recognize this charge."
+                      value={reportReason}
+                      onChange={(e) => {
+                        setReportReason(e.target.value);
+                        if (reportError) setReportError('');
+                      }}
+                      maxLength={2000}
+                      className="w-full resize-none border border-hairline bg-white p-3 text-sm text-deep-accent outline-none focus:border-primary placeholder:text-muted/60"
+                    />
+                    <p className="text-[11px] text-muted">
+                      {reportReason.length} / 2000 characters
+                    </p>
+                  </div>
+
+                  {reportError && (
+                    <div className="mt-4 flex items-start gap-2 border border-[#f5c6cb] bg-[#f8d7da] px-4 py-2.5">
+                      <AlertCircle
+                        className="mt-0.5 h-4 w-4 shrink-0 text-[#721c24]"
+                        strokeWidth={2}
+                      />
+                      <span className="text-sm text-[#721c24]">{reportError}</span>
+                    </div>
+                  )}
+
+                  <div className="mt-6 flex flex-col-reverse gap-3 border-t border-hairline pt-5 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={closeReportModal}
+                      disabled={reportLoading}
+                      className="min-h-[40px] border border-hairline bg-white px-5 py-2 text-sm font-semibold text-deep-accent hover:bg-faint disabled:opacity-60"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSubmitReport}
+                      disabled={reportLoading || !reportReason.trim()}
+                      className="inline-flex min-h-[40px] items-center justify-center gap-2 bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-deep disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {reportLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+                          Submitting…
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" strokeWidth={2.25} />
+                          Submit Report
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1236,15 +1285,25 @@ const Transactions = () => {
   );
 };
 
-// Reusable modal row — value wraps and shrinks so long text never
+// Reusable modal row — value wraps/shrinks so long text never
 // stretches the modal wider than the viewport.
-const ModalRow = ({ icon: Icon, label, value, valueColor = 'text-ink' }) => (
+const ModalRow = ({
+  icon: Icon,
+  label,
+  value,
+  valueColor = 'text-ink',
+  breakAll = false,
+}) => (
   <div className="flex items-start justify-between gap-4 py-2.5">
     <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-muted sm:text-sm">
       <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
       {label}
     </span>
-    <span className={`min-w-0 break-words text-right text-sm font-semibold ${valueColor}`}>
+    <span
+      className={`min-w-0 text-right text-sm font-semibold ${valueColor} ${
+        breakAll ? 'break-all' : 'break-words'
+      }`}
+    >
       {value}
     </span>
   </div>
