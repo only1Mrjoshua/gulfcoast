@@ -5,7 +5,8 @@
   min-height: 100vh;
   width: 100%;
   max-width: 100vw;
-  overflow-x: hidden;        /* clips any child that still tries to widen */
+  overflow-x: hidden;
+  background: #fefefe;
 }
 
 /* Sidebar */
@@ -95,19 +96,18 @@
   display: none;
 }
 
-/* ── Content wrapper — the flex item that keeps growing ── */
+/* Content area with header */
 .contentWrapper {
   margin-left: 240px;
   flex: 1;
-  min-width: 0;              /* ← KEY FIX: allow shrinking below content */
+  min-width: 0;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   max-width: 100%;
-  overflow-x: hidden;        /* ← safety net */
+  overflow-x: hidden;
 }
 
-/* ── Top header — flex container inside the wrapper ── */
 .topHeader {
   background: #fff;
   border-bottom: 1px solid #e7e7e7;
@@ -117,7 +117,7 @@
   justify-content: space-between;
   height: 60px;
   flex-shrink: 0;
-  min-width: 0;              /* ← allow shrink */
+  min-width: 0;
 }
 
 .headerLeft {
@@ -132,12 +132,11 @@
   color: #003256;
 }
 
-/* ── Right side of the header — the icon row ── */
 .headerRight {
   display: flex;
   align-items: center;
   gap: 16px;
-  min-width: 0;              /* ← allow shrink */
+  min-width: 0;
 }
 
 .headerSearch {
@@ -194,15 +193,14 @@
   text-decoration: underline;
 }
 
-/* ── Main content area — where your pages render ── */
 .content {
   padding: 32px;
   background: #fefefe;
   flex: 1;
-  min-width: 0;              /* ← KEY FIX */
+  min-width: 0;
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;        /* ← clips anything that still overflows */
+  overflow-x: hidden;
 }
 
 /* Mobile styles */
@@ -243,7 +241,6 @@
   margin-left: 12px;
 }
 
-/* ── Mobile — same guards, adjusted for the mobile layout ── */
 @media (max-width: 768px) {
   .mobileTopBar {
     display: flex;
@@ -263,7 +260,7 @@
 
   .contentWrapper {
     margin-left: 0;
-    min-width: 0;            /* re-assert */
+    min-width: 0;
     overflow-x: hidden;
   }
 
@@ -273,14 +270,24 @@
 
   .content {
     padding: 16px;
-    min-width: 0;            /* re-assert */
+    min-width: 0;
     overflow-x: hidden;
+  }
+
+  /* ── Mobile page title treatment ────────────────────────────
+     Centers the h1 so the floating hamburger doesn't overlap it,
+     and shrinks it slightly. Only affects the user content area —
+     admin pages use a different layout and are not affected. */
+  .content h1 {
+    text-align: center;
+    font-size: 1.375rem; /* 22px, down from text-2xl (24px) */
+    line-height: 1.3;
   }
 }
 
 /* Floating Hamburger Button */
 .floatingHamburger {
-  display: none; /* Hidden by default on desktop */
+  display: none;
 }
 
 @media (max-width: 1024px) {
@@ -292,7 +299,7 @@
     top: 16px;
     left: 16px;
     z-index: 9999;
-    background-color: #002A3A; /* Match your deep-accent color */
+    background-color: #002A3A;
     padding: 10px;
     border: none;
     cursor: pointer;
@@ -308,8 +315,7 @@
     transition: 0.3s;
   }
 
-  /* Optional: Add a small hover effect */
   .floatingHamburger:hover {
-    background-color: #00405A; /* Slightly lighter on hover */
+    background-color: #00405A;
   }
 }

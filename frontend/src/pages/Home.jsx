@@ -1,3 +1,4 @@
+// src/pages/Home.jsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -181,19 +182,6 @@ const Home = () => {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      {/* Welcome Section */}
-      <section className="mb-8 flex flex-col gap-2 border-b border-hairline pb-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-serif text-2xl font-bold leading-tight text-deep-accent sm:text-3xl">
-            {data.greeting || 'Welcome back'}
-          </h1>
-          <p className="mt-1 text-sm text-body sm:text-base">
-            Here&rsquo;s your financial snapshot.
-          </p>
-        </div>
-        <div className="text-xs text-muted sm:text-sm">{data.date}</div>
-      </section>
-
       {/* Account Balance */}
       <section className="mb-10">
         <div className="bg-deep-accent p-6 sm:p-8">
