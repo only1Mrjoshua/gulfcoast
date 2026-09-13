@@ -37,9 +37,10 @@ export const getHomeData = async (req, res, next) => {
 
     // Only Checking + Savings are considered accounts.
     // Credit cards are not accounts — they're cards linked to an account.
-    const realAccounts = accounts.filter(
-      (a) => normalizeType(a.type) !== 'credit'
-    );
+    const realAccounts = accounts.filter((a) => {
+      const t = normalizeType(a.type);
+      return t !== 'credit' && t !== 'external';
+    });
 
     const accountBalance = realAccounts.reduce(
       (sum, acc) => sum + (acc.totalBalance || 0),
