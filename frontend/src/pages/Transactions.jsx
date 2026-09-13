@@ -73,8 +73,7 @@ const currentMonthKey = () => {
 };
 
 // ─────────────────────────────────────────────────────────────
-//  Body scroll lock — prevents the page behind a full-screen
-//  modal from expanding or scrolling on mobile.
+//  Body scroll lock
 // ─────────────────────────────────────────────────────────────
 const useBodyScrollLock = (isLocked) => {
   useEffect(() => {
@@ -111,12 +110,10 @@ const useBodyScrollLock = (isLocked) => {
 };
 
 const Transactions = () => {
-  // ── Core data ────────────────────────────────────────
   const [months, setMonths] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [categories, setCategories] = useState([]);
 
-  // ── Filters ──────────────────────────────────────────
   const [selectedMonth, setSelectedMonth] = useState(currentMonthKey());
   const [selectedAccount, setSelectedAccount] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -129,37 +126,30 @@ const Transactions = () => {
   const [maxAmount, setMaxAmount] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // ── Results ──────────────────────────────────────────
   const [transactions, setTransactions] = useState([]);
 
-  // ── Pagination ───────────────────────────────────────
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
 
-  // ── UI state ─────────────────────────────────────────
   const [initialLoading, setInitialLoading] = useState(true);
   const [listLoading, setListLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // ── Modals ───────────────────────────────────────────
   const [selectedTransaction, setSelectedTransaction] = useState(null);
 
-  // Download modal
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [downloadFrom, setDownloadFrom] = useState('');
   const [downloadTo, setDownloadTo] = useState('');
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
 
-  // Report modal
   const [reportTransaction, setReportTransaction] = useState(null);
   const [reportReason, setReportReason] = useState('');
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState('');
   const [reportSuccess, setReportSuccess] = useState(null);
 
-  // Lock the body whenever any modal is open
   const anyModalOpen =
     !!selectedTransaction || showDownloadModal || !!reportTransaction;
   useBodyScrollLock(anyModalOpen);
@@ -198,9 +188,6 @@ const Transactions = () => {
     loadInitial();
   }, []);
 
-  // ============================================================
-  // Build query params for a given page
-  // ============================================================
   const buildQueryParams = useCallback(
     (pageNum) => {
       const params = new URLSearchParams();
@@ -356,9 +343,6 @@ const Transactions = () => {
   const handleTransactionClick = (tx) => setSelectedTransaction(tx);
   const closeDetail = () => setSelectedTransaction(null);
 
-  // ============================================================
-  // Download modal
-  // ============================================================
   const openDownloadModal = () => {
     const [y, m] = (selectedMonth || currentMonthKey()).split('-').map(Number);
     const first = new Date(y, m - 1, 1);
@@ -417,9 +401,6 @@ const Transactions = () => {
     }
   };
 
-  // ============================================================
-  // Report modal
-  // ============================================================
   const openReportModal = (tx) => {
     setSelectedTransaction(null);
     setReportTransaction(tx);
@@ -458,9 +439,6 @@ const Transactions = () => {
     }
   };
 
-  // ============================================================
-  // Full-page states
-  // ============================================================
   if (initialLoading) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4">
@@ -493,7 +471,7 @@ const Transactions = () => {
   return (
     <div className="mx-auto w-full max-w-[1200px] overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Page Header */}
-      <div className="mb-6 flex flex-col gap-4 border-b border-hairline pb-5 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mb-6 flex min-w-0 flex-col gap-4 border-b border-hairline pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h1 className="font-serif text-2xl font-bold leading-tight text-deep-accent sm:text-3xl">
             Transactions
@@ -503,11 +481,12 @@ const Transactions = () => {
           </p>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          {/* Month select — wrapper gets min-w-0 + max-w, select gets min-w-0 */}
+          <div className="flex min-w-0 items-center gap-2 sm:max-w-[260px]">
             <label
               htmlFor="monthSelect"
-              className="text-[11px] font-bold uppercase tracking-wide text-muted"
+              className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted"
             >
               Month
             </label>
@@ -515,7 +494,7 @@ const Transactions = () => {
               id="monthSelect"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="min-h-[44px] border border-hairline bg-white px-3 py-2 text-sm font-semibold text-deep-accent focus:border-primary focus:outline-none"
+              className="min-h-[44px] w-full min-w-0 border border-hairline bg-white px-3 py-2 text-sm font-semibold text-deep-accent focus:border-primary focus:outline-none"
             >
               {months.map((m) => (
                 <option key={m.key} value={m.key}>
@@ -528,7 +507,7 @@ const Transactions = () => {
           <button
             type="button"
             onClick={openDownloadModal}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 border border-primary bg-white px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 border border-primary bg-white px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           >
             <Download className="h-4 w-4" strokeWidth={2.25} />
             Download Transactions
@@ -538,8 +517,9 @@ const Transactions = () => {
 
       {/* Filters */}
       <div className="mb-6 border border-hairline bg-faint p-4 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-          <div className="flex flex-col gap-1.5 sm:min-w-[180px]">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          {/* Account select — min-w-0 + max-w on wrapper */}
+          <div className="flex min-w-0 flex-col gap-1.5 sm:min-w-[180px] sm:max-w-[240px] sm:flex-1">
             <label
               htmlFor="accountSelect"
               className="text-xs font-semibold text-deep-accent"
@@ -550,7 +530,7 @@ const Transactions = () => {
               id="accountSelect"
               value={selectedAccount}
               onChange={(e) => setSelectedAccount(e.target.value)}
-              className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
+              className="min-h-[38px] w-full min-w-0 border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
             >
               <option value="all">All accounts</option>
               {accounts.map((acc) => (
@@ -561,7 +541,7 @@ const Transactions = () => {
             </select>
           </div>
 
-          <div className="flex flex-1 flex-col gap-1.5 min-w-0">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <label
               htmlFor="searchInput"
               className="text-xs font-semibold text-deep-accent"
@@ -597,7 +577,7 @@ const Transactions = () => {
           <button
             type="button"
             onClick={() => setShowFilters(!showFilters)}
-            className="inline-flex min-h-[38px] items-center justify-center gap-2 border border-hairline bg-white px-4 py-1.5 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            className="inline-flex min-h-[38px] shrink-0 items-center justify-center gap-2 border border-hairline bg-white px-4 py-1.5 text-sm font-semibold text-deep-accent transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           >
             <SlidersHorizontal className="h-4 w-4" strokeWidth={2} />
             {showFilters ? 'Hide Filters' : 'More Filters'}
@@ -605,13 +585,14 @@ const Transactions = () => {
         </div>
 
         {showFilters && (
-          <div className="mt-4 flex flex-col gap-3 border-t border-hairline pt-4 sm:flex-row sm:flex-wrap sm:items-end">
-            <div className="flex flex-col gap-1.5 sm:min-w-[160px]">
+          <div className="mt-4 flex min-w-0 flex-col gap-3 border-t border-hairline pt-4 sm:flex-row sm:flex-wrap sm:items-end">
+            {/* Date Range select */}
+            <div className="flex min-w-0 flex-col gap-1.5 sm:min-w-[160px] sm:max-w-[200px] sm:flex-1">
               <label className="text-xs font-semibold text-deep-accent">Date Range</label>
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                className="min-h-[38px] w-full min-w-0 border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
               >
                 <option value="all">Selected Month</option>
                 <option value="today">Today</option>
@@ -625,33 +606,34 @@ const Transactions = () => {
 
             {dateRange === 'custom' && (
               <>
-                <div className="flex flex-col gap-1.5 sm:min-w-[150px]">
+                <div className="flex min-w-0 flex-col gap-1.5 sm:min-w-[140px] sm:max-w-[180px] sm:flex-1">
                   <label className="text-xs font-semibold text-deep-accent">From</label>
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                    className="min-h-[38px] w-full min-w-0 border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
                   />
                 </div>
-                <div className="flex flex-col gap-1.5 sm:min-w-[150px]">
+                <div className="flex min-w-0 flex-col gap-1.5 sm:min-w-[140px] sm:max-w-[180px] sm:flex-1">
                   <label className="text-xs font-semibold text-deep-accent">To</label>
                   <input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                    className="min-h-[38px] w-full min-w-0 border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
                   />
                 </div>
               </>
             )}
 
-            <div className="flex flex-col gap-1.5 sm:min-w-[150px]">
+            {/* Type select */}
+            <div className="flex min-w-0 flex-col gap-1.5 sm:min-w-[140px] sm:max-w-[180px] sm:flex-1">
               <label className="text-xs font-semibold text-deep-accent">Type</label>
               <select
                 value={transactionType}
                 onChange={(e) => setTransactionType(e.target.value)}
-                className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                className="min-h-[38px] w-full min-w-0 border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
               >
                 <option value="all">All</option>
                 <option value="purchase">Purchases</option>
@@ -664,12 +646,13 @@ const Transactions = () => {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1.5 sm:min-w-[160px]">
+            {/* Category select */}
+            <div className="flex min-w-0 flex-col gap-1.5 sm:min-w-[150px] sm:max-w-[200px] sm:flex-1">
               <label className="text-xs font-semibold text-deep-accent">Category</label>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                className="min-h-[38px] w-full min-w-0 border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
               >
                 <option value="All">All</option>
                 {categories.map((cat) => (
@@ -680,7 +663,7 @@ const Transactions = () => {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1.5 sm:min-w-[120px]">
+            <div className="flex min-w-0 flex-col gap-1.5 sm:min-w-[110px] sm:max-w-[140px] sm:flex-1">
               <label className="text-xs font-semibold text-deep-accent">Min Amount</label>
               <input
                 type="number"
@@ -688,11 +671,11 @@ const Transactions = () => {
                 value={minAmount}
                 onChange={(e) => setMinAmount(e.target.value)}
                 step="0.01"
-                className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent placeholder:text-muted/70 focus:border-primary focus:outline-none"
+                className="min-h-[38px] w-full min-w-0 border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent placeholder:text-muted/70 focus:border-primary focus:outline-none"
               />
             </div>
 
-            <div className="flex flex-col gap-1.5 sm:min-w-[120px]">
+            <div className="flex min-w-0 flex-col gap-1.5 sm:min-w-[110px] sm:max-w-[140px] sm:flex-1">
               <label className="text-xs font-semibold text-deep-accent">Max Amount</label>
               <input
                 type="number"
@@ -700,14 +683,14 @@ const Transactions = () => {
                 value={maxAmount}
                 onChange={(e) => setMaxAmount(e.target.value)}
                 step="0.01"
-                className="min-h-[38px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent placeholder:text-muted/70 focus:border-primary focus:outline-none"
+                className="min-h-[38px] w-full min-w-0 border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent placeholder:text-muted/70 focus:border-primary focus:outline-none"
               />
             </div>
 
             <button
               type="button"
               onClick={handleClearFilters}
-              className="inline-flex min-h-[38px] items-center gap-1.5 self-start border border-hairline bg-white px-4 py-1.5 text-sm font-semibold text-primary transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:self-auto"
+              className="inline-flex min-h-[38px] shrink-0 items-center gap-1.5 self-start border border-hairline bg-white px-4 py-1.5 text-sm font-semibold text-primary transition-colors hover:border-primary hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:self-auto"
             >
               <X className="h-3.5 w-3.5" strokeWidth={2.25} />
               Clear Filters
@@ -717,7 +700,7 @@ const Transactions = () => {
       </div>
 
       {/* Transaction List */}
-      <div className="mb-6">
+      <div className="mb-6 min-w-0">
         {transactions.length === 0 && !listLoading ? (
           <div className="border border-hairline bg-faint py-12 text-center">
             <AlertCircle className="mx-auto h-8 w-8 text-muted" strokeWidth={1.5} />
@@ -738,12 +721,12 @@ const Transactions = () => {
           </div>
         ) : (
           Object.entries(groupedTransactions).map(([dateGroup, txs]) => (
-            <div key={dateGroup} className="mb-6">
+            <div key={dateGroup} className="mb-6 min-w-0">
               <h3 className="mb-3 border-b border-hairline pb-2 font-serif text-base font-bold text-deep-accent sm:text-lg">
                 {dateGroup}
               </h3>
 
-              <div className="flex flex-col">
+              <div className="flex min-w-0 flex-col">
                 {txs.map((tx) => {
                   const isPositive = tx.amount >= 0;
                   return (
@@ -751,9 +734,10 @@ const Transactions = () => {
                       key={tx.id}
                       type="button"
                       onClick={() => handleTransactionClick(tx)}
-                      className="group flex w-full flex-col gap-2 border-b border-faint px-3 py-3 text-left transition-colors hover:bg-faint sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                      className="group flex w-full min-w-0 flex-col gap-2 border-b border-faint px-3 py-3 text-left transition-colors hover:bg-faint sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                     >
-                      <div className="flex w-full min-w-0 items-start gap-3 sm:w-auto">
+                      {/* Left side */}
+                      <div className="flex w-full min-w-0 items-start gap-3 sm:w-auto sm:flex-1">
                         <span
                           className={`flex h-9 w-9 shrink-0 items-center justify-center ${
                             isPositive
@@ -769,18 +753,23 @@ const Transactions = () => {
                         </span>
 
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-semibold text-ink">
+                          <div className="min-w-0 truncate text-sm font-semibold text-ink">
                             {tx.description}
                           </div>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
-                            <span className="truncate">{tx.accountName}</span>
-                            <span className="inline-flex items-center gap-1 bg-faint px-2 py-0.5 text-[11px] font-medium text-body">
-                              <Tag className="h-3 w-3" strokeWidth={2} />
-                              {tx.category}
+
+                          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+                            <span className="min-w-0 max-w-full truncate">
+                              {tx.accountName}
+                            </span>
+                            <span className="inline-flex min-w-0 items-center gap-1 bg-faint px-2 py-0.5 text-[11px] font-medium text-body">
+                              <Tag className="h-3 w-3 shrink-0" strokeWidth={2} />
+                              <span className="min-w-0 truncate">
+                                {tx.category}
+                              </span>
                             </span>
                             {tx.status === 'Pending' && (
-                              <span className="inline-flex items-center gap-1 bg-[#fff3e0] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#b8860b]">
-                                <Clock className="h-3 w-3" strokeWidth={2.25} />
+                              <span className="inline-flex shrink-0 items-center gap-1 bg-[#fff3e0] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#b8860b]">
+                                <Clock className="h-3 w-3 shrink-0" strokeWidth={2.25} />
                                 Pending
                               </span>
                             )}
@@ -788,8 +777,9 @@ const Transactions = () => {
                         </div>
                       </div>
 
-                      <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:justify-end">
-                        <div className="flex flex-col items-start sm:items-end">
+                      {/* Right side */}
+                      <div className="flex w-full min-w-0 items-center justify-between gap-4 sm:w-auto sm:justify-end">
+                        <div className="flex min-w-0 flex-col items-start sm:items-end">
                           <span
                             className={`text-sm font-bold ${
                               isPositive ? 'text-primary' : 'text-[#d9534f]'
@@ -849,12 +839,14 @@ const Transactions = () => {
       </div>
 
       {/* Statements link */}
-      <div className="mb-6 flex flex-col items-start gap-2 border border-hairline bg-faint px-4 py-3 sm:flex-row sm:items-center sm:gap-3">
+      <div className="mb-6 flex min-w-0 flex-col items-start gap-2 border border-hairline bg-faint px-4 py-3 sm:flex-row sm:items-center sm:gap-3">
         <FileText className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
-        <span className="text-sm text-body">Looking for your monthly statement?</span>
+        <span className="min-w-0 text-sm text-body">
+          Looking for your monthly statement?
+        </span>
         <a
           href="/statements"
-          className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+          className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-primary hover:underline"
         >
           View Statements
           <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.25} />
@@ -863,9 +855,6 @@ const Transactions = () => {
 
       {/* ============================================================
           Transaction Detail Modal
-          ------------------------------------------------------------
-          On mobile: full-viewport, block-level scroll inside content.
-          On desktop: centered dialog with 90vh max height.
          ============================================================ */}
       {selectedTransaction && (
         <div
@@ -873,7 +862,7 @@ const Transactions = () => {
           onClick={closeDetail}
         >
           <div
-            className="relative flex h-full max-h-full w-full max-w-full flex-col bg-white sm:h-auto sm:max-h-[90vh] sm:max-w-[600px] sm:border sm:border-hairline"
+            className="relative flex h-full max-h-full w-full max-w-full flex-col overflow-hidden bg-white sm:h-auto sm:max-h-[90vh] sm:max-w-[600px] sm:border sm:border-hairline"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -885,14 +874,13 @@ const Transactions = () => {
               <X className="h-4 w-4" strokeWidth={2.25} />
             </button>
 
-            {/* Scrollable body */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden p-5 sm:p-8">
-              <div className="flex flex-col gap-1 pr-8">
-                <h2 className="break-words font-serif text-lg font-bold text-deep-accent sm:text-2xl">
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-5 sm:p-8">
+              <div className="flex min-w-0 flex-col gap-1 pr-8">
+                <h2 className="min-w-0 break-words font-serif text-lg font-bold text-deep-accent sm:text-2xl">
                   {selectedTransaction.description}
                 </h2>
 
-                <div className="mt-3 flex items-center gap-3 border-b border-faint pb-4">
+                <div className="mt-3 flex min-w-0 items-center gap-3 border-b border-faint pb-4">
                   <span
                     className={`flex h-11 w-11 shrink-0 items-center justify-center ${
                       selectedTransaction.amount >= 0
@@ -924,7 +912,7 @@ const Transactions = () => {
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-col divide-y divide-faint">
+              <div className="mt-4 flex min-w-0 flex-col divide-y divide-faint">
                 <ModalRow
                   icon={FileText}
                   label="Account"
@@ -1018,7 +1006,7 @@ const Transactions = () => {
           onClick={() => setShowDownloadModal(false)}
         >
           <div
-            className="relative flex h-full max-h-full w-full max-w-full flex-col bg-white sm:h-auto sm:max-h-[90vh] sm:max-w-[480px] sm:border sm:border-hairline"
+            className="relative flex h-full max-h-full w-full max-w-full flex-col overflow-hidden bg-white sm:h-auto sm:max-h-[90vh] sm:max-w-[480px] sm:border sm:border-hairline"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -1030,8 +1018,8 @@ const Transactions = () => {
               <X className="h-4 w-4" strokeWidth={2.25} />
             </button>
 
-            <div className="flex-1 overflow-y-auto overflow-x-hidden p-5 sm:p-8">
-              <div className="flex items-start gap-3 pr-8">
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-5 sm:p-8">
+              <div className="flex min-w-0 items-start gap-3 pr-8">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#e7f3f5] text-primary">
                   <Download className="h-5 w-5" strokeWidth={1.75} />
                 </span>
@@ -1045,24 +1033,24 @@ const Transactions = () => {
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-col gap-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-1.5 min-w-0">
+              <div className="mt-6 flex min-w-0 flex-col gap-4">
+                <div className="grid min-w-0 grid-cols-2 gap-4">
+                  <div className="flex min-w-0 flex-col gap-1.5">
                     <label className="text-sm font-semibold text-deep-accent">From</label>
                     <input
                       type="date"
                       value={downloadFrom}
                       onChange={(e) => setDownloadFrom(e.target.value)}
-                      className="min-h-[40px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                      className="min-h-[40px] w-full min-w-0 border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
                     />
                   </div>
-                  <div className="flex flex-col gap-1.5 min-w-0">
+                  <div className="flex min-w-0 flex-col gap-1.5">
                     <label className="text-sm font-semibold text-deep-accent">To</label>
                     <input
                       type="date"
                       value={downloadTo}
                       onChange={(e) => setDownloadTo(e.target.value)}
-                      className="min-h-[40px] w-full border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                      className="min-h-[40px] w-full min-w-0 border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
                     />
                   </div>
                 </div>
@@ -1073,7 +1061,9 @@ const Transactions = () => {
                       className="mt-0.5 h-4 w-4 shrink-0 text-[#721c24]"
                       strokeWidth={2}
                     />
-                    <span className="text-sm text-[#721c24]">{downloadError}</span>
+                    <span className="min-w-0 break-words text-sm text-[#721c24]">
+                      {downloadError}
+                    </span>
                   </div>
                 )}
 
@@ -1120,7 +1110,7 @@ const Transactions = () => {
           onClick={closeReportModal}
         >
           <div
-            className="relative flex h-full max-h-full w-full max-w-full flex-col bg-white sm:h-auto sm:max-h-[90vh] sm:max-w-[520px] sm:border sm:border-hairline"
+            className="relative flex h-full max-h-full w-full max-w-full flex-col overflow-hidden bg-white sm:h-auto sm:max-h-[90vh] sm:max-w-[520px] sm:border sm:border-hairline"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -1132,7 +1122,7 @@ const Transactions = () => {
               <X className="h-4 w-4" strokeWidth={2.25} />
             </button>
 
-            <div className="flex-1 overflow-y-auto overflow-x-hidden p-5 sm:p-8">
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-5 sm:p-8">
               {reportSuccess ? (
                 <div className="flex flex-col items-center py-4 text-center">
                   <div className="mb-4 flex h-14 w-14 items-center justify-center bg-[#e7f3f5]">
@@ -1173,7 +1163,7 @@ const Transactions = () => {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-start gap-3 pr-8">
+                  <div className="flex min-w-0 items-start gap-3 pr-8">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#e7f3f5] text-primary">
                       <AlertCircle className="h-5 w-5" strokeWidth={1.75} />
                     </span>
@@ -1188,7 +1178,7 @@ const Transactions = () => {
                   </div>
 
                   <div className="mt-5 border border-hairline bg-faint px-4 py-3">
-                    <div className="flex items-start justify-between gap-3 py-1">
+                    <div className="flex min-w-0 items-start justify-between gap-3 py-1">
                       <span className="shrink-0 text-xs text-muted sm:text-sm">
                         Transaction
                       </span>
@@ -1243,7 +1233,9 @@ const Transactions = () => {
                         className="mt-0.5 h-4 w-4 shrink-0 text-[#721c24]"
                         strokeWidth={2}
                       />
-                      <span className="text-sm text-[#721c24]">{reportError}</span>
+                      <span className="min-w-0 break-words text-sm text-[#721c24]">
+                        {reportError}
+                      </span>
                     </div>
                   )}
 
@@ -1285,8 +1277,6 @@ const Transactions = () => {
   );
 };
 
-// Reusable modal row — value wraps/shrinks so long text never
-// stretches the modal wider than the viewport.
 const ModalRow = ({
   icon: Icon,
   label,
@@ -1294,7 +1284,7 @@ const ModalRow = ({
   valueColor = 'text-ink',
   breakAll = false,
 }) => (
-  <div className="flex items-start justify-between gap-4 py-2.5">
+  <div className="flex min-w-0 items-start justify-between gap-4 py-2.5">
     <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-muted sm:text-sm">
       <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
       {label}

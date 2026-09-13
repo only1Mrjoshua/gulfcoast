@@ -3,7 +3,9 @@
 .layout {
   display: flex;
   min-height: 100vh;
-  background: #fefefe;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;        /* clips any child that still tries to widen */
 }
 
 /* Sidebar */
@@ -93,15 +95,19 @@
   display: none;
 }
 
-/* Content area with header */
+/* ── Content wrapper — the flex item that keeps growing ── */
 .contentWrapper {
   margin-left: 240px;
   flex: 1;
+  min-width: 0;              /* ← KEY FIX: allow shrinking below content */
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  max-width: 100%;
+  overflow-x: hidden;        /* ← safety net */
 }
 
+/* ── Top header — flex container inside the wrapper ── */
 .topHeader {
   background: #fff;
   border-bottom: 1px solid #e7e7e7;
@@ -111,6 +117,7 @@
   justify-content: space-between;
   height: 60px;
   flex-shrink: 0;
+  min-width: 0;              /* ← allow shrink */
 }
 
 .headerLeft {
@@ -125,10 +132,12 @@
   color: #003256;
 }
 
+/* ── Right side of the header — the icon row ── */
 .headerRight {
   display: flex;
   align-items: center;
   gap: 16px;
+  min-width: 0;              /* ← allow shrink */
 }
 
 .headerSearch {
@@ -185,10 +194,15 @@
   text-decoration: underline;
 }
 
+/* ── Main content area — where your pages render ── */
 .content {
   padding: 32px;
   background: #fefefe;
   flex: 1;
+  min-width: 0;              /* ← KEY FIX */
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;        /* ← clips anything that still overflows */
 }
 
 /* Mobile styles */
@@ -229,29 +243,39 @@
   margin-left: 12px;
 }
 
+/* ── Mobile — same guards, adjusted for the mobile layout ── */
 @media (max-width: 768px) {
   .mobileTopBar {
     display: flex;
   }
+
   .sidebar {
     transform: translateX(-100%);
   }
+
   .sidebar.open {
     transform: translateX(0);
   }
+
   .overlay {
     display: block;
   }
+
   .contentWrapper {
     margin-left: 0;
+    min-width: 0;            /* re-assert */
+    overflow-x: hidden;
   }
+
   .topHeader {
-    display: none; /* we rely on mobile top bar, but we can keep header hidden */
+    display: none;
   }
+
   .content {
     padding: 16px;
+    min-width: 0;            /* re-assert */
+    overflow-x: hidden;
   }
-  /* We could also hide the desktop header and show a simplified one, but we use mobileTopBar */
 }
 
 /* Floating Hamburger Button */
