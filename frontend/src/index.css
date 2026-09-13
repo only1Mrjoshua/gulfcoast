@@ -24,15 +24,6 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* ── Mobile overflow guards ────────────────────────── */
-    width: 100%;
-    max-width: 100%;
-    overflow-x: hidden;
-    /* Prevents the rubber-band scroll on iOS from ever
-       revealing any sliver of overflow at the edges */
-    overscroll-behavior-x: none;
-    /* Makes 1rem = 16px consistent across zoom states */
-    box-sizing: border-box;
   }
 
   body {
@@ -41,23 +32,6 @@
     line-height: 1.5;
     color: #495867;
     background-color: #fefefe;
-    /* ── Mobile overflow guards ────────────────────────── */
-    width: 100%;
-    max-width: 100%;
-    min-height: 100%;
-    overflow-x: hidden;
-    /* Body-level scroll lock anchor. When the modal lock
-       sets position: fixed, this becomes the containing
-       block for absolutely positioned children. */
-    position: relative;
-  }
-
-  /* Belt-and-suspenders: every element inherits border-box so
-     a stray padded element can never widen the page. */
-  *,
-  *::before,
-  *::after {
-    box-sizing: border-box;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -96,17 +70,6 @@
   svg {
     max-width: 100%;
     display: block;
-  }
-
-  /* iOS Safari has a long-standing bug where the root
-     scroll container can be widened by any descendant
-     that overflows, even if a parent has overflow: hidden.
-     Locking the root element's width is the standard fix. */
-  #root {
-    width: 100%;
-    max-width: 100%;
-    overflow-x: hidden;
-    position: relative;
   }
 }
 
