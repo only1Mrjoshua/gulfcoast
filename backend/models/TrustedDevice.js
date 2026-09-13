@@ -9,6 +9,11 @@ const trustedDeviceSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    deviceId: {
+      type: String,
+      default: '',
+      index: true,
+    },
     name:      { type: String, required: true },
     current:   { type: Boolean, default: false },
     lastUsed:  { type: Date, default: Date.now },
@@ -18,6 +23,8 @@ const trustedDeviceSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Fast lookups for the trust check on login
+trustedDeviceSchema.index({ userId: 1, deviceId: 1, ipAddress: 1 });
 trustedDeviceSchema.index({ userId: 1, lastUsed: -1 });
 
 export default mongoose.model('TrustedDevice', trustedDeviceSchema);
