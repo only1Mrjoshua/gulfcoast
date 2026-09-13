@@ -44,7 +44,6 @@ const getAccountTypeLabel = (type) => {
   const map = {
     checking: 'Checking',
     savings: 'Savings',
-    loan: 'Loan',
   };
   return map[type] || type;
 };
@@ -53,7 +52,6 @@ const getAccountIcon = (type) => {
   const map = {
     checking: Wallet,
     savings: PiggyBank,
-    loan: Landmark,
   };
   return map[type] || Wallet;
 };
@@ -73,8 +71,6 @@ const AccountCard = ({ account, showBalance, onView, isSelected }) => {
   const getSecondaryInfo = () => {
     if (account.type === 'savings' && account.interestRate != null) {
       return `Interest Rate ${account.interestRate}% APY`;
-    } else if (account.type === 'loan') {
-      return `Next Payment ${formatCurrency(account.nextPayment)} due ${account.nextPaymentDue}`;
     }
     return null;
   };
@@ -82,7 +78,7 @@ const AccountCard = ({ account, showBalance, onView, isSelected }) => {
   return (
     <div
       onClick={onView}
-      className={`group flex flex-col border bg-white p-5 transition-colors sm:p-6 cursor-pointer ${
+      className={`group flex cursor-pointer flex-col border bg-white p-5 transition-colors sm:p-6 ${
         isSelected ? 'border-primary' : 'border-hairline hover:border-primary'
       }`}
     >
@@ -134,7 +130,6 @@ const Accounts = () => {
   const [data, setData] = useState({
     balance: 0,
     accounts: { checking: [], savings: [] },
-    loans: [],
     primaryChecking: null,
     alertPreferences: {
       lowBalance: true,
@@ -172,19 +167,6 @@ const Accounts = () => {
           };
         };
 
-        const transformedLoans = (d.loans || []).map((loan) => ({
-          id: loan.id,
-          type: 'loan',
-          name: loan.name,
-          lastFour: loan.lastFour,
-          status: loan.status,
-          balance: loan.currentBalance,
-          currentBalance: loan.currentBalance,
-          nextPayment: loan.monthlyPayment,
-          nextPaymentDue: formatShortDate(loan.nextPaymentDate),
-          interestRate: loan.interestRate,
-        }));
-
         const transformedPrimaryChecking = d.primaryChecking
           ? {
               ...transformAccount({
@@ -208,7 +190,6 @@ const Accounts = () => {
             checking: checkingList,
             savings: (d.accounts.savings || []).map(transformAccount),
           },
-          loans: transformedLoans,
           primaryChecking: transformedPrimaryChecking,
           alertPreferences: {
             lowBalance:       d.alertPreferences?.lowBalance       ?? true,
@@ -289,7 +270,6 @@ const Accounts = () => {
   const allAccounts = [
     ...data.accounts.checking,
     ...data.accounts.savings,
-    ...data.loans,
   ];
 
   const selectedAccount = allAccounts.find((acc) => acc.id === selectedAccountId);
@@ -297,8 +277,7 @@ const Accounts = () => {
   const categories = [
     { key: 'checking', title: 'Checking', accounts: data.accounts.checking },
     { key: 'savings', title: 'Savings', accounts: data.accounts.savings },
-    ...(data.loans.length > 0 ? [{ key: 'loans', title: 'Loans', accounts: data.loans }] : []),
-  ];
+  ].filter((cat) => cat.accounts.length > 0);
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -381,11 +360,7 @@ const Accounts = () => {
                   </span>
                   <span className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
                     {showBalance
-                      ? formatCurrency(
-                          selectedAccount.balance ??
-                            selectedAccount.currentBalance ??
-                            0
-                        )
+                      ? formatCurrency(selectedAccount.balance ?? 0)
                       : '•••••••'}
                   </span>
                 </div>
@@ -430,7 +405,7 @@ const Accounts = () => {
                     <button
                       type="button"
                       onClick={() => handleToggleAlert(alert.key)}
-                      className={`text-xs font-bold uppercase tracking-wide cursor-pointer transition-colors ${
+                      className={`cursor-pointer text-xs font-bold uppercase tracking-wide transition-colors ${
                         isOn ? 'text-primary' : 'text-[#d9534f]'
                       }`}
                       aria-label={`Toggle ${alert.name}`}
