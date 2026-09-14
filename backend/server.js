@@ -63,8 +63,8 @@ app.use(cookieParser());
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
-  "https://www.thegulfcoasttrust.com",
-  "https://thegulfcoasttrust.com",
+  "https://www.thegulffinance.com",
+  "https://thegulffinance.com"
 ];
 
 app.use(
