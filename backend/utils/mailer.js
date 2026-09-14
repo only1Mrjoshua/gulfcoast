@@ -5,7 +5,7 @@ const apiKey = process.env.RESEND_API_KEY;
 const resend = apiKey ? new Resend(apiKey) : null;
 
 const FROM_ADDRESS =
-  process.env.EMAIL_FROM || 'Gulf Coast Trust <onboarding@resend.dev>';
+  process.env.EMAIL_FROM || 'Gulf Coast Bank & Trust Company <onboarding@resend.dev>';
 
 const REPLY_TO = process.env.EMAIL_REPLY_TO || undefined;
 
@@ -23,7 +23,7 @@ const buildOTPEmailHtml = ({ name, otp, device, ip }) => `
           <tr>
             <td style="padding:32px 40px 24px 40px;border-bottom:1px solid #e5e7eb;">
               <div style="font-size:20px;font-weight:700;color:#0f5666;letter-spacing:-0.5px;">
-                Gulf Coast Trust
+                Gulf Coast Bank & Trust Company
               </div>
             </td>
           </tr>
@@ -33,7 +33,7 @@ const buildOTPEmailHtml = ({ name, otp, device, ip }) => `
                 Verify your sign-in
               </h1>
               <p style="margin:0 0 24px 0;font-size:14px;line-height:1.6;color:#4b5563;">
-                Hi ${name || 'there'}, we noticed a sign-in attempt to your Gulf Coast Trust
+                Hi ${name || 'there'}, we noticed a sign-in attempt to your Gulf Coast Bank & Trust Company
                 account from a new device or location. Enter the code below to continue.
               </p>
             </td>
@@ -78,7 +78,7 @@ const buildOTPEmailHtml = ({ name, otp, device, ip }) => `
           </tr>
         </table>
         <div style="margin-top:16px;font-size:11px;color:#9ca3af;">
-          Gulf Coast Trust · Secure Banking
+          Gulf Coast Bank & Trust Company · Secure Banking
         </div>
       </td>
     </tr>
@@ -102,7 +102,7 @@ const buildOTPEmailText = ({ name, otp, device, ip }) =>
     '',
     "If you didn't try to sign in, someone may have your password. Change it immediately and contact us at 1-800-555-0142.",
     '',
-    '— Gulf Coast Trust · Secure Banking',
+    '— Gulf Coast Bank & Trust Company · Secure Banking',
   ].join('\n');
 
 // ────────────────────────────────────────────────────────────────
@@ -120,7 +120,7 @@ export const sendOTPEmail = async ({ to, name, otp, device, ip }) => {
     const { data, error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: [to],
-      subject: 'Your Gulf Coast Trust verification code',
+      subject: 'Your Gulf Coast Bank & Trust Company verification code',
       html: buildOTPEmailHtml({ name, otp, device, ip }),
       text: buildOTPEmailText({ name, otp, device, ip }),
       reply_to: REPLY_TO,
