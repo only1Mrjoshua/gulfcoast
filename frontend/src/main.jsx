@@ -23,6 +23,7 @@ import Loans from './pages/Loans';
 import Goals from './pages/Goals';
 import Notifications from './pages/Notifications';
 import Help from './pages/Help';
+import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import LandingPage from './pages/LandingPage';
 import PlaceholderPage from './pages/PlaceholderPage';
@@ -94,6 +95,7 @@ const router = createBrowserRouter([
       { path: 'goals', element: <Goals /> },
       { path: 'notifications', element: <Notifications /> },
       { path: 'help', element: <Help /> },
+      { path: 'profile', element: <Profile /> },
       { path: 'settings', element: <Settings /> },
     ],
   },

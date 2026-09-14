@@ -42,6 +42,18 @@ const formatLinkedAccount = (acc) => {
   };
 };
 
+const formatUserAccount = (acc) => {
+  const last4 = acc.accountNumber ? acc.accountNumber.slice(-4) : '';
+  const name = acc.subType ? `${acc.subType} ${acc.type}` : acc.type;
+  return {
+    id: String(acc._id),
+    name,
+    type: acc.type,
+    subType: acc.subType || null,
+    lastFour: last4,
+  };
+};
+
 // ================================================================
 // GET /api/settings
 // ================================================================
@@ -49,22 +61,30 @@ export const getSettings = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const [user, devices, signIns, linkedRaw] = await Promise.all([
-      User.findById(userId)
-        .select(
-          'firstName lastName email phone mailingAddress dateOfBirth twoStepVerification accountPreferences'
-        )
-        .lean(),
-      TrustedDevice.find({ userId }).sort({ lastUsed: -1 }).lean(),
-      SignInActivity.find({ userId }).sort({ date: -1 }).limit(10).lean(),
-      Account.find({
-        userId,
-        type: 'External',
-        status: { $ne: 'Closed' },
-      })
-        .sort({ createdAt: -1 })
-        .lean(),
-    ]);
+    const [user, devices, signIns, linkedRaw, userAccounts] =
+      await Promise.all([
+        User.findById(userId)
+          .select(
+            'firstName lastName email phone mailingAddress dateOfBirth twoStepVerification accountPreferences'
+          )
+          .lean(),
+        TrustedDevice.find({ userId }).sort({ lastUsed: -1 }).lean(),
+        SignInActivity.find({ userId }).sort({ date: -1 }).limit(10).lean(),
+        Account.find({
+          userId,
+          type: 'External',
+          status: { $ne: 'Closed' },
+        })
+          .sort({ createdAt: -1 })
+          .lean(),
+        Account.find({
+          userId,
+          status: { $ne: 'Closed' },
+          type: { $in: ['Checking', 'Savings'] },
+        })
+          .sort({ isPrimary: -1, createdAt: 1 })
+          .lean(),
+      ]);
 
     if (!user) return res.status(404).json({ error: 'User not found' });
 
@@ -99,6 +119,7 @@ export const getSettings = async (req, res) => {
         defaultPaymentAccount:  prefs.defaultPaymentAccount || '',
       },
       linkedAccounts: linkedRaw.map(formatLinkedAccount),
+      accounts: userAccounts.map(formatUserAccount),
     });
   } catch (err) {
     console.error('❌ getSettings:', err);

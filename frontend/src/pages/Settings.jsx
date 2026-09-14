@@ -1,19 +1,12 @@
 // src/pages/Settings.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  UserRound,
-  Mail,
-  Phone,
-  MapPin,
-  Calendar,
   CheckCircle2,
   ShieldCheck,
   KeyRound,
   Smartphone,
   Laptop,
   LogOut,
-  Link2,
-  Trash2,
   Settings as SettingsIcon,
   AlertCircle,
   X,
@@ -21,6 +14,7 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  Pencil,
 } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 
@@ -29,17 +23,6 @@ const humanizeKey = (key) =>
   key
     .replace(/([A-Z])/g, ' $1')
     .replace(/^./, (str) => str.toUpperCase());
-
-const formatDob = (iso) => {
-  if (!iso) return '—';
-  const d = new Date(iso + 'T00:00:00');
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-};
 
 const emptyPasswordForm = {
   currentPassword: '',
@@ -51,14 +34,8 @@ const Settings = () => {
   // Data
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
-  const [profile, setProfile] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    mailingAddress: '',
-    dateOfBirth: '',
-  });
   const [trustedDevices, setTrustedDevices] = useState([]);
   const [recentSignIns, setRecentSignIns] = useState([]);
   const [preferences, setPreferences] = useState({
@@ -66,13 +43,19 @@ const Settings = () => {
     defaultTransferAccount: '',
     defaultPaymentAccount: '',
   });
-  const [linkedAccounts, setLinkedAccounts] = useState([]);
+  const [userAccounts, setUserAccounts] = useState([]);
 
   // UI state — two-step
   const [twoStep, setTwoStep] = useState(false);
   const [twoStepSaving, setTwoStepSaving] = useState(false);
 
   // UI state — preferences
+  const [isEditingPrefs, setIsEditingPrefs] = useState(false);
+  const [prefsSnapshot, setPrefsSnapshot] = useState({
+    defaultAccount: '',
+    defaultTransferAccount: '',
+    defaultPaymentAccount: '',
+  });
   const [prefSaving, setPrefSaving] = useState(false);
   const [prefSaved, setPrefSaved] = useState(false);
 
@@ -97,12 +80,18 @@ const Settings = () => {
     const res = await apiFetch('/settings');
     const d = res?.data ?? res;
 
-    setProfile(d.profile || {});
+    const prefs = d.preferences || {
+      defaultAccount: '',
+      defaultTransferAccount: '',
+      defaultPaymentAccount: '',
+    };
+
     setTwoStep(!!d.security?.twoStepVerification);
     setTrustedDevices(d.security?.trustedDevices || []);
     setRecentSignIns(d.security?.recentSignIns || []);
-    setPreferences(d.preferences || {});
-    setLinkedAccounts(d.linkedAccounts || []);
+    setPreferences(prefs);
+    setPrefsSnapshot(prefs);
+    setUserAccounts(d.accounts || []);
   }, []);
 
   useEffect(() => {
@@ -111,6 +100,7 @@ const Settings = () => {
         setLoading(true);
         setError('');
         await loadSettings();
+        setHasLoadedOnce(true);
       } catch (err) {
         console.error('❌ Failed to load settings:', err);
         setError(err.message || 'Failed to load settings');
@@ -144,6 +134,17 @@ const Settings = () => {
   // ────────────────────────────────────────────────────────
   // Preferences
   // ────────────────────────────────────────────────────────
+  const handleEditPrefs = () => {
+    setPrefsSnapshot({ ...preferences });
+    setIsEditingPrefs(true);
+    setPrefSaved(false);
+  };
+
+  const handleCancelEditPrefs = () => {
+    setPreferences(prefsSnapshot);
+    setIsEditingPrefs(false);
+  };
+
   const handlePreferenceChange = (e) => {
     const { name, value } = e.target;
     setPreferences((prev) => ({ ...prev, [name]: value }));
@@ -157,30 +158,23 @@ const Settings = () => {
         body: JSON.stringify(preferences),
       });
       const d = res?.data ?? res;
-      if (d.preferences) setPreferences(d.preferences);
+      const saved = d.preferences || preferences;
+
+      setPreferences(saved);
+      setPrefsSnapshot(saved);
+      setIsEditingPrefs(false);
       setPrefSaved(true);
       setTimeout(() => setPrefSaved(false), 3000);
     } catch (err) {
       console.error('❌ Failed to save preferences:', err);
-      setError(err.message || 'Failed to save preferences');
     } finally {
       setPrefSaving(false);
     }
   };
 
-  // ────────────────────────────────────────────────────────
-  // Linked accounts
-  // ────────────────────────────────────────────────────────
-  const handleRemoveLinkedAccount = async (id) => {
-    try {
-      await apiFetch(`/settings/linked-accounts/${id}`, {
-        method: 'DELETE',
-      });
-      setLinkedAccounts((prev) => prev.filter((a) => a.id !== id));
-    } catch (err) {
-      console.error('❌ Failed to remove linked account:', err);
-    }
-  };
+  // Build the label for an account, e.g. "Primary Checking •••• 4821"
+  const buildAccountLabel = (acc) =>
+    `${acc.name}${acc.lastFour ? ` •••• ${acc.lastFour}` : ''}`;
 
   // ────────────────────────────────────────────────────────
   // Sign out all devices
@@ -280,7 +274,7 @@ const Settings = () => {
     );
   }
 
-  if (error && !profile.fullName) {
+  if (error && !hasLoadedOnce) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4">
         <p className="font-serif text-xl font-bold text-deep-accent">
@@ -298,6 +292,8 @@ const Settings = () => {
     );
   }
 
+  const hasAccounts = userAccounts.length > 0;
+
   return (
     <div className="mx-auto max-w-[900px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       {/* Page Header */}
@@ -306,50 +302,9 @@ const Settings = () => {
           Settings
         </h1>
         <p className="mt-1 text-sm text-body sm:text-base">
-          Manage your personal information, security preferences, and
-          account settings.
+          Manage your security preferences and account settings.
         </p>
       </div>
-
-      {/* Personal Information (read-only) */}
-      <section className="mb-8 border-t border-hairline pt-6">
-        <div className="mb-4 flex items-center gap-2">
-          <UserRound className="h-4 w-4 text-primary" strokeWidth={1.75} />
-          <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
-            Personal Information
-          </h2>
-        </div>
-
-        <div className="border border-hairline bg-white p-5">
-          <div className="flex flex-col divide-y divide-faint">
-            <ProfileRow
-              icon={UserRound}
-              label="Full Name"
-              value={profile.fullName || '—'}
-            />
-            <ProfileRow
-              icon={Mail}
-              label="Email Address"
-              value={profile.email || '—'}
-            />
-            <ProfileRow
-              icon={Phone}
-              label="Phone Number"
-              value={profile.phone || '—'}
-            />
-            <ProfileRow
-              icon={MapPin}
-              label="Mailing Address"
-              value={profile.mailingAddress || '—'}
-            />
-            <ProfileRow
-              icon={Calendar}
-              label="Date of Birth"
-              value={formatDob(profile.dateOfBirth)}
-            />
-          </div>
-        </div>
-      </section>
 
       {/* Login & Security */}
       <section className="mb-8 border-t border-hairline pt-6">
@@ -502,132 +457,107 @@ const Settings = () => {
 
       {/* Account Preferences */}
       <section className="mb-8 border-t border-hairline pt-6">
-        <div className="mb-4 flex items-center gap-2">
-          <SettingsIcon className="h-4 w-4 text-primary" strokeWidth={1.75} />
-          <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
-            Account Preferences
-          </h2>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <SettingsIcon className="h-4 w-4 text-primary" strokeWidth={1.75} />
+            <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
+              Account Preferences
+            </h2>
+          </div>
+
+          {hasAccounts && !isEditingPrefs && (
+            <button
+              type="button"
+              onClick={handleEditPrefs}
+              className="inline-flex min-h-[30px] items-center gap-1.5 border border-primary bg-white px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <Pencil className="h-3 w-3" strokeWidth={2} />
+              Edit
+            </button>
+          )}
         </div>
 
         <div className="border border-hairline bg-white p-5">
-          <div className="flex flex-col divide-y divide-faint">
-            {Object.entries(preferences).map(([key, value]) => {
-              if (
-                key === 'defaultAccount' ||
-                key === 'defaultTransferAccount' ||
-                key === 'defaultPaymentAccount'
-              ) {
-                return (
-                  <div
-                    key={key}
-                    className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4"
-                  >
-                    <span className="min-w-[180px] text-sm font-semibold text-deep-accent">
-                      {humanizeKey(key)}
-                    </span>
-                    <select
-                      name={key}
-                      value={value || ''}
-                      onChange={handlePreferenceChange}
-                      className="min-h-[36px] flex-1 border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none"
-                    >
-                      <option value="">— Select account —</option>
-                      <option value="Primary Checking •••• 4821">
-                        Primary Checking •••• 4821
-                      </option>
-                      <option value="Savings •••• 9134">Savings •••• 9134</option>
-                      <option value="Rewards Visa •••• 2208">
-                        Rewards Visa •••• 2208
-                      </option>
-                    </select>
-                  </div>
-                );
-              }
-              return null;
-            })}
-          </div>
-
-          <div className="mt-4 flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-            {prefSaved && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary">
-                <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2.25} />
-                Preferences saved.
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={handleSavePreferences}
-              disabled={prefSaving}
-              className="inline-flex min-h-[36px] items-center gap-1.5 bg-primary px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-70 sm:ml-auto sm:text-sm"
-            >
-              {prefSaving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-              ) : (
-                <Save className="h-3.5 w-3.5" strokeWidth={2} />
-              )}
-              Save Preferences
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Linked Accounts */}
-      <section className="mb-8 border-t border-hairline pt-6">
-        <div className="mb-4 flex items-center gap-2">
-          <Link2 className="h-4 w-4 text-primary" strokeWidth={1.75} />
-          <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
-            Linked Accounts
-          </h2>
-        </div>
-
-        <div className="flex flex-col divide-y divide-faint border border-hairline bg-white p-5">
-          {linkedAccounts.length === 0 ? (
+          {!hasAccounts ? (
             <p className="py-3 text-sm text-muted">
-              No linked accounts on file.
+              You don&rsquo;t have any accounts available to set as a default yet.
             </p>
           ) : (
-            linkedAccounts.map((acc) => (
-              <div
-                key={acc.id}
-                className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:gap-4"
+            <div className="flex flex-col divide-y divide-faint">
+              {Object.entries(preferences).map(([key, value]) => {
+                if (
+                  key === 'defaultAccount' ||
+                  key === 'defaultTransferAccount' ||
+                  key === 'defaultPaymentAccount'
+                ) {
+                  return (
+                    <div
+                      key={key}
+                      className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4"
+                    >
+                      <span className="min-w-[180px] text-sm font-semibold text-deep-accent">
+                        {humanizeKey(key)}
+                      </span>
+                      <select
+                        name={key}
+                        value={value || ''}
+                        onChange={handlePreferenceChange}
+                        disabled={!isEditingPrefs}
+                        className="min-h-[36px] flex-1 border border-hairline bg-white px-3 py-1.5 text-sm text-deep-accent focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:bg-faint disabled:text-muted"
+                      >
+                        <option value="">— Select account —</option>
+                        {userAccounts.map((acc) => {
+                          const label = buildAccountLabel(acc);
+                          return (
+                            <option key={acc.id} value={label}>
+                              {label}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  );
+                }
+                return null;
+              })}
+            </div>
+          )}
+
+          {/* Editing mode: Save + Cancel */}
+          {isEditingPrefs && (
+            <div className="mt-4 flex flex-col-reverse items-stretch gap-3 border-t border-hairline pt-4 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+              <button
+                type="button"
+                onClick={handleCancelEditPrefs}
+                disabled={prefSaving}
+                className="min-h-[36px] border border-hairline bg-white px-4 py-1.5 text-xs font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60 sm:text-sm"
               >
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold text-deep-accent">
-                    {acc.institution}
-                  </div>
-                  <div className="truncate text-xs text-muted">
-                    {acc.account}
-                  </div>
-                </div>
-                <span
-                  className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide ${
-                    acc.status === 'Active' || acc.status === 'Verified'
-                      ? 'text-primary'
-                      : 'text-muted'
-                  }`}
-                >
-                  <span
-                    className={`h-1.5 w-1.5 ${
-                      acc.status === 'Active' || acc.status === 'Verified'
-                        ? 'bg-primary'
-                        : 'bg-muted'
-                    }`}
-                    aria-hidden="true"
-                  />
-                  {acc.status}
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveLinkedAccount(acc.id)}
-                    className="inline-flex min-h-[32px] items-center gap-1.5 border border-[#d9534f] bg-white px-3 py-1 text-xs font-semibold text-[#d9534f] transition-colors hover:bg-[#fdf2f2] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d9534f]/40"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSavePreferences}
+                disabled={prefSaving}
+                className="inline-flex min-h-[36px] items-center justify-center gap-1.5 bg-primary px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-70 sm:text-sm"
+              >
+                {prefSaving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+                ) : (
+                  <Save className="h-3.5 w-3.5" strokeWidth={2} />
+                )}
+                Save Preferences
+              </button>
+            </div>
+          )}
+
+          {/* View mode: success indicator only */}
+          {!isEditingPrefs && prefSaved && (
+            <div className="mt-4 flex items-center gap-1.5 border-t border-hairline pt-4">
+              <CheckCircle2 className="h-3.5 w-3.5 text-primary" strokeWidth={2.25} />
+              <span className="text-xs font-semibold text-primary">
+                Preferences saved.
+              </span>
+            </div>
           )}
         </div>
       </section>
@@ -889,18 +819,5 @@ const Settings = () => {
     </div>
   );
 };
-
-// Reusable profile display row
-const ProfileRow = ({ icon: Icon, label, value }) => (
-  <div className="flex flex-col gap-1 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-    <span className="inline-flex items-center gap-2 text-xs text-muted sm:text-sm">
-      <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-      {label}
-    </span>
-    <span className="min-w-0 text-sm font-semibold text-ink sm:text-right">
-      {value}
-    </span>
-  </div>
-);
 
 export default Settings;

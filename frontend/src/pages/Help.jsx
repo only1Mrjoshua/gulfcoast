@@ -280,11 +280,11 @@ const Help = () => {
     if (label.includes('phone') || label.includes('call')) {
       return (
         <a
-          href="tel:1-800-555-0142"
+          href="tel:1-504-387-5059"
           className="mt-4 inline-flex min-h-[36px] items-center gap-1.5 text-sm font-semibold text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         >
           <Phone className="h-3.5 w-3.5" strokeWidth={2} />
-          1-800-555-0142
+          1-504-387-5059
         </a>
       );
     }

@@ -505,10 +505,12 @@ const Cards = () => {
                     </div>
                   )}
 
-                  {/* Linked account */}
-                  <div className="mt-3 text-xs text-muted">
-                    Linked: {card.linkedAccount || '—'}
-                  </div>
+                  {/* Linked account — only for debit cards */}
+                  {card.type !== 'Credit' && (
+                    <div className="mt-3 text-xs text-muted">
+                      Linked: {card.linkedAccount || '—'}
+                    </div>
+                  )}
 
                   {/* Actions */}
                   <div className="mt-4 flex flex-wrap gap-2 border-t border-hairline pt-3">
@@ -596,10 +598,12 @@ const Cards = () => {
                   value={selectedCard.status}
                   valueColor={getStatusColor(selectedCard.status)}
                 />
-                <DetailRow
-                  label="Linked Account"
-                  value={selectedCard.linkedAccount || '—'}
-                />
+                {selectedCard.type !== 'Credit' && (
+                  <DetailRow
+                    label="Linked Account"
+                    value={selectedCard.linkedAccount || '—'}
+                  />
+                )}
                 <DetailRow label="Cardholder" value={selectedCard.cardholderName} />
                 <DetailRow
                   label="Expires"
