@@ -26,6 +26,22 @@ import { apiFetch } from '../utils/api';
 
 const PAGE_SIZE = 15;
 
+// All 12 months — used for the Month dropdown
+const MONTH_OPTIONS = [
+  { value: '01', label: 'January' },
+  { value: '02', label: 'February' },
+  { value: '03', label: 'March' },
+  { value: '04', label: 'April' },
+  { value: '05', label: 'May' },
+  { value: '06', label: 'June' },
+  { value: '07', label: 'July' },
+  { value: '08', label: 'August' },
+  { value: '09', label: 'September' },
+  { value: '10', label: 'October' },
+  { value: '11', label: 'November' },
+  { value: '12', label: 'December' },
+];
+
 // ---------- Formatting helpers ----------
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('en-US', {
@@ -153,6 +169,32 @@ const Transactions = () => {
   const anyModalOpen =
     !!selectedTransaction || showDownloadModal || !!reportTransaction;
   useBodyScrollLock(anyModalOpen);
+
+  // ============================================================
+  // Derived year + month from selectedMonth ("YYYY-MM")
+  // ============================================================
+  const [selectedYear, selectedMonthNum] = (
+    selectedMonth || currentMonthKey()
+  ).split('-');
+
+  // Years available in the dropdown: every year the user has data for,
+  // plus the current year so the picker always has something even with no data.
+  const yearOptions = useMemo(() => {
+    const set = new Set(months.map((m) => String(m.key).slice(0, 4)));
+    set.add(String(new Date().getFullYear()));
+    return Array.from(set)
+      .filter(Boolean)
+      .sort((a, b) => Number(b) - Number(a));
+  }, [months]);
+
+  const handleYearChange = (newYear) => {
+    // Preserve the currently-selected month number when switching years
+    setSelectedMonth(`${newYear}-${selectedMonthNum}`);
+  };
+
+  const handleMonthChange = (newMonthNum) => {
+    setSelectedMonth(`${selectedYear}-${newMonthNum}`);
+  };
 
   // ============================================================
   // Initial load
@@ -482,8 +524,30 @@ const Transactions = () => {
         </div>
 
         <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          {/* Month select — wrapper gets min-w-0 + max-w, select gets min-w-0 */}
-          <div className="flex min-w-0 items-center gap-2 sm:max-w-[260px]">
+          {/* Year select */}
+          <div className="flex min-w-0 items-center gap-2 sm:max-w-[140px]">
+            <label
+              htmlFor="yearSelect"
+              className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted"
+            >
+              Year
+            </label>
+            <select
+              id="yearSelect"
+              value={selectedYear}
+              onChange={(e) => handleYearChange(e.target.value)}
+              className="min-h-[44px] w-full min-w-0 border border-hairline bg-white px-3 py-2 text-sm font-semibold text-deep-accent focus:border-primary focus:outline-none"
+            >
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Month select — always shows Jan–Dec of the selected year */}
+          <div className="flex min-w-0 items-center gap-2 sm:max-w-[180px]">
             <label
               htmlFor="monthSelect"
               className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-muted"
@@ -492,13 +556,13 @@ const Transactions = () => {
             </label>
             <select
               id="monthSelect"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
+              value={selectedMonthNum}
+              onChange={(e) => handleMonthChange(e.target.value)}
               className="min-h-[44px] w-full min-w-0 border border-hairline bg-white px-3 py-2 text-sm font-semibold text-deep-accent focus:border-primary focus:outline-none"
             >
-              {months.map((m) => (
-                <option key={m.key} value={m.key}>
-                  {m.label}
+              {MONTH_OPTIONS.map((mo) => (
+                <option key={mo.value} value={mo.value}>
+                  {mo.label}
                 </option>
               ))}
             </select>
