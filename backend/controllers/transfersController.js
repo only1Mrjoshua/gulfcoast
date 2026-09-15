@@ -2,6 +2,7 @@
 import Transfer from '../models/Transfer.js';
 import Account from '../models/Account.js';
 import User from '../models/User.js';
+import bcrypt from 'bcryptjs';
 import { generateTransferReceiptPdf } from '../utils/pdfReceipt.js';
 import { notifyUser } from '../utils/notifyUser.js';
 
@@ -120,9 +121,6 @@ export const getTransfers = async (req, res) => {
 
 // ================================================================
 // GET /api/transfers/accounts
-// Returns every account the user can transfer from OR to.
-// External accounts are flagged so the frontend can present them
-// as "linked" destinations.
 // ================================================================
 export const getTransferAccounts = async (req, res) => {
   try {
@@ -170,11 +168,12 @@ export const getTransferAccounts = async (req, res) => {
 
 // ================================================================
 // POST /api/transfers
+// Body also accepts `pin` — the user's 4-digit bank PIN.
 // ================================================================
 export const createTransfer = async (req, res) => {
   try {
     const userId = req.user._id;
-    const user = await User.findById(userId).select('firstName lastName');
+    const user = await User.findById(userId).select('firstName lastName +bankPin');
 
     let {
       type,
@@ -191,12 +190,24 @@ export const createTransfer = async (req, res) => {
       recipientAccountType,
       recipientBankAddress,
       verificationMethod,
+      pin,
     } = req.body;
 
+    // ── Bank PIN verification ─────────────────────────────────
+    // Only enforced when the user has a PIN on file. Users who
+    // have not set one yet can transfer without a PIN.
+    if (user.bankPin) {
+      const pinStr = pin === undefined || pin === null ? '' : String(pin).trim();
+      if (!/^\d{4}$/.test(pinStr)) {
+        return res.status(400).json({ error: 'Please enter your 4-digit PIN' });
+      }
+      const pinOk = await bcrypt.compare(pinStr, user.bankPin);
+      if (!pinOk) {
+        return res.status(401).json({ error: 'Incorrect PIN. Please try again.' });
+      }
+    }
+
     // ── Detect linked-account destination ─────────────────────
-    // If the destination is an External account the user linked,
-    // promote this transfer to 'external' and pull the recipient
-    // details from the linked account record.
     let linkedDestination = null;
     if (toAccountId) {
       linkedDestination = await Account.findOne({
@@ -253,7 +264,6 @@ export const createTransfer = async (req, res) => {
       });
     }
 
-    // Internal / recurring need an internal destination account
     let to = null;
     if (type === 'internal' || type === 'recurring') {
       to = await Account.findOne({ _id: toAccountId, userId });
@@ -273,7 +283,6 @@ export const createTransfer = async (req, res) => {
       }
     }
 
-    // External / wire need a full recipient record
     if (type === 'external' || type === 'wire') {
       if (
         !recipientName ||
@@ -295,9 +304,6 @@ export const createTransfer = async (req, res) => {
     // ── Build & save ───────────────────────────────────────────
     const transactionNumber = await generateTransactionNumber();
 
-    // For external transfers going to a linked account, keep the
-    // linked account's _id in toAccountId for history, but leave
-    // toAccountName as the institution so the frontend displays well.
     const isLinked = !!linkedDestination;
 
     const transfer = await Transfer.create({

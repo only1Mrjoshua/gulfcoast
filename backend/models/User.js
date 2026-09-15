@@ -7,6 +7,11 @@ const userSchema = new mongoose.Schema({
   username:  { type: String, required: true, unique: true },
   email:     { type: String, required: true, unique: true },
   password:  { type: String, required: true },
+
+  // Hashed 4-digit bank PIN, required for authorizing transfers.
+  // select: false keeps it out of every query unless explicitly requested.
+  bankPin: { type: String, default: '', select: false },
+
   role: {
     type: String,
     enum: ['user', 'admin'],
@@ -46,7 +51,6 @@ const userSchema = new mongoose.Schema({
     cardExpiration:           { type: Boolean, default: true },
   },
 
-  // ⬇️ NEW — Loan alert preferences shown on the Loans page
   loanAlertPreferences: {
     paymentReminder:    { type: Boolean, default: true },
     dueDateAlert:       { type: Boolean, default: true },
@@ -60,27 +64,21 @@ const userSchema = new mongoose.Schema({
     promotions:  { type: Boolean, default: true },
     security:    { type: Boolean, default: true },
 
-    // System-generated
     deposit:     { type: Boolean, default: true },
     transfer:    { type: Boolean, default: true },
     payment:     { type: Boolean, default: true },
   },
 
-  // ── Settings: personal mailing address (flat string form)
   mailingAddress: { type: String, default: '' },
 
-  // ── Settings: two-step verification flag
   twoStepVerification: { type: Boolean, default: false },
 
-  // ── Settings: preferred default accounts
   accountPreferences: {
     defaultAccount:         { type: String, default: '' },
     defaultTransferAccount: { type: String, default: '' },
     defaultPaymentAccount:  { type: String, default: '' },
   },
 
-  // ⬇️ NEW — Optional profile fields used to prefill the loan application.
-  //           All default to empty so existing records are unaffected.
   dateOfBirth:    { type: String, default: '' },
   ssn:            { type: String, default: '' },
   phone:          { type: String, default: '' },

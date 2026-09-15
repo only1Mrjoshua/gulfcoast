@@ -1,5 +1,5 @@
 // src/pages/Transfers.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeftRight,
   Landmark,
@@ -26,6 +26,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { apiFetch } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
 
 const WIRE_FEE = 25;
 const ACCOUNT_HOLDER_NAME = ''; // fallback; real name comes from backend
@@ -118,6 +119,8 @@ const downloadReceipt = async (transfer) => {
 };
 
 const Transfers = () => {
+  const { user } = useAuth();
+
   const [currentStep, setCurrentStep] = useState('type');
   const [selectedType, setSelectedType] = useState(null);
   const [selectedTransfer, setSelectedTransfer] = useState(null);
@@ -135,6 +138,10 @@ const Transfers = () => {
   const [confirmationNumber, setConfirmationNumber] = useState('');
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [confirmError, setConfirmError] = useState('');
+
+  // PIN step state
+  const [pinError, setPinError] = useState('');
+  const [pinAttempts, setPinAttempts] = useState(0);
 
   const [formData, setFormData] = useState({
     fromAccountId: '',
@@ -227,6 +234,8 @@ const Transfers = () => {
     setCurrentStep('form');
     setFormData(resetForm(type));
     setConfirmError('');
+    setPinError('');
+    setPinAttempts(0);
   };
 
   const handleInputChange = (e) => {
@@ -241,9 +250,28 @@ const Transfers = () => {
   };
 
   // ────────────────────────────────────────────────────────────
-  // CONFIRM — POST to backend
+  // REVIEW → move to PIN step (or straight to authorize if
+  // the user has no PIN on file yet).
   // ────────────────────────────────────────────────────────────
-  const handleConfirm = async () => {
+  const handleConfirm = () => {
+    setPinError('');
+    setConfirmError('');
+
+    if (user?.hasBankPin === false) {
+      // No PIN on file — authorize immediately with no PIN
+      handleAuthorize(null);
+      return;
+    }
+
+    setCurrentStep('pin');
+  };
+
+  // ────────────────────────────────────────────────────────────
+  // AUTHORIZE — POST to backend. `pin` may be null when the
+  // user has no PIN on file.
+  // ────────────────────────────────────────────────────────────
+  const handleAuthorize = async (pin) => {
+    setPinError('');
     setConfirmError('');
     setConfirmLoading(true);
 
@@ -255,6 +283,8 @@ const Transfers = () => {
         date: formData.date,
         memo: formData.memo,
       };
+
+      if (pin) payload.pin = pin;
 
       if (selectedType === 'internal' || selectedType === 'recurring') {
         payload.toAccountId = formData.toAccountId;
@@ -279,11 +309,20 @@ const Transfers = () => {
 
       const newTransfer = res.data.transfer;
       setConfirmationNumber(newTransfer.transactionNumber);
+      setPinAttempts(0);
       setCurrentStep('success');
-      // Refresh history in the background so the new pending transfer shows up
       refreshTransfers();
     } catch (err) {
-      setConfirmError(err.message || 'Failed to create transfer');
+      const message = err.message || 'Failed to authorize transfer';
+
+      // Show the error on both screens so whichever one the user
+      // is currently looking at gets the feedback.
+      setPinError(message);
+      setConfirmError(message);
+
+      if (/incorrect pin/i.test(message)) {
+        setPinAttempts((n) => n + 1);
+      }
     } finally {
       setConfirmLoading(false);
     }
@@ -294,6 +333,8 @@ const Transfers = () => {
     setSelectedType(null);
     setConfirmationNumber('');
     setConfirmError('');
+    setPinError('');
+    setPinAttempts(0);
     setFormData(resetForm(null));
   };
 
@@ -395,6 +436,21 @@ const Transfers = () => {
           />
         )}
 
+        {currentStep === 'pin' && (
+          <TransferPin
+            amount={parseFloat(formData.amount) || 0}
+            isWire={selectedType === 'wire'}
+            onSubmit={handleAuthorize}
+            onBack={() => {
+              setPinError('');
+              setCurrentStep('review');
+            }}
+            loading={confirmLoading}
+            error={pinError}
+            attempts={pinAttempts}
+          />
+        )}
+
         {currentStep === 'success' && (
           <TransferSuccess
             confirmationNumber={confirmationNumber}
@@ -470,7 +526,6 @@ const Transfers = () => {
           {monthTransfers.map((t) => {
             const meta = TRANSFER_TYPE_META[t.type] || TRANSFER_TYPE_META.internal;
             const TypeIcon = meta.icon;
-            const showRecipient = isExternalRecipient(t.type);
 
             return (
               <button
@@ -491,9 +546,7 @@ const Transfers = () => {
                   />
                   <span className="truncate">{t.from}</span>
                   <ArrowRight className="h-3 w-3 shrink-0 text-muted" strokeWidth={2} />
-                  <span className="truncate">
-                    {showRecipient ? t.to : t.to}
-                  </span>
+                  <span className="truncate">{t.to}</span>
                 </span>
 
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-body sm:text-xs">
@@ -535,7 +588,7 @@ const Transfers = () => {
 };
 
 // ============================================================
-// Transfer Type Selection  (unchanged)
+// Transfer Type Selection
 // ============================================================
 const TransferTypeSelection = ({ onSelect }) => {
   const options = [
@@ -605,7 +658,7 @@ const TransferTypeSelection = ({ onSelect }) => {
 };
 
 // ============================================================
-// Transfer Form  (added inline insufficient-funds validation)
+// Transfer Form
 // ============================================================
 const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, onCancel }) => {
   const fromAccount = accounts.find((a) => a.id === formData.fromAccountId);
@@ -618,7 +671,6 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
   const amountValue = parseFloat(formData.amount) || 0;
   const totalDebit = isWire ? amountValue + WIRE_FEE : amountValue;
 
-  // Real-time insufficient funds check
   const insufficientFunds =
     fromAccount &&
     amountValue > 0 &&
@@ -895,7 +947,6 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
           />
         </div>
 
-        {/* Insufficient funds message */}
         {insufficientFunds && (
           <div className="mt-2 flex items-start gap-2 border border-[#f5c6cb] bg-[#f8d7da] px-4 py-2.5">
             <AlertCircle
@@ -1000,7 +1051,7 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
 };
 
 // ============================================================
-// Transfer Review  (added loading + error props)
+// Transfer Review
 // ============================================================
 const TransferReview = ({
   formData,
@@ -1151,7 +1202,7 @@ const TransferReview = ({
             </>
           ) : (
             <>
-              <Send className="h-4 w-4" strokeWidth={2.25} />
+              <ShieldCheck className="h-4 w-4" strokeWidth={2.25} />
               Confirm Transfer
             </>
           )}
@@ -1169,7 +1220,165 @@ const Row = ({ label, children }) => (
 );
 
 // ============================================================
-// Transfer Success  (unchanged apart from using real confirmation number)
+// Transfer PIN (new step between Review and Success)
+// ============================================================
+const TransferPin = ({ amount, isWire, onSubmit, onBack, loading, error, attempts }) => {
+  const [pin, setPin] = useState(['', '', '', '']);
+  const inputRefs = useRef([]);
+
+  useEffect(() => {
+    setTimeout(() => inputRefs.current[0]?.focus(), 50);
+  }, []);
+
+  const totalDebit = isWire ? amount + WIRE_FEE : amount;
+
+  const handleChange = (index, value) => {
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const next = [...pin];
+    next[index] = digit;
+    setPin(next);
+
+    if (digit && index < 3) {
+      inputRefs.current[index + 1]?.focus();
+    }
+
+    if (digit && index === 3 && next.every((d) => d)) {
+      onSubmit(next.join(''));
+    }
+  };
+
+  const handleKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !pin[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+    if (e.key === 'ArrowLeft' && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+    if (e.key === 'ArrowRight' && index < 3) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const pasted = (e.clipboardData.getData('text') || '')
+      .replace(/\D/g, '')
+      .slice(0, 4);
+    if (!pasted) return;
+
+    const next = ['', '', '', ''];
+    for (let i = 0; i < pasted.length; i++) next[i] = pasted[i];
+    setPin(next);
+
+    const focusIdx = Math.min(pasted.length, 3);
+    inputRefs.current[focusIdx]?.focus();
+
+    if (pasted.length === 4) onSubmit(pasted);
+  };
+
+  const handleManualSubmit = () => {
+    const code = pin.join('');
+    if (code.length === 4) onSubmit(code);
+  };
+
+  return (
+    <div className="border border-hairline bg-faint p-6 sm:p-8">
+      <div className="mb-6 flex items-center gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-[#e7f3f5] text-primary">
+          <ShieldCheck className="h-5 w-5" strokeWidth={1.75} />
+        </span>
+        <div>
+          <h2 className="font-serif text-xl font-bold text-deep-accent sm:text-2xl">
+            Enter your PIN
+          </h2>
+          <p className="mt-0.5 text-sm text-body">
+            Authorize this transfer of{' '}
+            <span className="font-semibold text-deep-accent">
+              {formatCurrency(totalDebit)}
+            </span>
+            {isWire ? ' (incl. $25 wire fee)' : ''}.
+          </p>
+        </div>
+      </div>
+
+      <div
+        className="mx-auto flex max-w-xs justify-center gap-3"
+        onPaste={handlePaste}
+      >
+        {pin.map((digit, i) => (
+          <input
+            key={i}
+            ref={(el) => (inputRefs.current[i] = el)}
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={1}
+            value={digit}
+            disabled={loading}
+            onChange={(e) => handleChange(i, e.target.value)}
+            onKeyDown={(e) => handleKeyDown(i, e)}
+            aria-label={'PIN digit ' + (i + 1)}
+            className="h-14 w-14 border border-hairline bg-white text-center font-serif text-2xl font-bold text-deep-accent outline-none transition-colors focus:border-primary disabled:opacity-60"
+          />
+        ))}
+      </div>
+
+      {error && (
+        <div className="mt-5 flex items-start gap-2 border border-[#f5c6cb] bg-[#f8d7da] px-4 py-3">
+          <AlertCircle
+            className="mt-0.5 h-4 w-4 shrink-0 text-[#721c24]"
+            strokeWidth={2}
+          />
+          <span className="text-sm text-[#721c24]">{error}</span>
+        </div>
+      )}
+
+      {attempts >= 3 && !error && (
+        <div className="mt-4 flex items-start gap-2 border border-hairline bg-white px-4 py-3">
+          <Info
+            className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+            strokeWidth={1.75}
+          />
+          <span className="text-xs text-body sm:text-sm">
+            Having trouble? Contact support at 1-800-555-0142 to reset your PIN.
+          </span>
+        </div>
+      )}
+
+      <div className="mt-6 flex flex-col-reverse gap-3 border-t border-hairline pt-6 sm:flex-row sm:justify-end">
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={loading}
+          className="min-h-[44px] border border-hairline bg-white px-6 py-2.5 text-sm font-semibold text-deep-accent transition-colors hover:bg-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60"
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={handleManualSubmit}
+          disabled={loading || pin.some((d) => !d)}
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+              Authorizing…
+            </>
+          ) : (
+            <>
+              <ShieldCheck className="h-4 w-4" strokeWidth={2.25} />
+              Authorize Transfer
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// Transfer Success
 // ============================================================
 const TransferSuccess = ({
   confirmationNumber,
@@ -1251,7 +1460,7 @@ const SummaryRow = ({ label, value }) => (
 );
 
 // ============================================================
-// Transfer Details Modal  (download now fetches PDF from backend)
+// Transfer Details Modal
 // ============================================================
 const TransferDetailsModal = ({ transfer, onClose }) => {
   const [copied, setCopied] = useState(false);

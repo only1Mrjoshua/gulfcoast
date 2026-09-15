@@ -16,8 +16,7 @@ import {
 } from '../utils/otp.js';
 
 // ─────────────────────────────────────────────────────────────
-//  Send the standard token response (unchanged shape so the
-//  frontend's AuthContext keeps working as-is)
+//  Send the standard token response
 // ─────────────────────────────────────────────────────────────
 const sendTokenResponse = (user, statusCode, res) => {
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
@@ -34,6 +33,7 @@ const sendTokenResponse = (user, statusCode, res) => {
       username: user.username,
       email: user.email,
       role: user.role,
+      hasBankPin: !!user.bankPin,   // frontend uses this to decide whether to show the PIN step
     },
   });
 };
@@ -66,10 +66,6 @@ export const register = async (req, res, next) => {
 
 // ─────────────────────────────────────────────────────────────
 //  POST /api/auth/login
-//  Body: { username, password, deviceId }
-//
-//  Trusted device + same IP  → issue token immediately
-//  New device or new IP      → email OTP, return requiresOTP
 // ─────────────────────────────────────────────────────────────
 export const login = async (req, res, next) => {
   try {
@@ -83,7 +79,7 @@ export const login = async (req, res, next) => {
 
     const user = await User.findOne({
       $or: [{ username }, { email: username }],
-    }).select('+password');
+    }).select('+password +bankPin');
 
     if (!user) return next(new ErrorResponse('Invalid credentials', 401));
 
@@ -112,7 +108,6 @@ export const login = async (req, res, next) => {
       : null;
 
     if (trusted) {
-      // Known device + same network → sign in immediately
       await TrustedDevice.updateOne(
         { _id: trusted._id },
         { $set: { lastUsed: new Date(), userAgent } }
@@ -125,7 +120,6 @@ export const login = async (req, res, next) => {
     const otp = generateOTP();
     const otpHash = await hashOTP(otp);
 
-    // Clear any previous pending attempt for this user
     await LoginAttempt.deleteMany({ userId: user._id });
 
     const attempt = await LoginAttempt.create({
@@ -134,10 +128,9 @@ export const login = async (req, res, next) => {
       deviceId,
       ipAddress,
       userAgent,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    // Send the email (falls back to console log if Resend isn't configured)
     await sendOTPEmail({
       to: user.email,
       name: user.firstName,
@@ -159,7 +152,6 @@ export const login = async (req, res, next) => {
 
 // ─────────────────────────────────────────────────────────────
 //  POST /api/auth/verify-otp
-//  Body: { attemptId, otp }
 // ─────────────────────────────────────────────────────────────
 export const verifyLoginOTP = async (req, res, next) => {
   try {
@@ -179,7 +171,6 @@ export const verifyLoginOTP = async (req, res, next) => {
       );
     }
 
-    // Timeout
     if (new Date() > attempt.expiresAt) {
       await LoginAttempt.deleteOne({ _id: attempt._id });
       return next(
@@ -190,7 +181,6 @@ export const verifyLoginOTP = async (req, res, next) => {
       );
     }
 
-    // Brute-force lockout
     if (attempt.attempts >= 5) {
       await LoginAttempt.deleteOne({ _id: attempt._id });
       return next(
@@ -201,7 +191,6 @@ export const verifyLoginOTP = async (req, res, next) => {
       );
     }
 
-    // Validate the code
     const ok = await verifyOTP(String(otp).trim(), attempt.otpHash);
     if (!ok) {
       attempt.attempts += 1;
@@ -214,14 +203,13 @@ export const verifyLoginOTP = async (req, res, next) => {
       );
     }
 
-    // Fetch the user
-    const user = await User.findById(attempt.userId);
+    // Include +bankPin so hasBankPin is accurate on the OTP path too.
+    const user = await User.findById(attempt.userId).select('+bankPin');
     if (!user) {
       await LoginAttempt.deleteOne({ _id: attempt._id });
       return next(new ErrorResponse('User not found', 404));
     }
 
-    // Trust this device + network combination
     await TrustedDevice.findOneAndUpdate(
       {
         userId: user._id,
@@ -242,10 +230,8 @@ export const verifyLoginOTP = async (req, res, next) => {
       { upsert: true, returnDocument: 'after' }
     );
 
-    // Clean up the attempt
     await LoginAttempt.deleteOne({ _id: attempt._id });
 
-    // Issue the session
     sendTokenResponse(user, 200, res);
   } catch (error) {
     next(error);
