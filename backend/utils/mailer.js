@@ -14,6 +14,7 @@ const REPLY_TO = process.env.EMAIL_REPLY_TO || undefined;
 //  Change this URL if your domain changes.
 // ────────────────────────────────────────────────────────────────
 const LOGO_URL = 'https://www.thegulffinance.com/logo.svg';
+const HEADER_IMG_URL = 'https://www.thegulffinance.com/email-header.png';
 
 const BRAND_NAME = 'Gulf Coast Bank & Trust Company';
 const BRAND_SHORT = 'Gulf Coast Bank';
@@ -38,11 +39,10 @@ const buildOTPEmailHtml = ({ name, otp, device, ip }) => {
 
   return `
 <!DOCTYPE html>
+<html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="color-scheme" content="light only">
-<meta name="supported-color-schemes" content="light only">
 <title>Your verification code</title>
 </head>
 <body style="margin:0;padding:0;background:#000000;font-family:Helvetica,Arial,sans-serif;color:#ffffff;-webkit-font-smoothing:antialiased;">
@@ -53,17 +53,13 @@ const buildOTPEmailHtml = ({ name, otp, device, ip }) => {
 
           <!-- HEADER -->
           <tr>
-            <td bgcolor="#ffffff" style="background-color:#ffffff;padding:22px 32px;border-bottom:3px solid #008296;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="background-color:#ffffff;">
-                <tr>
-                  <td align="left" valign="middle" bgcolor="#ffffff" style="vertical-align:middle;background-color:#ffffff;">
-                    <img src="${LOGO_URL}" alt="${BRAND_NAME}" width="140" style="height:auto;max-width:140px;display:block;border:0;outline:none;text-decoration:none;background-color:#ffffff;" />
-                  </td>
-                  <td align="right" valign="middle" bgcolor="#ffffff" style="vertical-align:middle;background-color:#ffffff;font-size:12px;font-weight:700;color:#003256;letter-spacing:0.4px;white-space:nowrap;">
-                    The Trusted Digital Bank
-                  </td>
-                </tr>
-              </table>
+            <td align="center" style="padding:0;margin:0;">
+              <img
+                src="${HEADER_IMG_URL}"
+                alt="${BRAND_NAME}"
+                width="600"
+                style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;"
+              />
             </td>
           </tr>
 
