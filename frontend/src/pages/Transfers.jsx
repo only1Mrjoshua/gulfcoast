@@ -415,6 +415,7 @@ const Transfers = () => {
         {currentStep === 'form' && (
           <TransferForm
             formData={formData}
+            setFormData={setFormData}
             onChange={handleInputChange}
             onSubmit={handleSubmit}
             accounts={accounts}
@@ -660,7 +661,15 @@ const TransferTypeSelection = ({ onSelect }) => {
 // ============================================================
 // Transfer Form
 // ============================================================
-const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, onCancel }) => {
+const TransferForm = ({
+  formData,
+  setFormData,
+  onChange,
+  onSubmit,
+  accounts,
+  selectedType,
+  onCancel,
+}) => {
   const fromAccount = accounts.find((a) => a.id === formData.fromAccountId);
   const availableToAccounts = accounts.filter((a) => a.id !== formData.fromAccountId);
 
@@ -676,9 +685,69 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
     amountValue > 0 &&
     fromAccount.available < totalDebit;
 
+  // ── Recipient lookup state (ACH / wire only) ───────────────
+  const [lookupState, setLookupState] = useState('idle'); // idle | loading | found | notfound
+  const [lookupError, setLookupError] = useState('');
+  const lookupTimerRef = useRef(null);
+
+  useEffect(
+    () => () => {
+      if (lookupTimerRef.current) clearTimeout(lookupTimerRef.current);
+    },
+    []
+  );
+
+  const lookupRecipient = async (accountNumber) => {
+    setLookupState('loading');
+    setLookupError('');
+    try {
+      const res = await apiFetch(
+        `/transfers/lookup-recipient/${encodeURIComponent(accountNumber)}`
+      );
+      const r = res.data.recipient;
+
+      setFormData((prev) => ({
+        ...prev,
+        recipientName: r.fullName,
+        recipientBankName: r.bankName,
+        recipientRoutingNumber: r.routingNumber,
+        recipientAccountNumber: r.accountNumber,
+        recipientAccountType: r.accountType || 'checking',
+        recipientBankAddress: r.bankAddress || '',
+      }));
+      setLookupState('found');
+    } catch (err) {
+      setLookupState('notfound');
+      setLookupError(err.message || 'No account found with that number');
+      setFormData((prev) => ({
+        ...prev,
+        recipientName: '',
+        recipientBankName: '',
+        recipientRoutingNumber: '',
+        recipientAccountType: 'checking',
+        recipientBankAddress: '',
+      }));
+    }
+  };
+
+  const handleAccountNumberChange = (e) => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 17);
+    setFormData((prev) => ({ ...prev, recipientAccountNumber: value }));
+    setLookupState('idle');
+    setLookupError('');
+
+    if (lookupTimerRef.current) clearTimeout(lookupTimerRef.current);
+    if (value.length >= 6) {
+      lookupTimerRef.current = setTimeout(() => lookupRecipient(value), 600);
+    }
+  };
+
+  const recipientNotVerified =
+    (isExternal || isWire) && lookupState !== 'found';
+
   const handleSubmitLocal = (e) => {
     e.preventDefault();
-    if (insufficientFunds) return;
+    if (insufficientFunds || recipientNotVerified) return;
     onSubmit(e);
   };
 
@@ -773,152 +842,77 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
         </div>
       )}
 
-      {/* External / Wire: recipient details */}
+      {/* External / Wire: recipient lookup by account number */}
       {(isExternal || isWire) && (
         <div className="mb-5 border-t border-hairline pt-5">
           <div className="mb-4 flex items-center gap-2">
             <User className="h-4 w-4 text-primary" strokeWidth={1.75} />
             <h3 className="text-sm font-bold uppercase tracking-wide text-deep-accent">
-              Recipient Information
+              Recipient Account
             </h3>
           </div>
 
-          <div className="mb-4">
+          <div className="mb-2">
             <label
-              htmlFor="recipientName"
+              htmlFor="recipientAccountNumber"
               className="mb-1.5 block text-sm font-semibold text-deep-accent"
             >
-              Recipient Full Name
+              Recipient Account Number
             </label>
             <input
               type="text"
-              id="recipientName"
-              name="recipientName"
-              value={formData.recipientName}
-              onChange={onChange}
-              placeholder="e.g. Jane Smith"
-              required
-              className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent placeholder:text-muted/70 focus:border-primary focus:outline-none"
-            />
-            <p className="mt-1 text-[11px] text-muted">
-              The name on the recipient&apos;s bank account.
-            </p>
-          </div>
-
-          <div className="mb-4 flex items-center gap-2 border-t border-hairline pt-4">
-            <Building2 className="h-4 w-4 text-primary" strokeWidth={1.75} />
-            <h3 className="text-sm font-bold uppercase tracking-wide text-deep-accent">
-              Recipient Bank Details
-            </h3>
-          </div>
-
-          <div className="mb-4">
-            <label
-              htmlFor="recipientBankName"
-              className="mb-1.5 block text-sm font-semibold text-deep-accent"
-            >
-              Bank Name
-            </label>
-            <input
-              type="text"
-              id="recipientBankName"
-              name="recipientBankName"
-              value={formData.recipientBankName}
-              onChange={onChange}
-              placeholder="e.g. Chase Bank"
+              id="recipientAccountNumber"
+              name="recipientAccountNumber"
+              value={formData.recipientAccountNumber}
+              onChange={handleAccountNumberChange}
+              placeholder="Enter the recipient's account number"
+              inputMode="numeric"
+              autoComplete="off"
               required
               className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent placeholder:text-muted/70 focus:border-primary focus:outline-none"
             />
           </div>
 
-          <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="recipientRoutingNumber"
-                className="mb-1.5 block text-sm font-semibold text-deep-accent"
-              >
-                Routing Number
-              </label>
-              <input
-                type="text"
-                id="recipientRoutingNumber"
-                name="recipientRoutingNumber"
+          {lookupState === 'loading' && (
+            <div className="mt-3 flex items-center gap-2 border border-hairline bg-white px-4 py-3 text-sm text-body">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" strokeWidth={2.25} />
+              Looking up account…
+            </div>
+          )}
+
+          {lookupState === 'notfound' && (
+            <div className="mt-3 flex items-start gap-2 border border-[#f5c6cb] bg-[#f8d7da] px-4 py-3">
+              <AlertCircle
+                className="mt-0.5 h-4 w-4 shrink-0 text-[#721c24]"
+                strokeWidth={2}
+              />
+              <span className="text-sm text-[#721c24]">{lookupError}</span>
+            </div>
+          )}
+
+          {lookupState === 'found' && (
+            <div className="mt-3 border border-hairline bg-white p-4">
+
+              <RecipientRow label="Account Holder" value={formData.recipientName} />
+              <RecipientRow label="Bank" value={formData.recipientBankName} />
+              <RecipientRow
+                label="Routing Number"
                 value={formData.recipientRoutingNumber}
-                onChange={onChange}
-                placeholder="9 digits"
-                inputMode="numeric"
-                maxLength={9}
-                pattern="\d{9}"
-                required
-                className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent placeholder:text-muted/70 focus:border-primary focus:outline-none"
               />
-              <p className="mt-1 text-[11px] text-muted">
-                9-digit code identifying the recipient&apos;s bank.
-              </p>
-            </div>
-
-            <div>
-              <label
-                htmlFor="recipientAccountNumber"
-                className="mb-1.5 block text-sm font-semibold text-deep-accent"
-              >
-                Account Number
-              </label>
-              <input
-                type="text"
-                id="recipientAccountNumber"
-                name="recipientAccountNumber"
-                value={formData.recipientAccountNumber}
-                onChange={onChange}
-                placeholder="Account number"
-                inputMode="numeric"
-                required
-                className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent placeholder:text-muted/70 focus:border-primary focus:outline-none"
+              <RecipientRow
+                label="Account Type"
+                value={
+                  formData.recipientAccountType === 'savings' ? 'Savings' : 'Checking'
+                }
               />
-            </div>
-          </div>
-
-          <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="recipientAccountType"
-                className="mb-1.5 block text-sm font-semibold text-deep-accent"
-              >
-                Account Type
-              </label>
-              <select
-                id="recipientAccountType"
-                name="recipientAccountType"
-                value={formData.recipientAccountType}
-                onChange={onChange}
-                className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
-              >
-                <option value="checking">Checking</option>
-                <option value="savings">Savings</option>
-              </select>
-            </div>
-
-            {isWire && (
-              <div>
-                <label
-                  htmlFor="recipientBankAddress"
-                  className="mb-1.5 block text-sm font-semibold text-deep-accent"
-                >
-                  Bank Address
-                </label>
-                <input
-                  type="text"
-                  id="recipientBankAddress"
-                  name="recipientBankAddress"
+              {isWire && formData.recipientBankAddress && (
+                <RecipientRow
+                  label="Bank Address"
                   value={formData.recipientBankAddress}
-                  onChange={onChange}
-                  placeholder="City, State"
-                  required
-                  className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent placeholder:text-muted/70 focus:border-primary focus:outline-none"
                 />
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -1039,7 +1033,7 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
         </button>
         <button
           type="submit"
-          disabled={insufficientFunds}
+          disabled={insufficientFunds || recipientNotVerified}
           className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Review Transfer
@@ -1049,6 +1043,15 @@ const TransferForm = ({ formData, onChange, onSubmit, accounts, selectedType, on
     </form>
   );
 };
+
+const RecipientRow = ({ label, value }) => (
+  <div className="flex items-center justify-between py-1.5">
+    <span className="text-xs text-muted sm:text-sm">{label}</span>
+    <span className="text-sm font-semibold text-deep-accent sm:text-right">
+      {value || '—'}
+    </span>
+  </div>
+);
 
 // ============================================================
 // Transfer Review

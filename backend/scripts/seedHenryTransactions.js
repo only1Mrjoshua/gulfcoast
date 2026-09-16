@@ -17,15 +17,56 @@ const USERNAME        = 'mrhenrydorian';
 const TARGET_NET      = 1921752.00;
 const MONTHLY_MIN_IN  = 500000;
 const MONTHLY_MIN_OUT = 500000;
+
 const START_YEAR = 2023;
 const START_MONTH = 0;
 const START_DAY = 3;
-const END_YEAR = 2026;
-const END_MONTH = 8;
-const END_DAY = 15;
+
+// End date is dynamic: today.
+const TODAY = new Date();
+const END_YEAR  = TODAY.getFullYear();
+const END_MONTH = TODAY.getMonth();
+const END_DAY   = TODAY.getDate();
+
 const WIRE_FEE = 25;
-const OPENING_DEPOSIT = 500000;
-const SYNC_ACCOUNT_BALANCE = true; // set checking balance = sum of transactions
+const OPENING_DEPOSIT = 100000;
+const SYNC_ACCOUNT_BALANCE = true;
+
+// Every month must have more than 100 and no more than 150 transactions.
+const MIN_TX_PER_MONTH = 100;
+const MAX_TX_PER_MONTH = 150;
+
+// Hard cap on any single generated credit or debit chunk.
+const MAX_CHUNK = 48000;
+
+// ---------------------------------------------------------
+//  Recurring income schedules
+// ---------------------------------------------------------
+// Datalare weekly check deposits (Wednesdays).
+// Only $4,050/week starting July 1, 2025.
+const DATALARE_WEEKLY_AMOUNT = 4050;
+const DATALARE_START = new Date(2025, 6, 1); // Jul 1, 2025
+
+// Titan Blockchain Capital profit earnings.
+// $9,850 weekly on Fridays, starting Oct 3, 2025.
+const TITAN_WEEKLY_AMOUNT = 9850;
+const TITAN_START         = new Date(2025, 9, 3); // Fri Oct 3, 2025
+
+// ---------------------------------------------------------
+//  One-off transactions
+// ---------------------------------------------------------
+// $15,000 card debit to Binance, placed just before the Titan payouts begin.
+const BINANCE_CARD_DEBIT = {
+  amount: 15000,
+  date: new Date(2025, 8, 28, 11, 0, 0), // Sep 28, 2025
+};
+
+// Two wire debits to Francis Dorian at Chase Bank: $9,600 each,
+// one last year and one this year.
+const FRANCIS_WIRES = [
+  { amount: 9600, date: new Date(END_YEAR - 1, 10, 20, 11, 0, 0) }, // last year (Nov 20)
+  { amount: 9600, date: new Date(END_YEAR, 4, 20, 11, 0, 0) },      // this year (May 20)
+];
 
 // ---------------------------------------------------------
 //  Merchant pools
@@ -113,26 +154,27 @@ const OUTGOING_PEOPLE = [
   { name: 'Everett Chapman',  bank: 'KeyBank' },
 ];
 
-const ACH_IN_SOURCES = [
-  'Fidelity Investments', 'Charles Schwab', 'Vanguard Brokerage',
-  'Robinhood Transfer', 'Coinbase Proceeds', 'Betterment Transfer',
-  'Wealthfront Transfer', 'M1 Finance Transfer', 'E-Trade Settlement',
-  'SoFi Money', 'Marcus by Goldman', 'Ally Invest Settlement',
+// Only savings transfers remain. No investment destinations.
+const ACH_OUT_DESTS = [
+  'Marcus Savings',
+  'Ally Bank Savings',
+  'Discover Savings',
 ];
 
-const ACH_OUT_DESTS = [
-  'Fidelity Investments', 'Charles Schwab', 'Vanguard Brokerage',
-  'Betterment Transfer', 'Wealthfront Transfer', 'M1 Finance Transfer',
-  'E-Trade Settlement', 'Coinbase Purchase', 'Robinhood Transfer',
-  'Marcus Savings', 'Ally Bank Savings', 'Discover Savings',
+// Descriptions for the chunked settlement credits.
+const SETTLEMENT_CREDIT_LABELS = [
+  'Wire from Northeast Capital Bank Account Settlement',
+  'Incoming Wire Transfer',
+  'Business Revenue Deposit',
+  'Consulting Payment',
+  'ACH Credit from Northeast Capital Bank',
 ];
 
 // ---------------------------------------------------------
 //  Recurring bills
 // ---------------------------------------------------------
 const RECURRING_BILLS = [
-  { day: 1,  merchant: 'Apartment Rent',                    amount: 1850.00, category: 'Housing' },
-  { day: 1,  merchant: 'Mortgage Payment 1450 N Logan St',  amount: 4500.00, category: 'Mortgage' },
+  { day: 1,  merchant: 'Apartment Rent',                    amount: 3400.00, category: 'Housing' },
   { day: 1,  merchant: 'Progressive',                       amount: 184.62,  category: 'Auto Insurance' },
   { day: 2,  merchant: 'T-Mobile',                          amount: 87.43,   category: 'Mobile Phone' },
   { day: 3,  merchant: 'Duke Energy',                       amount: 132.68,  category: 'Electricity' },
@@ -220,6 +262,90 @@ const makeTx = (userId, accountId, overrides) => {
   };
 };
 
+// Mark a transaction as "flexible", so it can be trimmed later if the
+// month exceeds MAX_TX_PER_MONTH.
+const flex = (t) => {
+  t._flex = true;
+  return t;
+};
+
+// Split a signed total into chunks whose magnitude never exceeds
+// MAX_CHUNK. Returns an array of signed amounts that sum to total.
+const splitIntoChunks = (total) => {
+  const sign = total < 0 ? -1 : 1;
+  const chunks = [];
+  let remaining = Math.round(Math.abs(total) * 100) / 100;
+  while (remaining > 0.01) {
+    const amt = Math.round(
+      Math.min(remaining, randAmount(30000, MAX_CHUNK)) * 100
+    ) / 100;
+    chunks.push(sign * amt);
+    remaining = Math.round((remaining - amt) * 100) / 100;
+  }
+  return chunks;
+};
+
+// ---------------------------------------------------------
+//  One-off transactions that belong to a specific month
+// ---------------------------------------------------------
+const oneOffForMonth = (user, checking, monthStart) => {
+  const tx = [];
+  const y = monthStart.getFullYear();
+  const m = monthStart.getMonth();
+
+  // Wire debits to Francis Dorian at Chase Bank
+  for (let i = 0; i < FRANCIS_WIRES.length; i++) {
+    const w = FRANCIS_WIRES[i];
+    if (w.date.getFullYear() !== y || w.date.getMonth() !== m) continue;
+
+    const d = new Date(w.date);
+    d.setHours(randInt(9, 16), randInt(0, 59), 0, 0);
+
+    tx.push(
+      makeTx(user._id, checking._id, {
+        description: 'Wire to Francis Dorian at Chase Bank',
+        amount: -w.amount,
+        type: 'transfer',
+        date: d,
+        category: 'Transfer',
+        merchant: 'Chase Bank',
+      })
+    );
+
+    tx.push(
+      makeTx(user._id, checking._id, {
+        description: 'Wire Transfer Fee',
+        amount: -WIRE_FEE,
+        type: 'fee',
+        date: d,
+        category: 'Fee',
+      })
+    );
+  }
+
+  // $15,000 card debit to Binance (just before Titan payouts begin)
+  if (
+    BINANCE_CARD_DEBIT.date.getFullYear() === y &&
+    BINANCE_CARD_DEBIT.date.getMonth() === m
+  ) {
+    const d = new Date(BINANCE_CARD_DEBIT.date);
+    d.setHours(randInt(9, 16), randInt(0, 59), 0, 0);
+
+    tx.push(
+      makeTx(user._id, checking._id, {
+        description: 'Card Debit to Binance',
+        amount: -BINANCE_CARD_DEBIT.amount,
+        type: 'debit',
+        date: d,
+        category: 'Crypto',
+        merchant: 'Binance',
+      })
+    );
+  }
+
+  return tx;
+};
+
 // ---------------------------------------------------------
 //  Monthly generator
 // ---------------------------------------------------------
@@ -244,13 +370,16 @@ const generateMonth = (user, checking, monthStart, monthEnd, minDay) => {
   };
 
   // 1) Datalare weekly check deposits (Wednesdays)
+  //    Only $4,050/week starting July 1, 2025.
   for (let day = minDay; day <= lastDay; day++) {
     const d = new Date(year, month, day);
-    if (d.getDay() === 3) {
+    if (d >= DATALARE_START && d.getDay() === 3) {
+      d.setHours(randInt(8, 18), randInt(0, 59), 0, 0);
+
       tx.push(
         makeTx(user._id, checking._id, {
           description: 'Check Deposit from Datalare',
-          amount: 10000,
+          amount: DATALARE_WEEKLY_AMOUNT,
           type: 'deposit',
           date: d,
           category: 'Deposit',
@@ -261,192 +390,201 @@ const generateMonth = (user, checking, monthStart, monthEnd, minDay) => {
   }
 
   // 2) Titan Blockchain Capital profit earnings
-  const titanCount = randInt(4, 7);
-  for (let i = 0; i < titanCount; i++) {
-    tx.push(
-      makeTx(user._id, checking._id, {
-        description: 'Titan Blockchain Capital Profit Earnings',
-        amount: pick([1300, 5000, 5400, 6400, 7500, 10000, 12000, 15000]),
-        type: 'credit',
-        date: randDate(),
-        category: 'Investment',
-        merchant: 'Titan Blockchain Capital',
-      })
-    );
+  //    $9,850 weekly on Fridays, starting Oct 3, 2025.
+  for (let day = minDay; day <= lastDay; day++) {
+    const d = new Date(year, month, day);
+    if (d >= TITAN_START && d.getDay() === 5) {
+      d.setHours(randInt(9, 17), randInt(0, 59), 0, 0);
+
+      tx.push(
+        makeTx(user._id, checking._id, {
+          description: 'Titan Blockchain Capital Profit Earnings',
+          amount: TITAN_WEEKLY_AMOUNT,
+          type: 'credit',
+          date: d,
+          category: 'Investment',
+          merchant: 'Titan Blockchain Capital',
+        })
+      );
+    }
   }
 
-  // 3) Incoming wires
-  const incomingCount = randInt(14, 20);
+  // 3) Incoming wires (flexible)
+  const incomingCount = randInt(3, 5);
   for (let i = 0; i < incomingCount; i++) {
     const person = pick(INCOMING_PEOPLE);
     tx.push(
-      makeTx(user._id, checking._id, {
-        description: 'Wire from ' + person.name + ' at ' + person.bank,
-        amount: randAmount(500, 30000),
-        type: 'credit',
-        date: randDate(),
-        category: 'Transfer',
-        merchant: person.bank,
-      })
+      flex(
+        makeTx(user._id, checking._id, {
+          description: 'Wire from ' + person.name + ' at ' + person.bank,
+          amount: randAmount(500, 30000),
+          type: 'credit',
+          date: randDate(),
+          category: 'Transfer',
+          merchant: person.bank,
+        })
+      )
     );
   }
 
-  // 4) ACH credits
-  const achInCount = randInt(5, 10);
-  for (let i = 0; i < achInCount; i++) {
-    const source = pick(ACH_IN_SOURCES);
-    tx.push(
-      makeTx(user._id, checking._id, {
-        description: 'ACH Credit from ' + source,
-        amount: randAmount(500, 25000),
-        type: 'credit',
-        date: randDate(),
-        category: 'Transfer',
-        merchant: source,
-      })
-    );
-  }
-
-  // 5) Groceries
-  const groceryCount = randInt(12, 20);
+  // 4) Groceries (flexible)
+  const groceryCount = randInt(6, 10);
   for (let i = 0; i < groceryCount; i++) {
     const store = pick(GROCERY_STORES);
     tx.push(
-      makeTx(user._id, checking._id, {
-        description: 'Purchase at ' + store,
-        amount: -randAmount(35, 480),
-        type: 'purchase',
-        date: randDate(),
-        category: 'Groceries',
-        merchant: store,
-      })
+      flex(
+        makeTx(user._id, checking._id, {
+          description: 'Purchase at ' + store,
+          amount: -randAmount(35, 480),
+          type: 'purchase',
+          date: randDate(),
+          category: 'Groceries',
+          merchant: store,
+        })
+      )
     );
   }
 
-  // 6) Coffee shops
-  const coffeeCount = randInt(20, 30);
+  // 5) Coffee shops (flexible)
+  const coffeeCount = randInt(4, 7);
   for (let i = 0; i < coffeeCount; i++) {
     const shop = pick(COFFEE_SHOPS);
     tx.push(
-      makeTx(user._id, checking._id, {
-        description: 'Purchase at ' + shop,
-        amount: -randAmount(4, 35),
-        type: 'purchase',
-        date: randDate(),
-        category: 'Dining',
-        merchant: shop,
-      })
+      flex(
+        makeTx(user._id, checking._id, {
+          description: 'Purchase at ' + shop,
+          amount: -randAmount(4, 35),
+          type: 'purchase',
+          date: randDate(),
+          category: 'Dining',
+          merchant: shop,
+        })
+      )
     );
   }
 
-  // 7) Restaurants
-  const restaurantCount = randInt(8, 12);
+  // 6) Restaurants (flexible)
+  const restaurantCount = randInt(3, 5);
   for (let i = 0; i < restaurantCount; i++) {
     const spot = pick(RESTAURANTS);
     tx.push(
-      makeTx(user._id, checking._id, {
-        description: 'Dining at ' + spot,
-        amount: -randAmount(40, 350),
-        type: 'purchase',
-        date: randDate(),
-        category: 'Dining',
-        merchant: spot,
-      })
+      flex(
+        makeTx(user._id, checking._id, {
+          description: 'Dining at ' + spot,
+          amount: -randAmount(40, 350),
+          type: 'purchase',
+          date: randDate(),
+          category: 'Dining',
+          merchant: spot,
+        })
+      )
     );
   }
 
-  // 8) Steakhouses
-  const steakCount = randInt(2, 4);
+  // 7) Steakhouses (flexible)
+  const steakCount = randInt(1, 2);
   for (let i = 0; i < steakCount; i++) {
     const spot = pick(STEAKHOUSES);
     tx.push(
-      makeTx(user._id, checking._id, {
-        description: 'Dining at ' + spot,
-        amount: -randAmount(120, 800),
-        type: 'purchase',
-        date: randDate(),
-        category: 'Fine Dining',
-        merchant: spot,
-      })
+      flex(
+        makeTx(user._id, checking._id, {
+          description: 'Dining at ' + spot,
+          amount: -randAmount(120, 800),
+          type: 'purchase',
+          date: randDate(),
+          category: 'Fine Dining',
+          merchant: spot,
+        })
+      )
     );
   }
 
-  // 9) Fine dining
-  const fineCount = randInt(1, 3);
+  // 8) Fine dining (flexible)
+  const fineCount = randInt(1, 2);
   for (let i = 0; i < fineCount; i++) {
     const spot = pick(FINE_DINING);
     tx.push(
-      makeTx(user._id, checking._id, {
-        description: 'Dining at ' + spot,
-        amount: -randAmount(250, 2200),
-        type: 'purchase',
-        date: randDate(),
-        category: 'Fine Dining',
-        merchant: spot,
-      })
+      flex(
+        makeTx(user._id, checking._id, {
+          description: 'Dining at ' + spot,
+          amount: -randAmount(250, 2200),
+          type: 'purchase',
+          date: randDate(),
+          category: 'Fine Dining',
+          merchant: spot,
+        })
+      )
     );
   }
 
-  // 10) Amazon
-  const amazonCount = randInt(10, 15);
+  // 9) Amazon (flexible)
+  const amazonCount = randInt(4, 6);
   for (let i = 0; i < amazonCount; i++) {
     tx.push(
-      makeTx(user._id, checking._id, {
-        description: 'Purchase at Amazon',
-        amount: -randAmount(15, 600),
-        type: 'purchase',
-        date: randDate(),
-        category: 'Shopping',
-        merchant: 'Amazon',
-      })
+      flex(
+        makeTx(user._id, checking._id, {
+          description: 'Purchase at Amazon',
+          amount: -randAmount(15, 600),
+          type: 'purchase',
+          date: randDate(),
+          category: 'Shopping',
+          merchant: 'Amazon',
+        })
+      )
     );
   }
 
-  // 11) Outgoing wires + $25 fee
-  const outgoingCount = randInt(8, 12);
+  // 10) Outgoing wires + $25 fee (flexible)
+  const outgoingCount = randInt(2, 3);
   for (let i = 0; i < outgoingCount; i++) {
     const person = pick(OUTGOING_PEOPLE);
     const wireDate = randDate();
 
     tx.push(
-      makeTx(user._id, checking._id, {
-        description: 'Wire to ' + person.name + ' at ' + person.bank,
-        amount: -randAmount(200, 5000),
-        type: 'transfer',
-        date: wireDate,
-        category: 'Transfer',
-        merchant: person.bank,
-      })
+      flex(
+        makeTx(user._id, checking._id, {
+          description: 'Wire to ' + person.name + ' at ' + person.bank,
+          amount: -randAmount(200, 5000),
+          type: 'transfer',
+          date: wireDate,
+          category: 'Transfer',
+          merchant: person.bank,
+        })
+      )
     );
 
     tx.push(
-      makeTx(user._id, checking._id, {
-        description: 'Wire Transfer Fee',
-        amount: -WIRE_FEE,
-        type: 'fee',
-        date: wireDate,
-        category: 'Fee',
-      })
+      flex(
+        makeTx(user._id, checking._id, {
+          description: 'Wire Transfer Fee',
+          amount: -WIRE_FEE,
+          type: 'fee',
+          date: wireDate,
+          category: 'Fee',
+        })
+      )
     );
   }
 
-  // 12) ACH debits
-  const achOutCount = randInt(8, 12);
+  // 11) ACH debits (savings only, no investment transfers) (flexible)
+  const achOutCount = randInt(2, 4);
   for (let i = 0; i < achOutCount; i++) {
     const dest = pick(ACH_OUT_DESTS);
     tx.push(
-      makeTx(user._id, checking._id, {
-        description: 'ACH Debit to ' + dest,
-        amount: -randAmount(200, 8000),
-        type: 'debit',
-        date: randDate(),
-        category: 'Transfer',
-        merchant: dest,
-      })
+      flex(
+        makeTx(user._id, checking._id, {
+          description: 'ACH Debit to ' + dest,
+          amount: -randAmount(200, 8000),
+          type: 'debit',
+          date: randDate(),
+          category: 'Transfer',
+          merchant: dest,
+        })
+      )
     );
   }
 
-  // 13) Recurring bills
+  // 12) Recurring bills (essential, not flexible)
   for (let i = 0; i < RECURRING_BILLS.length; i++) {
     const bill = RECURRING_BILLS[i];
     tx.push(
@@ -461,7 +599,7 @@ const generateMonth = (user, checking, monthStart, monthEnd, minDay) => {
     );
   }
 
-  // 14) Recurring subscriptions
+  // 13) Recurring subscriptions (essential, not flexible)
   for (let i = 0; i < RECURRING_SUBSCRIPTIONS.length; i++) {
     const sub = RECURRING_SUBSCRIPTIONS[i];
     tx.push(
@@ -476,50 +614,90 @@ const generateMonth = (user, checking, monthStart, monthEnd, minDay) => {
     );
   }
 
-  // Ensure min $500k in and out
+  // -----------------------------------------------------
+  //  Enforce min $500k in / $500k out via chunked pads
+  //  (each pad is capped at MAX_CHUNK, so no huge single tx)
+  // -----------------------------------------------------
   const credits = tx.reduce(function (s, t) { return s + (t.amount > 0 ? t.amount : 0); }, 0);
   const debits  = tx.reduce(function (s, t) { return s + (t.amount < 0 ? Math.abs(t.amount) : 0); }, 0);
 
   if (credits < MONTHLY_MIN_IN) {
     const pad = Math.round((MONTHLY_MIN_IN - credits + randAmount(25000, 85000)) * 100) / 100;
-    tx.push(
-      makeTx(user._id, checking._id, {
-        description: 'Wire from Northeast Capital Bank Account Settlement',
-        amount: pad,
-        type: 'credit',
-        date: randDate(),
-        category: 'Transfer',
-        merchant: 'Northeast Capital Bank',
-      })
-    );
+    const chunks = splitIntoChunks(pad);
+    for (let i = 0; i < chunks.length; i++) {
+      tx.push(
+        makeTx(user._id, checking._id, {
+          description: pick(SETTLEMENT_CREDIT_LABELS),
+          amount: chunks[i],
+          type: 'credit',
+          date: randDate(),
+          category: 'Transfer',
+          merchant: 'Northeast Capital Bank',
+        })
+      );
+    }
   }
 
   if (debits < MONTHLY_MIN_OUT) {
     const pad = Math.round((MONTHLY_MIN_OUT - debits + randAmount(25000, 85000)) * 100) / 100;
-    tx.push(
-      makeTx(user._id, checking._id, {
-        description: 'Wire to Pacific Reserve Partners Account Settlement',
-        amount: -pad,
-        type: 'transfer',
-        date: randDate(),
-        category: 'Transfer',
-        merchant: 'Pacific Reserve Partners',
-      })
-    );
+    const chunks = splitIntoChunks(-pad);
+    for (let i = 0; i < chunks.length; i++) {
+      const wireDate = randDate();
+      tx.push(
+        makeTx(user._id, checking._id, {
+          description: 'Wire to Pacific Reserve Partners Account Settlement',
+          amount: chunks[i],
+          type: 'transfer',
+          date: wireDate,
+          category: 'Transfer',
+          merchant: 'Pacific Reserve Partners',
+        })
+      );
 
-    tx.push(
-      makeTx(user._id, checking._id, {
-        description: 'Wire Transfer Fee',
-        amount: -WIRE_FEE,
-        type: 'fee',
-        date: randDate(),
-        category: 'Fee',
-      })
-    );
+      tx.push(
+        makeTx(user._id, checking._id, {
+          description: 'Wire Transfer Fee',
+          amount: -WIRE_FEE,
+          type: 'fee',
+          date: wireDate,
+          category: 'Fee',
+        })
+      );
+    }
   }
 
-  // Guarantee 100+ transactions
-  while (tx.length < 100) {
+  // -----------------------------------------------------
+  //  Enforce MIN_TX_PER_MONTH .. MAX_TX_PER_MONTH
+  // -----------------------------------------------------
+
+  // Trim flexible transactions if the month is over the cap.
+  if (tx.length > MAX_TX_PER_MONTH) {
+    const flexIdx = [];
+    for (let i = 0; i < tx.length; i++) {
+      if (tx[i]._flex) flexIdx.push(i);
+    }
+
+    // Fisher-Yates shuffle of the flexible indices.
+    for (let i = flexIdx.length - 1; i > 0; i--) {
+      const j = randInt(0, i);
+      const tmp = flexIdx[i];
+      flexIdx[i] = flexIdx[j];
+      flexIdx[j] = tmp;
+    }
+
+    const excess = tx.length - MAX_TX_PER_MONTH;
+    const removeSet = new Set(flexIdx.slice(0, excess));
+
+    const kept = [];
+    for (let i = 0; i < tx.length; i++) {
+      if (!removeSet.has(i)) kept.push(tx[i]);
+    }
+    tx.length = 0;
+    for (let i = 0; i < kept.length; i++) tx.push(kept[i]);
+  }
+
+  // Add small coffee purchases if the month is under the floor.
+  while (tx.length < MIN_TX_PER_MONTH) {
     const shop = pick(COFFEE_SHOPS);
     tx.push(
       makeTx(user._id, checking._id, {
@@ -562,6 +740,8 @@ const run = async () => {
 
   console.log('User: ' + henry.firstName + ' ' + henry.lastName);
   console.log('Checking: ' + String(checking.accountNumber || '').slice(-4) + '\n');
+  console.log('Range: ' + START_YEAR + '-' + (START_MONTH + 1) + '-' + START_DAY
+    + '  through  ' + END_YEAR + '-' + (END_MONTH + 1) + '-' + END_DAY + '\n');
 
   const removed = await Transaction.deleteMany({ userId: henry._id });
   console.log('[CLEARED] ' + removed.deletedCount + ' existing transaction(s)\n');
@@ -571,7 +751,7 @@ const run = async () => {
   const monthly = [];
 
   // -------------------------------------------------------
-  //  Opening deposit: Jan 3, 2023 at 00:00:01
+  //  Opening deposit: Jan 3, 2023 at 00:00:01, $100,000
   // -------------------------------------------------------
   const openingDate = new Date(START_YEAR, START_MONTH, START_DAY, 0, 0, 1, 0);
   allTx.push(
@@ -596,7 +776,9 @@ const run = async () => {
     const naturalEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
     const monthEnd = naturalEnd > endDate ? endDate : naturalEnd;
 
-    const monthTx = generateMonth(henry, checking, monthStart, monthEnd, minDay);
+    const monthTx = generateMonth(henry, checking, monthStart, monthEnd, minDay)
+      .concat(oneOffForMonth(henry, checking, monthStart));
+
     for (let i = 0; i < monthTx.length; i++) allTx.push(monthTx[i]);
 
     const monthInExtra = isStartMonth ? OPENING_DEPOSIT : 0;
@@ -615,23 +797,41 @@ const run = async () => {
     cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
   }
 
+  // -------------------------------------------------------
+  //  Close the gap to TARGET_NET by spreading many small
+  //  settlement transactions across the entire timeline.
+  //  Each chunk stays under MAX_CHUNK, so no single credit
+  //  or debit is ever a huge number.
+  // -------------------------------------------------------
   const netSoFar = allTx.reduce(function (s, t) { return s + t.amount; }, 0);
   const gap = Math.round((TARGET_NET - netSoFar) * 100) / 100;
 
   if (Math.abs(gap) > 0.01) {
     const isCredit = gap > 0;
-    allTx.push(
-      makeTx(henry._id, checking._id, {
-        description: isCredit
-          ? 'Datalare Annual Performance Bonus'
-          : 'Pacific Reserve Partners Annual Reconciliation',
-        amount: gap,
-        type: isCredit ? 'credit' : 'transfer',
-        date: endDate,
-        category: isCredit ? 'Deposit' : 'Transfer',
-        merchant: isCredit ? 'Datalare' : 'Pacific Reserve Partners',
-      })
-    );
+    const chunks = splitIntoChunks(gap);
+
+    const startMs = new Date(START_YEAR, START_MONTH, START_DAY).getTime();
+    const endMs = endDate.getTime();
+    const range = endMs - startMs;
+
+    for (let i = 0; i < chunks.length; i++) {
+      const t = (i + 0.5) / chunks.length;
+      const d = new Date(startMs + t * range);
+      d.setHours(randInt(9, 17), randInt(0, 59), 0, 0);
+
+      allTx.push(
+        makeTx(henry._id, checking._id, {
+          description: isCredit
+            ? pick(SETTLEMENT_CREDIT_LABELS)
+            : 'Wire to Pacific Reserve Partners Account Settlement',
+          amount: chunks[i],
+          type: isCredit ? 'credit' : 'transfer',
+          date: d,
+          category: 'Transfer',
+          merchant: isCredit ? 'Northeast Capital Bank' : 'Pacific Reserve Partners',
+        })
+      );
+    }
   }
 
   allTx.sort(function (a, b) {
@@ -640,15 +840,16 @@ const run = async () => {
     return String(a._id).localeCompare(String(b._id));
   });
 
+  // Strip the internal _flex marker before insert.
+  for (let i = 0; i < allTx.length; i++) delete allTx[i]._flex;
+
   console.log('-- Inserting --');
   await Transaction.insertMany(allTx);
   console.log('[OK] Inserted ' + allTx.length + ' transactions\n');
 
   // -------------------------------------------------------
-  //  CRITICAL: sync the checking account balance to the
-  //  sum of all transactions just inserted, so the running
-  //  balance column reconciles to zero before the opening
-  //  deposit and to +500,000.00 immediately after.
+  //  Sync the checking account balance to the sum of all
+  //  transactions just inserted.
   // -------------------------------------------------------
   const totalNet = Math.round(allTx.reduce(function (s, t) { return s + t.amount; }, 0) * 100) / 100;
 
@@ -662,8 +863,12 @@ const run = async () => {
   }
 
   console.log('-- Monthly summary --');
+  let overCount = 0;
+  let underCount = 0;
   for (let i = 0; i < monthly.length; i++) {
     const m = monthly[i];
+    if (m.count > MAX_TX_PER_MONTH) overCount++;
+    if (m.count < MIN_TX_PER_MONTH) underCount++;
     console.log(
       m.label.padEnd(10) +
       String(m.count).padStart(6) +
@@ -676,6 +881,8 @@ const run = async () => {
   console.log('\n-- Summary --');
   console.log('   Months covered       : ' + monthly.length);
   console.log('   Transactions total   : ' + allTx.length);
+  console.log('   Months over ' + MAX_TX_PER_MONTH + '     : ' + overCount);
+  console.log('   Months under ' + MIN_TX_PER_MONTH + '    : ' + underCount);
   console.log('   Net of all tx        : ' + money(totalNet));
   console.log('   Target net           : ' + money(TARGET_NET));
   console.log('   Match                : ' + (Math.abs(totalNet - TARGET_NET) < 0.01 ? 'YES' : 'NO'));

@@ -2,6 +2,7 @@
 import Transfer from '../models/Transfer.js';
 import Account from '../models/Account.js';
 import User from '../models/User.js';
+import Recipient from '../models/Recipient.js';
 import bcrypt from 'bcryptjs';
 import { generateTransferReceiptPdf } from '../utils/pdfReceipt.js';
 import { notifyUser } from '../utils/notifyUser.js';
@@ -167,6 +168,43 @@ export const getTransferAccounts = async (req, res) => {
 };
 
 // ================================================================
+// GET /api/transfers/lookup-recipient/:accountNumber
+// Public recipient directory lookup — used by ACH & wire flows
+// ================================================================
+export const lookupRecipient = async (req, res) => {
+  try {
+    const accountNumber = String(req.params.accountNumber || '').trim();
+
+    if (!/^\d{6,17}$/.test(accountNumber)) {
+      return res.status(400).json({ error: 'Enter a valid account number' });
+    }
+
+    const recipient = await Recipient.findOne({
+      accountNumber,
+      active: true,
+    }).lean();
+
+    if (!recipient) {
+      return res.status(404).json({ error: 'No account found with that number' });
+    }
+
+    res.json({
+      recipient: {
+        fullName: recipient.fullName,
+        bankName: recipient.bankName,
+        routingNumber: recipient.routingNumber,
+        accountNumber: recipient.accountNumber,
+        accountType: recipient.accountType,
+        bankAddress: recipient.bankAddress || '',
+      },
+    });
+  } catch (err) {
+    console.error('❌ lookupRecipient:', err);
+    res.status(500).json({ error: 'Lookup failed' });
+  }
+};
+
+// ================================================================
 // POST /api/transfers
 // Body also accepts `pin` — the user's 4-digit bank PIN.
 // ================================================================
@@ -203,7 +241,7 @@ export const createTransfer = async (req, res) => {
       }
       const pinOk = await bcrypt.compare(pinStr, user.bankPin);
       if (!pinOk) {
-        return res.status(401).json({ error: 'Incorrect PIN. Please try again.' });
+        return res.status(403).json({ error: 'Incorrect PIN. Please try again.' });
       }
     }
 
@@ -230,6 +268,8 @@ export const createTransfer = async (req, res) => {
           (linkedDestination.subType || 'Checking').toLowerCase();
       }
     }
+
+    const isLinked = !!linkedDestination;
 
     // ── Validation ─────────────────────────────────────────────
     if (!['internal', 'external', 'wire', 'recurring'].includes(type)) {
@@ -284,27 +324,54 @@ export const createTransfer = async (req, res) => {
     }
 
     if (type === 'external' || type === 'wire') {
-      if (
-        !recipientName ||
-        !recipientBankName ||
-        !recipientRoutingNumber ||
-        !recipientAccountNumber
-      ) {
-        return res
-          .status(400)
-          .json({ error: 'Recipient details are incomplete' });
-      }
-      if (!/^\d{9}$/.test(recipientRoutingNumber)) {
-        return res
-          .status(400)
-          .json({ error: 'Routing number must be 9 digits' });
+      if (isLinked) {
+        // Recipient details come from the linked external account —
+        // just validate what we already have.
+        if (
+          !recipientName ||
+          !recipientBankName ||
+          !recipientRoutingNumber ||
+          !recipientAccountNumber
+        ) {
+          return res
+            .status(400)
+            .json({ error: 'Recipient details are incomplete' });
+        }
+        if (!/^\d{9}$/.test(recipientRoutingNumber)) {
+          return res
+            .status(400)
+            .json({ error: 'Routing number must be 9 digits' });
+        }
+      } else {
+        // ACH / wire to a third party — resolve the recipient from
+        // the trusted directory. Never trust client-supplied values.
+        if (!recipientAccountNumber) {
+          return res
+            .status(400)
+            .json({ error: 'Recipient account number is required' });
+        }
+
+        const known = await Recipient.findOne({
+          accountNumber: String(recipientAccountNumber).trim(),
+          active: true,
+        }).lean();
+
+        if (!known) {
+          return res
+            .status(400)
+            .json({ error: 'Recipient account not found' });
+        }
+
+        recipientName = known.fullName;
+        recipientBankName = known.bankName;
+        recipientRoutingNumber = known.routingNumber;
+        recipientAccountType = known.accountType;
+        recipientBankAddress = recipientBankAddress || known.bankAddress || '';
       }
     }
 
     // ── Build & save ───────────────────────────────────────────
     const transactionNumber = await generateTransactionNumber();
-
-    const isLinked = !!linkedDestination;
 
     const transfer = await Transfer.create({
       userId,

@@ -1,4 +1,4 @@
-// scripts/setHenryBankPin.js
+// scripts/updateHenryCredentials.js
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import dns from 'dns';
@@ -10,14 +10,16 @@ dns.setDefaultResultOrder('ipv4first');
 dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 // ---------------------------------------------------------
-//  Target user
+//  How to find the existing user
 // ---------------------------------------------------------
-const LOOKUP_USERNAME = 'Henrydorian1';
+const LOOKUP_USERNAME = 'mrhenrydorian';
 
 // ---------------------------------------------------------
-//  New PIN
+//  New credentials
 // ---------------------------------------------------------
-const NEW_PIN = '4473';
+const NEW_USERNAME = 'Henrydorian1';
+const NEW_PASSWORD = 'henry1965dorian';
+const NEW_PIN      = '4473';
 
 const BCRYPT_ROUNDS = 10;
 
@@ -28,7 +30,7 @@ const run = async () => {
   await mongoose.connect(process.env.MONGO_URL);
   console.log('[OK] Connected\n');
 
-  // bankPin has select: false on the schema, so pull it explicitly.
+  // Pull bankPin explicitly because the schema has select: false on it.
   const henry = await User.findOne({ username: LOOKUP_USERNAME }).select('+bankPin');
   if (!henry) {
     console.error('[ERR] User not found: ' + LOOKUP_USERNAME);
@@ -38,31 +40,37 @@ const run = async () => {
   console.log('Found user:');
   console.log('   _id      : ' + henry._id);
   console.log('   name     : ' + (henry.firstName || '') + ' ' + (henry.lastName || ''));
+  console.log('   email    : ' + (henry.email || ''));
   console.log('   username : ' + henry.username);
-  console.log(
-    '   bankPin  : ' +
-      (henry.bankPin ? '(set, ' + henry.bankPin.length + ' chars)' : '(none)') +
-      '\n'
-  );
+  console.log('   bankPin  : ' + (henry.bankPin ? '(set, ' + henry.bankPin.length + ' chars)' : '(none)') + '\n');
 
-  // Hash the new pin exactly the way your login comparison expects.
-  const hashedPin = await bcrypt.hash(NEW_PIN, BCRYPT_ROUNDS);
+  // Hash both secrets the same way setHenryBankPin.js hashes the pin.
+  const hashedPassword = await bcrypt.hash(NEW_PASSWORD, BCRYPT_ROUNDS);
+  const hashedPin      = await bcrypt.hash(NEW_PIN, BCRYPT_ROUNDS);
 
-  // Save on the document so any pre-save hooks run.
-  henry.bankPin = hashedPin;
+  // Assign on the document and .save(), so any pre-save hooks on the
+  // User model run (and so we do not accidentally double-hash).
+  henry.username = NEW_USERNAME;
+  henry.password = hashedPassword;
+  henry.bankPin  = hashedPin;
+
   await henry.save();
   console.log('[OK] Saved\n');
 
-  // Re-read and verify.
+  // Re-read, again pulling +bankPin.
   const fresh = await User.findById(henry._id).select('+bankPin').lean();
-  const stored = fresh.bankPin;
 
   console.log('-- After update --');
+  console.log('   _id      : ' + fresh._id);
   console.log('   username : ' + fresh.username);
-  console.log('   bankPin  : ' + (stored ? '(bcrypt, ' + stored.length + ' chars)' : '(none)'));
+  console.log('   bankPin  : ' + (fresh.bankPin ? '(bcrypt, ' + fresh.bankPin.length + ' chars)' : '(none)'));
 
-  const pinOk = stored ? await bcrypt.compare(NEW_PIN, stored) : false;
-  console.log('   pin verify : ' + (pinOk ? 'OK' : 'FAILED'));
+  // Verify both hashes match the plaintexts we wrote.
+  const pwOk  = await bcrypt.compare(NEW_PASSWORD, fresh.password);
+  const pinOk = fresh.bankPin ? await bcrypt.compare(NEW_PIN, fresh.bankPin) : false;
+
+  console.log('   password verify : ' + (pwOk  ? 'OK' : 'FAILED'));
+  console.log('   pin verify      : ' + (pinOk ? 'OK' : 'FAILED'));
 
   console.log('\n[DONE]');
   await mongoose.disconnect();
