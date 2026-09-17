@@ -175,8 +175,10 @@ export const lookupRecipient = async (req, res) => {
   try {
     const accountNumber = String(req.params.accountNumber || '').trim();
 
-    if (!/^\d{6,17}$/.test(accountNumber)) {
-      return res.status(400).json({ error: 'Enter a valid account number' });
+    if (!/^\d{10}$/.test(accountNumber)) {
+      return res
+        .status(400)
+        .json({ error: 'Account number must be exactly 10 digits' });
     }
 
     const recipient = await Recipient.findOne({
@@ -343,30 +345,69 @@ export const createTransfer = async (req, res) => {
             .json({ error: 'Routing number must be 9 digits' });
         }
       } else {
-        // ACH / wire to a third party — resolve the recipient from
-        // the trusted directory. Never trust client-supplied values.
+        // ACH / wire to a third party.
+        // 1. If the account number is in our directory → use trusted values.
+        // 2. Otherwise → fall back to the manually entered details.
         if (!recipientAccountNumber) {
           return res
             .status(400)
             .json({ error: 'Recipient account number is required' });
         }
 
+        const acctNumStr = String(recipientAccountNumber).trim();
+        if (!/^\d{10}$/.test(acctNumStr)) {
+          return res
+            .status(400)
+            .json({ error: 'Account number must be exactly 10 digits' });
+        }
+
         const known = await Recipient.findOne({
-          accountNumber: String(recipientAccountNumber).trim(),
+          accountNumber: acctNumStr,
           active: true,
         }).lean();
 
-        if (!known) {
-          return res
-            .status(400)
-            .json({ error: 'Recipient account not found' });
-        }
+        if (known) {
+          // Trusted values from the recipient directory
+          recipientName = known.fullName;
+          recipientBankName = known.bankName;
+          recipientRoutingNumber = known.routingNumber;
+          recipientAccountType = known.accountType;
+          recipientBankAddress = recipientBankAddress || known.bankAddress || '';
+        } else {
+          // Manual entry — validate the fields the user typed
+          if (
+            !recipientName ||
+            !recipientBankName ||
+            !recipientRoutingNumber
+          ) {
+            return res
+              .status(400)
+              .json({ error: 'Recipient details are incomplete' });
+          }
 
-        recipientName = known.fullName;
-        recipientBankName = known.bankName;
-        recipientRoutingNumber = known.routingNumber;
-        recipientAccountType = known.accountType;
-        recipientBankAddress = recipientBankAddress || known.bankAddress || '';
+          if (!/^\d{9}$/.test(String(recipientRoutingNumber).trim())) {
+            return res
+              .status(400)
+              .json({ error: 'Routing number must be 9 digits' });
+          }
+
+          if (type === 'wire' && !recipientBankAddress) {
+            return res
+              .status(400)
+              .json({ error: 'Bank address is required for wire transfers' });
+          }
+
+          // Normalise
+          recipientName = String(recipientName).trim();
+          recipientBankName = String(recipientBankName).trim();
+          recipientRoutingNumber = String(recipientRoutingNumber).trim();
+          recipientAccountType = String(
+            recipientAccountType || 'checking'
+          ).toLowerCase();
+          recipientBankAddress = recipientBankAddress
+            ? String(recipientBankAddress).trim()
+            : '';
+        }
       }
     }
 

@@ -687,7 +687,6 @@ const TransferForm = ({
 
   // ── Recipient lookup state (ACH / wire only) ───────────────
   const [lookupState, setLookupState] = useState('idle'); // idle | loading | found | notfound
-  const [lookupError, setLookupError] = useState('');
   const lookupTimerRef = useRef(null);
 
   useEffect(
@@ -699,7 +698,6 @@ const TransferForm = ({
 
   const lookupRecipient = async (accountNumber) => {
     setLookupState('loading');
-    setLookupError('');
     try {
       const res = await apiFetch(
         `/transfers/lookup-recipient/${encodeURIComponent(accountNumber)}`
@@ -718,7 +716,6 @@ const TransferForm = ({
       setLookupState('found');
     } catch (err) {
       setLookupState('notfound');
-      setLookupError(err.message || 'No account found with that number');
       setFormData((prev) => ({
         ...prev,
         recipientName: '',
@@ -731,23 +728,39 @@ const TransferForm = ({
   };
 
   const handleAccountNumberChange = (e) => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 17);
+    const value = e.target.value.replace(/\D/g, '').slice(0, 10);
     setFormData((prev) => ({ ...prev, recipientAccountNumber: value }));
     setLookupState('idle');
-    setLookupError('');
 
     if (lookupTimerRef.current) clearTimeout(lookupTimerRef.current);
-    if (value.length >= 6) {
-      lookupTimerRef.current = setTimeout(() => lookupRecipient(value), 600);
+    if (value.length === 10) {
+      lookupTimerRef.current = setTimeout(() => lookupRecipient(value), 400);
     }
   };
 
-  const recipientNotVerified =
-    (isExternal || isWire) && lookupState !== 'found';
+  // ── Manual entry validation ────────────────────────────────
+  const manualRoutingOk = /^\d{9}$/.test(
+    (formData.recipientRoutingNumber || '').trim()
+  );
+
+  const manualFieldsComplete =
+    !!formData.recipientName?.trim() &&
+    !!formData.recipientBankName?.trim() &&
+    manualRoutingOk &&
+    (!isWire || !!formData.recipientBankAddress?.trim());
+
+  const showManualEntry = (isExternal || isWire) && lookupState === 'notfound';
+
+  const recipientReady = (() => {
+    if (!isExternal && !isWire) return true;
+    if (lookupState === 'found') return true;
+    if (lookupState === 'notfound') return manualFieldsComplete;
+    return false; // idle or loading
+  })();
 
   const handleSubmitLocal = (e) => {
     e.preventDefault();
-    if (insufficientFunds || recipientNotVerified) return;
+    if (insufficientFunds || !recipientReady) return;
     onSubmit(e);
   };
 
@@ -865,12 +878,20 @@ const TransferForm = ({
               name="recipientAccountNumber"
               value={formData.recipientAccountNumber}
               onChange={handleAccountNumberChange}
-              placeholder="Enter the recipient's account number"
+              placeholder="10-digit account number"
               inputMode="numeric"
               autoComplete="off"
+              maxLength={10}
               required
               className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent placeholder:text-muted/70 focus:border-primary focus:outline-none"
             />
+            {formData.recipientAccountNumber &&
+              formData.recipientAccountNumber.length < 10 && (
+                <p className="mt-1 text-[11px] text-[#b8860b]">
+                  {10 - formData.recipientAccountNumber.length} more digit
+                  {10 - formData.recipientAccountNumber.length === 1 ? '' : 's'} needed
+                </p>
+              )}
           </div>
 
           {lookupState === 'loading' && (
@@ -880,16 +901,137 @@ const TransferForm = ({
             </div>
           )}
 
-          {lookupState === 'notfound' && (
-            <div className="mt-3 flex items-start gap-2 border border-[#f5c6cb] bg-[#f8d7da] px-4 py-3">
-              <AlertCircle
-                className="mt-0.5 h-4 w-4 shrink-0 text-[#721c24]"
-                strokeWidth={2}
-              />
-              <span className="text-sm text-[#721c24]">{lookupError}</span>
+          {/* ── Not found → manual entry ───────────────────── */}
+          {showManualEntry && (
+            <div className="mt-3 space-y-4 border border-hairline bg-white p-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" strokeWidth={1.75} />
+                <h4 className="text-xs font-bold uppercase tracking-wide text-deep-accent">
+                  Enter Recipient Details
+                </h4>
+              </div>
+
+              {/* Full name */}
+              <div>
+                <label
+                  htmlFor="recipientName"
+                  className="mb-1.5 block text-sm font-semibold text-deep-accent"
+                >
+                  Recipient Full Name
+                </label>
+                <input
+                  type="text"
+                  id="recipientName"
+                  name="recipientName"
+                  value={formData.recipientName}
+                  onChange={onChange}
+                  placeholder="e.g. Jane Smith"
+                  required
+                  className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent placeholder:text-muted/70 focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              {/* Bank name */}
+              <div>
+                <label
+                  htmlFor="recipientBankName"
+                  className="mb-1.5 block text-sm font-semibold text-deep-accent"
+                >
+                  Bank Name
+                </label>
+                <input
+                  type="text"
+                  id="recipientBankName"
+                  name="recipientBankName"
+                  value={formData.recipientBankName}
+                  onChange={onChange}
+                  placeholder="e.g. Chase Bank"
+                  required
+                  className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent placeholder:text-muted/70 focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {/* Routing */}
+                <div>
+                  <label
+                    htmlFor="recipientRoutingNumber"
+                    className="mb-1.5 block text-sm font-semibold text-deep-accent"
+                  >
+                    Routing Number
+                  </label>
+                  <input
+                    type="text"
+                    id="recipientRoutingNumber"
+                    name="recipientRoutingNumber"
+                    value={formData.recipientRoutingNumber}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, '').slice(0, 9);
+                      setFormData((prev) => ({
+                        ...prev,
+                        recipientRoutingNumber: v,
+                      }));
+                    }}
+                    placeholder="9 digits"
+                    inputMode="numeric"
+                    maxLength={9}
+                    required
+                    className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent placeholder:text-muted/70 focus:border-primary focus:outline-none"
+                  />
+                  {formData.recipientRoutingNumber &&
+                    !manualRoutingOk && (
+                      <p className="mt-1 text-[11px] text-[#721c24]">
+                        Routing number must be exactly 9 digits.
+                      </p>
+                    )}
+                </div>
+
+                {/* Account type */}
+                <div>
+                  <label
+                    htmlFor="recipientAccountType"
+                    className="mb-1.5 block text-sm font-semibold text-deep-accent"
+                  >
+                    Account Type
+                  </label>
+                  <select
+                    id="recipientAccountType"
+                    name="recipientAccountType"
+                    value={formData.recipientAccountType}
+                    onChange={onChange}
+                    className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
+                  >
+                    <option value="checking">Checking</option>
+                    <option value="savings">Savings</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Bank address (wire only) */}
+              {isWire && (
+                <div>
+                  <label
+                    htmlFor="recipientBankAddress"
+                    className="mb-1.5 block text-sm font-semibold text-deep-accent"
+                  >
+                    Bank Address
+                  </label>
+                  <input
+                    type="text"
+                    id="recipientBankAddress"
+                    name="recipientBankAddress"
+                    value={formData.recipientBankAddress}
+                    onChange={onChange}
+                    placeholder="City, State"
+                    required
+                    className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent placeholder:text-muted/70 focus:border-primary focus:outline-none"
+                  />
+                </div>
+              )}
             </div>
           )}
 
+          {/* ── Found → verified card ──────────────────────── */}
           {lookupState === 'found' && (
             <div className="mt-3 border border-hairline bg-white p-4">
 
@@ -1033,7 +1175,7 @@ const TransferForm = ({
         </button>
         <button
           type="submit"
-          disabled={insufficientFunds || recipientNotVerified}
+          disabled={insufficientFunds || !recipientReady}
           className="inline-flex min-h-[44px] items-center justify-center gap-2 bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Review Transfer
