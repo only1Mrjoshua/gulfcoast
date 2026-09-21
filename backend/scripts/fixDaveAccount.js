@@ -2,16 +2,8 @@
 //
 // Updates Dave Brennaman Becker's account details.
 //
-// Fields touched:
-//   firstName, lastName, email, phone, dateOfBirth
-//   address.street, address.city, address.state, address.zip
-//   mailingAddress  (single-line version of the full address)
-//
-// NOTE: the User schema has no `middleName` or `country` field, so
-// "Brennaman" is preserved on `mailingAddress` and the country is
-// folded into that same line ("…, United States"). If you want a
-// dedicated middleName/country field, tell me and I'll add them to
-// the schema and re-run.
+// IMPORTANT: requires `middleName` to exist on models/User.js.
+// See the schema patch in the README / previous message.
 //
 // ── USAGE ───────────────────────────────────────────────────────────────
 //   node scripts/fixDaveAccount.js
@@ -27,21 +19,21 @@ dns.setDefaultResultOrder('ipv4first');
 dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 // ═════════════════════════════════════════════════════════════════════════
-//  CONFIG — the details you want Dave to end up with
+//  CONFIG
 // ═════════════════════════════════════════════════════════════════════════
 
 const IDENTIFIER = {
-  // Provide any one of these — the script will find Dave by whichever matches.
   username: 'dbbecker01',
   email:    'Davebrennamanbecker@gmail.com',
 };
 
 const UPDATES = {
-  firstName:   'Dave',
-  lastName:    'Becker',
-  email:       'Davebrennamanbecker@gmail.com',
-  phone:       '+18182780024',            // normalized E.164
-  dateOfBirth: '2001-02-11',              // ISO (YYYY-MM-DD) — safe & sortable
+  firstName:  'Dave',
+  middleName: 'Brennaman',
+  lastName:   'Becker',
+  email:      'Davebrennamanbecker@gmail.com',
+  phone:      '+18182780024',
+  dateOfBirth: '2001-02-11',
 
   address: {
     street: '304 Main St',
@@ -50,20 +42,22 @@ const UPDATES = {
     zip:    '71635',
   },
 
-  // Single-line mailing address (keeps the middle name + country visible)
   mailingAddress: '304 Main St, Crossett, AR 71635, United States',
 };
 
 // ═════════════════════════════════════════════════════════════════════════
 
-const money = (n) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency', currency: 'USD', minimumFractionDigits: 2,
-  }).format(n ?? 0);
-
 const run = async () => {
   await mongoose.connect(process.env.MONGO_URL);
   console.log('✅ Connected\n');
+
+  // ── Sanity check: does the schema know about middleName? ───────────
+  if (!User.schema.path('middleName')) {
+    console.error('❌ models/User.js has no `middleName` field.');
+    console.error('   Add it to the schema first (see the patch), then re-run.');
+    await mongoose.disconnect();
+    process.exit(1);
+  }
 
   // ── Find Dave ──────────────────────────────────────────────────────
   const filter = {
@@ -81,24 +75,24 @@ const run = async () => {
     process.exit(1);
   }
 
-  // ── Snapshot the before-state ──────────────────────────────────────
+  // ── Snapshot before ────────────────────────────────────────────────
   const before = {
-    firstName:   user.firstName,
-    lastName:    user.lastName,
-    email:       user.email,
-    phone:       user.phone,
+    firstName:  user.firstName,
+    middleName: user.middleName,
+    lastName:   user.lastName,
+    email:      user.email,
+    phone:      user.phone,
     dateOfBirth: user.dateOfBirth,
-    address:     { ...(user.address ?? {}) },
+    address:    { ...(user.address ?? {}) },
     mailingAddress: user.mailingAddress,
+    fullName:   user.fullName,
   };
 
   console.log('════════════════════════════════════════════');
-  console.log(`  Found: ${before.firstName} ${before.lastName}  (${user._id})`);
+  console.log(`  Found: ${before.fullName}  (${user._id})`);
   console.log('════════════════════════════════════════════\n');
 
-  // ── Apply the updates ──────────────────────────────────────────────
-  // Email is unique — check first so we fail with a clear message
-  // if someone else already owns it.
+  // ── Email uniqueness check ─────────────────────────────────────────
   if (UPDATES.email && UPDATES.email !== before.email) {
     const clash = await User.findOne({
       email: UPDATES.email,
@@ -113,12 +107,13 @@ const run = async () => {
     }
   }
 
-  // Shallow-merge the address so any fields we don't touch are kept
+  // ── Apply updates ──────────────────────────────────────────────────
   user.set({
-    firstName:   UPDATES.firstName,
-    lastName:    UPDATES.lastName,
-    email:       UPDATES.email,
-    phone:       UPDATES.phone,
+    firstName:  UPDATES.firstName,
+    middleName: UPDATES.middleName,
+    lastName:   UPDATES.lastName,
+    email:      UPDATES.email,
+    phone:      UPDATES.phone,
     dateOfBirth: UPDATES.dateOfBirth,
     mailingAddress: UPDATES.mailingAddress,
     address: {
@@ -129,10 +124,12 @@ const run = async () => {
 
   await user.save();
 
-  // ── Print the diff ─────────────────────────────────────────────────
+  // ── Diff table ─────────────────────────────────────────────────────
   const rows = [
     ['First Name',    before.firstName,   user.firstName],
+    ['Middle Name',   before.middleName,  user.middleName],
     ['Last Name',     before.lastName,    user.lastName],
+    ['Full Name',     before.fullName,    user.fullName],
     ['Email',         before.email,       user.email],
     ['Phone',         before.phone,       user.phone],
     ['Date of Birth', before.dateOfBirth, user.dateOfBirth],
@@ -157,11 +154,11 @@ const run = async () => {
   console.log('\n════════════════════════════════════════════');
   console.log('  SAVED');
   console.log('════════════════════════════════════════════');
-  console.log(`  Name    : ${user.firstName} ${user.lastName}`);
-  console.log(`  Email   : ${user.email}`);
-  console.log(`  Phone   : ${user.phone}`);
-  console.log(`  DOB     : ${user.dateOfBirth}`);
-  console.log(`  Address : ${user.address?.street}, ${user.address?.city}, ${user.address?.state} ${user.address?.zip}`);
+  console.log(`  Full Name : ${user.fullName}`);
+  console.log(`  Email     : ${user.email}`);
+  console.log(`  Phone     : ${user.phone}`);
+  console.log(`  DOB       : ${user.dateOfBirth}`);
+  console.log(`  Address   : ${user.address?.street}, ${user.address?.city}, ${user.address?.state} ${user.address?.zip}`);
   console.log('════════════════════════════════════════════\n');
 
   console.log('🎉 Done.\n');

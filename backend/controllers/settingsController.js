@@ -31,6 +31,16 @@ const formatAbsolute = (date) => {
   });
 };
 
+// Build a display name that includes the middle name when present.
+const buildFullName = (user) => {
+  if (!user) return '';
+  return [user.firstName, user.middleName, user.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
 const formatLinkedAccount = (acc) => {
   const last4 = acc.accountNumber ? acc.accountNumber.slice(-4) : '';
   const typeLabel = acc.subType || 'Account';
@@ -65,7 +75,7 @@ export const getSettings = async (req, res) => {
       await Promise.all([
         User.findById(userId)
           .select(
-            'firstName lastName email phone mailingAddress dateOfBirth twoStepVerification accountPreferences'
+            'firstName middleName lastName email phone mailingAddress dateOfBirth twoStepVerification accountPreferences'
           )
           .lean(),
         TrustedDevice.find({ userId }).sort({ lastUsed: -1 }).lean(),
@@ -92,7 +102,10 @@ export const getSettings = async (req, res) => {
 
     res.json({
       profile: {
-        fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+        fullName: buildFullName(user),
+        firstName:  user.firstName  || '',
+        middleName: user.middleName || '',
+        lastName:   user.lastName   || '',
         email: user.email || '',
         phone: user.phone || '',
         mailingAddress: user.mailingAddress || '',
@@ -133,16 +146,40 @@ export const getSettings = async (req, res) => {
 export const updateProfile = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { fullName, email, phone, mailingAddress, dateOfBirth } =
+    const { fullName, firstName, middleName, lastName, email, phone, mailingAddress, dateOfBirth } =
       req.body || {};
 
     const update = {};
 
+    // Two ways to update the name:
+    //   1. Send `fullName` → we split into first / middle / last
+    //   2. Send firstName / middleName / lastName explicitly
     if (fullName !== undefined) {
-      const parts = String(fullName).trim().split(/\s+/);
-      update.firstName = parts[0] || '';
-      update.lastName = parts.slice(1).join(' ') || '';
+      const parts = String(fullName).trim().split(/\s+/).filter(Boolean);
+      if (parts.length === 0) {
+        update.firstName  = '';
+        update.middleName = '';
+        update.lastName   = '';
+      } else if (parts.length === 1) {
+        update.firstName  = parts[0];
+        update.middleName = '';
+        update.lastName   = '';
+      } else if (parts.length === 2) {
+        update.firstName  = parts[0];
+        update.middleName = '';
+        update.lastName   = parts[1];
+      } else {
+        // 3+ parts: first + …middle… + last
+        update.firstName  = parts[0];
+        update.middleName = parts.slice(1, -1).join(' ');
+        update.lastName   = parts[parts.length - 1];
+      }
+    } else {
+      if (firstName  !== undefined) update.firstName  = String(firstName).trim();
+      if (middleName !== undefined) update.middleName = String(middleName).trim();
+      if (lastName   !== undefined) update.lastName   = String(lastName).trim();
     }
+
     if (email !== undefined) update.email = String(email).trim();
     if (phone !== undefined) update.phone = String(phone).trim();
     if (mailingAddress !== undefined)
@@ -160,7 +197,10 @@ export const updateProfile = async (req, res) => {
     res.json({
       message: 'Profile updated',
       profile: {
-        fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+        fullName: buildFullName(user),
+        firstName:  user.firstName  || '',
+        middleName: user.middleName || '',
+        lastName:   user.lastName   || '',
         email: user.email || '',
         phone: user.phone || '',
         mailingAddress: user.mailingAddress || '',

@@ -73,6 +73,12 @@ const transferSchema = new mongoose.Schema({
 
   // ── Denormalized sender name (for receipt) ──────────────────
   senderName: String,
+
+  // ── Marks a transfer whose destination is one of the user's
+  //    own linked External accounts. Used to render nicer labels
+  //    (e.g. "…to your Wells Fargo account •••• 4755" instead of
+  //    "…to Dave Brennaman Becker at Wells Fargo").
+  destinationIsOwn: { type: Boolean, default: false },
 }, { timestamps: true });
 
 transferSchema.index({ userId: 1, createdAt: -1 });

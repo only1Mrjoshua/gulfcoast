@@ -29,7 +29,7 @@ import { apiFetch } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
 const WIRE_FEE = 25;
-const ACCOUNT_HOLDER_NAME = ''; // fallback; real name comes from backend
+const ACCOUNT_HOLDER_NAME = '';
 
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('en-US', {
@@ -90,7 +90,21 @@ const formatHistoryDate = (dateStr) => {
 
 const isExternalRecipient = (type) => type === 'external' || type === 'wire';
 
-// ─── PDF receipt download from backend ────────────────────────
+// Only Dave's own Checking / Savings accounts can be a *source*.
+// External (linked) accounts are NEVER shown in the From dropdown.
+const isOwnedAccount = (acc) => {
+  if (!acc) return false;
+  const t = String(acc.type || '').toLowerCase().trim();
+  if (t === 'external') return false;
+  const n = String(acc.name || '').toLowerCase().trim();
+  if (n.startsWith('external')) return false;
+  return true;
+};
+
+// External accounts ARE allowed as a destination (e.g. transfer to your
+// own linked Wells Fargo). This helper just labels them nicely.
+const isExternalAccount = (acc) => !isOwnedAccount(acc);
+
 const downloadReceipt = async (transfer) => {
   try {
     const API_URL =
@@ -125,7 +139,6 @@ const Transfers = () => {
   const [selectedType, setSelectedType] = useState(null);
   const [selectedTransfer, setSelectedTransfer] = useState(null);
 
-  // Data from backend
   const [accounts, setAccounts] = useState([]);
   const [transfers, setTransfers] = useState([]);
   const [months, setMonths] = useState([]);
@@ -134,12 +147,10 @@ const Transfers = () => {
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
 
-  // Confirm flow state
   const [confirmationNumber, setConfirmationNumber] = useState('');
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [confirmError, setConfirmError] = useState('');
 
-  // PIN step state
   const [pinError, setPinError] = useState('');
   const [pinAttempts, setPinAttempts] = useState(0);
 
@@ -177,9 +188,6 @@ const Transfers = () => {
     verificationMethod: 'instant',
   });
 
-  // ────────────────────────────────────────────────────────────
-  // Fetch accounts + transfers on mount
-  // ────────────────────────────────────────────────────────────
   useEffect(() => {
     const load = async () => {
       try {
@@ -249,16 +257,11 @@ const Transfers = () => {
     setCurrentStep('review');
   };
 
-  // ────────────────────────────────────────────────────────────
-  // REVIEW → move to PIN step (or straight to authorize if
-  // the user has no PIN on file yet).
-  // ────────────────────────────────────────────────────────────
   const handleConfirm = () => {
     setPinError('');
     setConfirmError('');
 
     if (user?.hasBankPin === false) {
-      // No PIN on file — authorize immediately with no PIN
       handleAuthorize(null);
       return;
     }
@@ -266,10 +269,6 @@ const Transfers = () => {
     setCurrentStep('pin');
   };
 
-  // ────────────────────────────────────────────────────────────
-  // AUTHORIZE — POST to backend. `pin` may be null when the
-  // user has no PIN on file.
-  // ────────────────────────────────────────────────────────────
   const handleAuthorize = async (pin) => {
     setPinError('');
     setConfirmError('');
@@ -314,9 +313,6 @@ const Transfers = () => {
       refreshTransfers();
     } catch (err) {
       const message = err.message || 'Failed to authorize transfer';
-
-      // Show the error on both screens so whichever one the user
-      // is currently looking at gets the feedback.
       setPinError(message);
       setConfirmError(message);
 
@@ -351,9 +347,6 @@ const Transfers = () => {
     0
   );
 
-  // ────────────────────────────────────────────────────────────
-  // Loading state
-  // ────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4">
@@ -363,9 +356,6 @@ const Transfers = () => {
     );
   }
 
-  // ────────────────────────────────────────────────────────────
-  // Error state
-  // ────────────────────────────────────────────────────────────
   if (pageError) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4">
@@ -386,7 +376,6 @@ const Transfers = () => {
 
   return (
     <div className="mx-auto max-w-[1000px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      {/* Page Header */}
       <div className="mb-8 flex flex-col gap-4 border-b border-hairline pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-serif text-2xl font-bold leading-tight text-deep-accent sm:text-3xl">
@@ -408,7 +397,6 @@ const Transfers = () => {
         )}
       </div>
 
-      {/* Main Content */}
       <div className="mb-12">
         {currentStep === 'type' && <TransferTypeSelection onSelect={handleTypeSelect} />}
 
@@ -464,7 +452,6 @@ const Transfers = () => {
         )}
       </div>
 
-      {/* Security reminder */}
       <div className="mb-10 flex items-start gap-3 border border-hairline bg-faint px-4 py-3">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
         <p className="text-xs text-body sm:text-sm">
@@ -473,7 +460,6 @@ const Transfers = () => {
         </p>
       </div>
 
-      {/* Transfer Details Modal */}
       {selectedTransfer && (
         <TransferDetailsModal
           transfer={selectedTransfer}
@@ -493,7 +479,7 @@ const TransferTypeSelection = ({ onSelect }) => {
       key: 'internal',
       icon: ArrowLeftRight,
       label: 'Between My Accounts',
-      desc: 'Move money between your checking and savings accounts.',
+      desc: 'Move money between your accounts — including linked banks.',
       meta: 'Instant · No fee',
     },
     {
@@ -566,8 +552,16 @@ const TransferForm = ({
   selectedType,
   onCancel,
 }) => {
-  const fromAccount = accounts.find((a) => a.id === formData.fromAccountId);
-  const availableToAccounts = accounts.filter((a) => a.id !== formData.fromAccountId);
+  // From: only Dave's own Checking / Savings accounts.
+  const eligibleFromAccounts = accounts.filter(isOwnedAccount);
+
+  const fromAccount = eligibleFromAccounts.find((a) => a.id === formData.fromAccountId);
+
+  // To: ALL accounts except the one we're sending from — this includes
+  // Dave's linked Wells Fargo so he can transfer to it.
+  const availableToAccounts = accounts.filter(
+    (a) => a.id !== formData.fromAccountId,
+  );
 
   const isWire = selectedType === 'wire';
   const isExternal = selectedType === 'external';
@@ -581,8 +575,7 @@ const TransferForm = ({
     amountValue > 0 &&
     fromAccount.available < totalDebit;
 
-  // ── Recipient lookup state (ACH / wire only) ───────────────
-  const [lookupState, setLookupState] = useState('idle'); // idle | loading | found | notfound
+  const [lookupState, setLookupState] = useState('idle');
   const lookupTimerRef = useRef(null);
 
   useEffect(
@@ -634,7 +627,6 @@ const TransferForm = ({
     }
   };
 
-  // ── Manual entry validation ────────────────────────────────
   const manualRoutingOk = /^\d{9}$/.test(
     (formData.recipientRoutingNumber || '').trim()
   );
@@ -651,7 +643,7 @@ const TransferForm = ({
     if (!isExternal && !isWire) return true;
     if (lookupState === 'found') return true;
     if (lookupState === 'notfound') return manualFieldsComplete;
-    return false; // idle or loading
+    return false;
   })();
 
   const handleSubmitLocal = (e) => {
@@ -692,7 +684,7 @@ const TransferForm = ({
         </div>
       )}
 
-      {/* From account */}
+      {/* From — only Dave's own Checking / Savings */}
       <div className="mb-5">
         <label
           htmlFor="fromAccountId"
@@ -709,7 +701,7 @@ const TransferForm = ({
           className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none"
         >
           <option value="">Select account</option>
-          {accounts.map((acc) => (
+          {eligibleFromAccounts.map((acc) => (
             <option key={acc.id} value={acc.id}>
               {acc.name} •••• {acc.lastFour}{' '}
               {acc.available !== null ? `(Available: ${formatCurrency(acc.available)})` : ''}
@@ -723,7 +715,7 @@ const TransferForm = ({
         )}
       </div>
 
-      {/* Internal / Recurring: to-account dropdown */}
+      {/* To — own accounts + linked accounts */}
       {isInternal && (
         <div className="mb-5">
           <label
@@ -742,12 +734,48 @@ const TransferForm = ({
             className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:bg-faint disabled:text-muted"
           >
             <option value="">Select account</option>
-            {availableToAccounts.map((acc) => (
-              <option key={acc.id} value={acc.id}>
-                {acc.name} •••• {acc.lastFour}
-              </option>
-            ))}
+
+            {/* Own accounts first */}
+            {availableToAccounts.filter(isOwnedAccount).length > 0 && (
+              <optgroup label="My Accounts">
+                {availableToAccounts
+                  .filter(isOwnedAccount)
+                  .map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.name} •••• {acc.lastFour}
+                    </option>
+                  ))}
+              </optgroup>
+            )}
+
+            {/* Linked accounts second */}
+            {availableToAccounts.filter(isExternalAccount).length > 0 && (
+              <optgroup label="Linked Accounts">
+                {availableToAccounts
+                  .filter(isExternalAccount)
+                  .map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.institution || acc.name} •••• {acc.lastFour}
+                    </option>
+                  ))}
+              </optgroup>
+            )}
           </select>
+
+          {/* Small helper text if the destination is external */}
+          {formData.toAccountId &&
+            (() => {
+              const to = accounts.find((a) => a.id === formData.toAccountId);
+              if (to && isExternalAccount(to)) {
+                return (
+                  <p className="mt-1.5 text-[11px] text-muted">
+                    External transfer — funds will be sent to your linked{' '}
+                    {to.institution || 'bank'} account.
+                  </p>
+                );
+              }
+              return null;
+            })()}
         </div>
       )}
 
@@ -797,7 +825,6 @@ const TransferForm = ({
             </div>
           )}
 
-          {/* ── Not found → manual entry ───────────────────── */}
           {showManualEntry && (
             <div className="mt-3 space-y-4 border border-hairline bg-white p-4">
               <div className="flex items-center gap-2">
@@ -807,7 +834,6 @@ const TransferForm = ({
                 </h4>
               </div>
 
-              {/* Full name */}
               <div>
                 <label
                   htmlFor="recipientName"
@@ -827,7 +853,6 @@ const TransferForm = ({
                 />
               </div>
 
-              {/* Bank name */}
               <div>
                 <label
                   htmlFor="recipientBankName"
@@ -848,7 +873,6 @@ const TransferForm = ({
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {/* Routing */}
                 <div>
                   <label
                     htmlFor="recipientRoutingNumber"
@@ -874,15 +898,13 @@ const TransferForm = ({
                     required
                     className="min-h-[44px] w-full border border-hairline bg-white px-3 py-2 text-sm text-deep-accent placeholder:text-muted/70 focus:border-primary focus:outline-none"
                   />
-                  {formData.recipientRoutingNumber &&
-                    !manualRoutingOk && (
-                      <p className="mt-1 text-[11px] text-[#721c24]">
-                        Routing number must be exactly 9 digits.
-                      </p>
-                    )}
+                  {formData.recipientRoutingNumber && !manualRoutingOk && (
+                    <p className="mt-1 text-[11px] text-[#721c24]">
+                      Routing number must be exactly 9 digits.
+                    </p>
+                  )}
                 </div>
 
-                {/* Account type */}
                 <div>
                   <label
                     htmlFor="recipientAccountType"
@@ -903,7 +925,6 @@ const TransferForm = ({
                 </div>
               </div>
 
-              {/* Bank address (wire only) */}
               {isWire && (
                 <div>
                   <label
@@ -927,10 +948,8 @@ const TransferForm = ({
             </div>
           )}
 
-          {/* ── Found → verified card ──────────────────────── */}
           {lookupState === 'found' && (
             <div className="mt-3 border border-hairline bg-white p-4">
-
               <RecipientRow label="Account Holder" value={formData.recipientName} />
               <RecipientRow label="Bank" value={formData.recipientBankName} />
               <RecipientRow
@@ -1044,7 +1063,6 @@ const TransferForm = ({
         )}
       </div>
 
-      {/* Memo */}
       <div className="mb-6">
         <label htmlFor="memo" className="mb-1.5 block text-sm font-semibold text-deep-accent">
           Memo <span className="font-normal text-muted">(optional)</span>
@@ -1060,7 +1078,6 @@ const TransferForm = ({
         />
       </div>
 
-      {/* Actions */}
       <div className="flex flex-col-reverse gap-3 border-t border-hairline pt-6 sm:flex-row sm:justify-end">
         <button
           type="button"
@@ -1124,6 +1141,9 @@ const TransferReview = ({
     ? 'Recurring Transfer'
     : 'Internal Transfer';
 
+  // Does the "To" account belong to Dave or is it external?
+  const toIsExternal = isInternal && toAccount && isExternalAccount(toAccount);
+
   return (
     <div className="border border-hairline bg-faint p-6 sm:p-8">
       <h2 className="mb-6 font-serif text-xl font-bold text-deep-accent sm:text-2xl">
@@ -1147,10 +1167,12 @@ const TransferReview = ({
               <Zap className="h-3.5 w-3.5 text-primary" strokeWidth={2} />
             ) : isExternal ? (
               <Landmark className="h-3.5 w-3.5 text-primary" strokeWidth={2} />
+            ) : toIsExternal ? (
+              <Landmark className="h-3.5 w-3.5 text-primary" strokeWidth={2} />
             ) : (
               <ArrowLeftRight className="h-3.5 w-3.5 text-primary" strokeWidth={2} />
             )}
-            {typeLabel}
+            {toIsExternal ? 'External Transfer (ACH)' : typeLabel}
           </span>
         </Row>
         <Row label="Amount">
@@ -1178,7 +1200,7 @@ const TransferReview = ({
         <Row label="Expected Arrival">
           <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-deep-accent">
             <Clock className="h-3.5 w-3.5 text-primary" strokeWidth={2} />
-            {getArrivalText(selectedType, formData.date)}
+            {getArrivalText(toIsExternal ? 'external' : selectedType, formData.date)}
           </span>
         </Row>
 
@@ -1261,7 +1283,7 @@ const Row = ({ label, children }) => (
 );
 
 // ============================================================
-// Transfer PIN (new step between Review and Success)
+// Transfer PIN
 // ============================================================
 const TransferPin = ({ amount, isWire, onSubmit, onBack, loading, error, attempts }) => {
   const [pin, setPin] = useState(['', '', '', '']);
@@ -1435,13 +1457,15 @@ const TransferSuccess = ({
 
   const amountValue = parseFloat(formData.amount) || 0;
 
+  const toIsExternal = isInternal && toAccount && isExternalAccount(toAccount);
+
   const recipientName = isInternal
     ? toAccount?.name
     : formData.recipientName || 'recipient';
 
   const title = isWire
     ? 'Wire Transfer Submitted'
-    : isExternal
+    : isExternal || toIsExternal
     ? 'ACH Transfer Scheduled'
     : 'Transfer Scheduled';
 
@@ -1449,7 +1473,7 @@ const TransferSuccess = ({
     ? `Your ${formatCurrency(amountValue)} wire to ${recipientName} has been submitted. A ${formatCurrency(
         WIRE_FEE
       )} fee applies.`
-    : isExternal
+    : isExternal || toIsExternal
     ? `Your ${formatCurrency(amountValue)} ACH transfer to ${recipientName} has been scheduled. Funds usually arrive in 1–3 business days.`
     : `Your ${formatCurrency(amountValue)} transfer from ${fromAccount?.name} to ${toAccount?.name} has been scheduled.`;
 
@@ -1468,7 +1492,7 @@ const TransferSuccess = ({
         <SummaryRow label="Transfer Date" value={formData.date} />
         <SummaryRow
           label="Expected Arrival"
-          value={getArrivalText(selectedType, formData.date)}
+          value={getArrivalText(toIsExternal ? 'external' : selectedType, formData.date)}
         />
         {isWire && (
           <SummaryRow
@@ -1558,7 +1582,6 @@ const TransferDetailsModal = ({ transfer, onClose }) => {
         className="flex max-h-[92vh] w-full max-w-lg flex-col border border-hairline bg-white shadow-2xl sm:max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-hairline px-5 py-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -1584,9 +1607,7 @@ const TransferDetailsModal = ({ transfer, onClose }) => {
           </button>
         </div>
 
-        {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto">
-          {/* Amount + status */}
           <div className="border-b border-hairline px-5 py-5 text-center">
             <div className="font-serif text-3xl font-bold text-deep-accent">
               {formatCurrency(transfer.amount)}
@@ -1600,7 +1621,6 @@ const TransferDetailsModal = ({ transfer, onClose }) => {
             </span>
           </div>
 
-          {/* Details list */}
           <dl className="divide-y divide-hairline px-5">
             <DetailRow
               icon={ArrowLeftRight}
@@ -1683,7 +1703,6 @@ const TransferDetailsModal = ({ transfer, onClose }) => {
           </dl>
         </div>
 
-        {/* Footer actions */}
         <div className="flex flex-col gap-2 border-t border-hairline px-5 py-4 sm:flex-row sm:justify-end">
           <button
             type="button"
