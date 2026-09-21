@@ -58,6 +58,19 @@ const formatMediumDate = (dateStr) => {
   });
 };
 
+const formatTime = (timeStr) => {
+  // If backend already sent a formatted string ("3:00 PM"), use it as-is
+  if (!timeStr) return '';
+  if (typeof timeStr === 'string' && /[AP]M/i.test(timeStr)) return timeStr;
+  const dt = new Date(timeStr);
+  if (isNaN(dt)) return '';
+  return dt.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
 const quickActions = [
   { label: 'Transfer Money', icon: ArrowLeftRight, to: '/transfers' },
   { label: 'Pay a Bill', icon: Receipt, to: '/payments' },
@@ -110,6 +123,7 @@ const Home = () => {
             category: tx.category || (tx.type === 'credit' ? 'Deposit' : 'Payment'),
             amount: tx.amount,
             date: formatShortDate(tx.date),
+            time: tx.time || formatTime(tx.date),
           })),
 
           upcomingPayments: (d.upcomingPayments || []).map((p) => ({
@@ -329,7 +343,10 @@ const Home = () => {
                         {isPositive ? '+' : '-'}
                         {formatCurrency(tx.amount)}
                       </span>
-                      <span className="text-xs text-muted">{tx.date}</span>
+                      <span className="text-xs text-muted">
+                        {tx.date}
+                        {tx.time ? ` · ${tx.time}` : ''}
+                      </span>
                     </div>
                   </div>
                 );
