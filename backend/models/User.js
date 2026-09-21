@@ -2,11 +2,12 @@
 import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema({
-  firstName: { type: String, required: true },
-  lastName:  { type: String, required: true },
-  username:  { type: String, required: true, unique: true },
-  email:     { type: String, required: true, unique: true },
-  password:  { type: String, required: true },
+  firstName:  { type: String, required: true },
+  middleName: { type: String, default: '' },
+  lastName:   { type: String, required: true },
+  username:   { type: String, required: true, unique: true },
+  email:      { type: String, required: true, unique: true },
+  password:   { type: String, required: true },
 
   // Hashed 4-digit bank PIN, required for authorizing transfers.
   // select: false keeps it out of every query unless explicitly requested.
@@ -90,6 +91,21 @@ const userSchema = new mongoose.Schema({
   },
   housingStatus:  { type: String, default: 'Rent' },
   monthlyHousing: { type: Number, default: 0 },
-}, { timestamps: true });
+}, {
+  timestamps: true,
+  toJSON:   { virtuals: true },
+  toObject: { virtuals: true },
+});
+
+// ── fullName virtual ────────────────────────────────────────
+// Returns "Dave Brennaman Becker", gracefully handling a blank
+// middle name (returns "Dave Becker").
+userSchema.virtual('fullName').get(function () {
+  return [this.firstName, this.middleName, this.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+});
 
 export default mongoose.model('User', userSchema);
