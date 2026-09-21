@@ -355,86 +355,83 @@ const Payments = () => {
       <div className="mb-12">
         {currentStep === 'overview' && (
           <>
-            {/* Upcoming Payments */}
-            <section className="mb-10">
-              <div className="mb-4 flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-primary" strokeWidth={1.75} />
-                <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
-                  Upcoming Payments
-                </h2>
-              </div>
+            {/* Upcoming Payments — only renders when there ARE upcoming payments */}
+            {data.upcomingPayments.length > 0 && (
+              <section className="mb-10">
+                <div className="mb-4 flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-primary" strokeWidth={1.75} />
+                  <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
+                    Upcoming Payments
+                  </h2>
+                </div>
 
-              <div className="flex flex-col gap-3">
-                {data.upcomingPayments.length === 0 && (
-                  <div className="border border-dashed border-hairline bg-white p-6 text-center text-sm text-muted">
-                    No upcoming payments.
-                  </div>
-                )}
-                {data.upcomingPayments.map((p) => {
-                  const isPaying = payingId === p.id;
-                  const isAnyPaying = payingId !== null;
-                  const hasAutopay = data.automaticPayments.some(
-                    (a) => String(a.payeeId) === String(p.payeeId) && a.enabled
-                  );
-                  const showPayNow = !hasAutopay;
+                <div className="flex flex-col gap-3">
+                  {data.upcomingPayments.map((p) => {
+                    const isPaying = payingId === p.id;
+                    const isAnyPaying = payingId !== null;
+                    const hasAutopay = data.automaticPayments.some(
+                      (a) => String(a.payeeId) === String(p.payeeId) && a.enabled
+                    );
+                    const showPayNow = !hasAutopay;
 
-                  return (
-                    <div
-                      key={p.id}
-                      className="flex flex-col gap-3 border border-hairline bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
-                        <span className="text-sm font-semibold text-deep-accent">{p.payee}</span>
-                        <span className="inline-flex items-center gap-1.5 text-xs text-muted sm:text-sm">
-                          <Calendar className="h-3.5 w-3.5 text-primary" strokeWidth={1.75} />
-                          Due {formatShortDate(p.date)}
-                        </span>
-                        <span className="text-sm font-semibold text-deep-accent">
-                          {formatCurrency(p.amount)}
-                        </span>
-                        <span
-                          className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide ${
-                            hasAutopay ? 'text-primary' : 'text-[#d9534f]'
-                          }`}
-                        >
+                    return (
+                      <div
+                        key={p.id}
+                        className="flex flex-col gap-3 border border-hairline bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+                          <span className="text-sm font-semibold text-deep-accent">{p.payee}</span>
+                          <span className="inline-flex items-center gap-1.5 text-xs text-muted sm:text-sm">
+                            <Calendar className="h-3.5 w-3.5 text-primary" strokeWidth={1.75} />
+                            Due {formatShortDate(p.date)}
+                          </span>
+                          <span className="text-sm font-semibold text-deep-accent">
+                            {formatCurrency(p.amount)}
+                          </span>
                           <span
-                            className={`h-1.5 w-1.5 ${
-                              hasAutopay ? 'bg-primary' : 'bg-[#d9534f]'
+                            className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide ${
+                              hasAutopay ? 'text-primary' : 'text-[#d9534f]'
                             }`}
-                            aria-hidden="true"
-                          />
-                          {hasAutopay ? 'Autopay ON' : 'Autopay OFF'}
-                        </span>
-                      </div>
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 ${
+                                hasAutopay ? 'bg-primary' : 'bg-[#d9534f]'
+                              }`}
+                              aria-hidden="true"
+                            />
+                            {hasAutopay ? 'Autopay ON' : 'Autopay OFF'}
+                          </span>
+                        </div>
 
-                      {showPayNow && (
-                        <button
-                          type="button"
-                          onClick={() => handleQuickPay(p)}
-                          disabled={isAnyPaying}
-                          className="inline-flex min-h-[36px] items-center justify-center gap-1.5 border border-primary bg-white px-4 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:border-hairline disabled:bg-faint disabled:text-muted sm:text-sm"
-                        >
-                          {isPaying ? (
-                            <>
-                              <Loader2
-                                className="h-3.5 w-3.5 animate-spin"
-                                strokeWidth={2.25}
-                              />
-                              Processing…
-                            </>
-                          ) : (
-                            <>
-                              Pay Now
-                              <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.25} />
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
+                        {showPayNow && (
+                          <button
+                            type="button"
+                            onClick={() => handleQuickPay(p)}
+                            disabled={isAnyPaying}
+                            className="inline-flex min-h-[36px] items-center justify-center gap-1.5 border border-primary bg-white px-4 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:border-hairline disabled:bg-faint disabled:text-muted sm:text-sm"
+                          >
+                            {isPaying ? (
+                              <>
+                                <Loader2
+                                  className="h-3.5 w-3.5 animate-spin"
+                                  strokeWidth={2.25}
+                                />
+                                Processing…
+                              </>
+                            ) : (
+                              <>
+                                Pay Now
+                                <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.25} />
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
 
             {/* Automatic Payments */}
             <section className="mb-10">
@@ -498,55 +495,6 @@ const Payments = () => {
                     </div>
                   );
                 })}
-              </div>
-            </section>
-
-            {/* Payment History */}
-            <section className="mb-10">
-              <div className="mb-4 flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-primary" strokeWidth={1.75} />
-                <h2 className="font-serif text-lg font-bold text-deep-accent sm:text-xl">
-                  Payment History
-                </h2>
-              </div>
-
-              <div className="overflow-hidden border border-hairline bg-white">
-                <div className="hidden grid-cols-[1fr_1.5fr_1.5fr_1fr_1fr] gap-4 border-b border-hairline bg-faint px-4 py-3 text-xs font-bold uppercase tracking-wide text-deep-accent md:grid">
-                  <span>Date</span>
-                  <span>Payee</span>
-                  <span>Account</span>
-                  <span className="text-right">Amount</span>
-                  <span className="text-right">Status</span>
-                </div>
-
-                {data.paymentHistory.length === 0 && (
-                  <div className="px-4 py-8 text-center text-sm text-muted">
-                    No payment history yet.
-                  </div>
-                )}
-
-                {data.paymentHistory.map((p) => (
-                  <div
-                    key={p.id}
-                    className="grid grid-cols-1 gap-1 border-b border-faint px-4 py-3 last:border-b-0 md:grid-cols-[1fr_1.5fr_1.5fr_1fr_1fr] md:items-center md:gap-4"
-                  >
-                    <span className="text-xs text-muted sm:text-sm">
-                      {formatShortDate(p.completedAt || p.date)}
-                    </span>
-                    <span className="text-sm font-medium text-ink">{p.payee}</span>
-                    <span className="text-xs text-body sm:text-sm">{p.account}</span>
-                    <span className="text-sm font-semibold text-deep-accent md:text-right">
-                      {formatCurrency(p.amount)}
-                    </span>
-                    <span
-                      className={`text-xs font-bold uppercase tracking-wide md:text-right md:text-sm md:normal-case ${statusColor(
-                        p.status
-                      )}`}
-                    >
-                      {p.status}
-                    </span>
-                  </div>
-                ))}
               </div>
             </section>
           </>

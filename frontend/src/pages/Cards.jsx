@@ -294,20 +294,6 @@ const Cards = () => {
     }
   };
 
-  // ── Overview cards config ──
-  const alertsEnabledCount = Object.values(alertPreferences).filter(Boolean).length;
-
-  const overviewCards = [
-    { label: 'Total Cards', value: cards.length, icon: CreditCard },
-    {
-      label: 'Active Cards',
-      value: cards.filter((c) => c.status === 'Active').length,
-      icon: CheckCircle2,
-    },
-    { label: 'Cards With Alerts', value: alertsEnabledCount, icon: Bell },
-    { label: 'Expiring Soon', value: overview.expiringSoon || 0, icon: Clock },
-  ];
-
   // ── Card controls grid config ──
   const controlItems = selectedCard
     ? [
@@ -404,23 +390,6 @@ const Cards = () => {
             settings.
           </p>
         </div>
-      </div>
-
-      {/* Card Overview */}
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {overviewCards.map(({ label, value, icon: Icon }) => (
-          <div key={label} className="border border-hairline bg-faint px-4 py-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted sm:text-xs">
-                {label}
-              </span>
-              <Icon className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
-            </div>
-            <div className="mt-1 font-serif text-xl font-bold text-deep-accent sm:text-2xl">
-              {value}
-            </div>
-          </div>
-        ))}
       </div>
 
       {/* My Cards */}
