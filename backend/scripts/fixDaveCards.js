@@ -78,7 +78,7 @@ const run = async () => {
   }
 
   // ── 2. Set the Credit card's balance ───────────────────────────────
-  const CREDIT_BALANCE = 500000;
+  const CREDIT_BALANCE = 100000;
 
   const credit = await Card.findOne({
     userId: dave._id,

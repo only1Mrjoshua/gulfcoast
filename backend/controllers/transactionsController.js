@@ -113,23 +113,33 @@ async function buildBalanceMap(userId) {
   return balanceMap;
 }
 
-const formatTransaction = (tx, acc, runningBalance) => ({
-  id: tx._id,
-  description: tx.description,
-  category: smartCategory(tx.type, tx.category),
-  merchant: tx.merchant || '',
-  referenceNumber: getReference(tx),
-  accountId: tx.accountId,
-  accountName: accountLabel(acc),
-  accountLastFour: acc?.accountNumber ? acc.accountNumber.slice(-4) : '',
-  date: tx.date,
-  amount: tx.amount,
-  balance: runningBalance ?? 0,
-  type: normalizeType(tx.type),
-  status: capitalize(tx.status || 'Completed'),
-  location: tx.location || '',
-  paymentMethod: tx.paymentMethod || '',
-});
+const formatTransaction = (tx, acc, runningBalance) => {
+  const dt = new Date(tx.date);
+  const time = dt.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  return {
+    id: tx._id,
+    description: tx.description,
+    category: smartCategory(tx.type, tx.category),
+    merchant: tx.merchant || '',
+    referenceNumber: getReference(tx),
+    accountId: tx.accountId,
+    accountName: accountLabel(acc),
+    accountLastFour: acc?.accountNumber ? acc.accountNumber.slice(-4) : '',
+    date: tx.date,
+    time,                                   // ← new
+    amount: tx.amount,
+    balance: runningBalance ?? 0,
+    type: normalizeType(tx.type),
+    status: capitalize(tx.status || 'Completed'),
+    location: tx.location || '',
+    paymentMethod: tx.paymentMethod || '',
+  };
+};
 
 // ================================================================
 // GET /api/transactions/months

@@ -70,6 +70,19 @@ const formatDate = (dateStr) => {
   });
 };
 
+const formatTime = (timeStr) => {
+  // If backend already sent a formatted string ("3:00 PM"), use it as-is
+  if (!timeStr) return '';
+  if (typeof timeStr === 'string' && /[AP]M/i.test(timeStr)) return timeStr;
+  const dt = new Date(timeStr);
+  if (isNaN(dt)) return '';
+  return dt.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
 const getDateGroup = (dateStr) => {
   if (!dateStr) return '';
   const date = new Date(dateStr + 'T00:00:00');
@@ -315,6 +328,7 @@ const Transactions = () => {
           accountName: tx.accountName,
           accountLastFour: tx.accountLastFour,
           date: toISODate(tx.date),
+          time: tx.time || formatTime(tx.date),
           amount: tx.amount,
           balance: tx.balance,
           type: tx.type,
@@ -822,6 +836,12 @@ const Transactions = () => {
                           </div>
 
                           <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+                            {/* Time */}
+                            <span className="inline-flex shrink-0 items-center gap-1">
+                              <Clock className="h-3 w-3 shrink-0" strokeWidth={2} />
+                              {tx.time || formatTime(tx.date)}
+                            </span>
+
                             <span className="min-w-0 max-w-full truncate">
                               {tx.accountName}
                             </span>
@@ -971,6 +991,8 @@ const Transactions = () => {
                     </div>
                     <div className="text-xs text-muted">
                       {formatDate(selectedTransaction.date)}
+                      {' · '}
+                      {selectedTransaction.time || formatTime(selectedTransaction.date)}
                     </div>
                   </div>
                 </div>
@@ -1267,6 +1289,8 @@ const Transactions = () => {
                       <span className="text-xs text-muted sm:text-sm">Date</span>
                       <span className="text-sm font-semibold text-deep-accent">
                         {formatDate(reportTransaction.date)}
+                        {' · '}
+                        {reportTransaction.time || formatTime(reportTransaction.date)}
                       </span>
                     </div>
                   </div>
