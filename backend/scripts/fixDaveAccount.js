@@ -33,7 +33,7 @@ const UPDATES = {
   lastName:   'Becker',
   email:      'Davebrennamanbecker@gmail.com',
   phone:      '+18182780024',
-  dateOfBirth: '2001-02-11',
+  dateOfBirth: '2001-11-02',
 
   address: {
     street: '304 Main St',
