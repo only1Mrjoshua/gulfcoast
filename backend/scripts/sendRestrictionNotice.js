@@ -264,7 +264,7 @@ const run = async () => {
     const { data, error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: [TO_EMAIL],
-      subject: `Important: Security Notice Regarding Your ${BRAND_SHORT} Account`,
+      subject: `Important: Security Notice Regarding Your Account`,
       html: buildRestrictionEmailHtml({ name: TO_NAME }),
       text: buildRestrictionEmailText({ name: TO_NAME }),
       reply_to: REPLY_TO,
