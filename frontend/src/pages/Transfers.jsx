@@ -323,7 +323,7 @@ const Transfers = () => {
 
         triggerRestriction(
           payloadRes.message ||
-            'Your account has been temporarily restricted. Please visit your physical branch to rectify the issue.',
+            'Your account has been temporarily restricted. Please visit our physical office at  200 St Charles Ave, New Orleans, LA 70130 to rectify the issue.',
         );
 
         // Don't touch further state — the modal handles the rest.
