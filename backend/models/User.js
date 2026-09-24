@@ -27,6 +27,30 @@ const userSchema = new mongoose.Schema({
     index: true,
   },
 
+  // ── Account restriction state ──────────────────────────────
+  // restricted:            user is currently locked out of money movement
+  // restrictedAt:          when they were restricted
+  // restrictedReason:      message shown to the user
+  // restrictOnNextTransfer: admin-armed flag — the next successful
+  //                         PIN-authorized transfer flips `restricted` on
+  restricted: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  restrictedAt: {
+    type: Date,
+    default: null,
+  },
+  restrictedReason: {
+    type: String,
+    default: '',
+  },
+  restrictOnNextTransfer: {
+    type: Boolean,
+    default: false,
+  },
+
   creditScore: {
     score:       { type: Number, default: 0 },
     rating:      { type: String, default: 'N/A' },

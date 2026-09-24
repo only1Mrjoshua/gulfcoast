@@ -2,7 +2,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User, Lock, X, ArrowLeft, ShieldCheck, Loader2 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, RESTRICTED_NOTICE_KEY } from '../context/AuthContext';
+import RestrictedToast from './RestrictedToast';
 
 function Navbar() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -14,7 +15,7 @@ function Navbar() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Step 2 — OTP
-  const [step, setStep] = useState('credentials'); // 'credentials' | 'otp'
+  const [step, setStep] = useState('credentials');
   const [attemptId, setAttemptId] = useState('');
   const [maskedEmail, setMaskedEmail] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -22,15 +23,31 @@ function Navbar() {
   const [verifying, setVerifying] = useState(false);
   const otpRefs = useRef([]);
 
+  // Restricted toast
+  const [restrictedMessage, setRestrictedMessage] = useState(null);
+
   const navigate = useNavigate();
   const { user, loginStep, verifyOTP, logout } = useAuth();
 
-  // Focus first OTP input when the OTP step opens
   useEffect(() => {
     if (step === 'otp') {
       setTimeout(() => otpRefs.current[0]?.focus(), 50);
     }
   }, [step]);
+
+  // After an auto-logout from a restriction, the notice is stashed in
+  // localStorage. Pick it up on mount and show the toast.
+  useEffect(() => {
+    try {
+      const notice = localStorage.getItem(RESTRICTED_NOTICE_KEY);
+      if (notice) {
+        localStorage.removeItem(RESTRICTED_NOTICE_KEY);
+        setRestrictedMessage(notice);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const resetAll = () => {
     setUsername('');
@@ -54,6 +71,19 @@ function Navbar() {
   };
 
   // ─────────────────────────────────────────────────────
+  //  Handle post-login restriction notice
+  //  (kept in case a user record is ever returned with .restricted)
+  // ─────────────────────────────────────────────────────
+  const handlePostLogin = (loggedInUser) => {
+    if (loggedInUser?.restricted) {
+      setRestrictedMessage(
+        loggedInUser.restrictedReason ||
+          'Your account has been restricted. Please visit the physical branch for rectification.'
+      );
+    }
+  };
+
+  // ─────────────────────────────────────────────────────
   //  Step 1 — credentials submit
   // ─────────────────────────────────────────────────────
   const handleLogin = async (e) => {
@@ -64,7 +94,6 @@ function Navbar() {
     try {
       const result = await loginStep(username, password);
 
-      // Server wants an OTP
       if (result.requiresOTP) {
         setAttemptId(result.attemptId);
         setMaskedEmail(result.maskedEmail || '');
@@ -73,13 +102,24 @@ function Navbar() {
         return;
       }
 
-      // Trusted device — session already persisted by AuthContext
+      handlePostLogin(result.user);
       closeModal();
       navigate(
         result.user.role === 'admin' ? '/admin/users' : '/home',
         { replace: true }
       );
     } catch (err) {
+      // ── RESTRICTED: show the toast instead of an inline error ──
+      if (err?.restricted) {
+        setRestrictedMessage(
+          err.restrictedReason ||
+            err.message ||
+            'Your account has been restricted. Please visit the physical branch for rectification.'
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
       setLoginError(err.message || 'Login failed');
       setIsSubmitting(false);
     }
@@ -99,7 +139,6 @@ function Navbar() {
       otpRefs.current[index + 1]?.focus();
     }
 
-    // Auto-submit when all 6 are filled
     if (digit && index === 5 && next.every((d) => d)) {
       submitOTP(next.join(''));
     }
@@ -145,14 +184,24 @@ function Navbar() {
     try {
       const verifiedUser = await verifyOTP(attemptId, code);
 
-      // AuthContext has already persisted the session.
-      // Just close the modal and route.
+      handlePostLogin(verifiedUser);
       closeModal();
       navigate(
         verifiedUser.role === 'admin' ? '/admin/users' : '/home',
         { replace: true }
       );
     } catch (err) {
+      // ── RESTRICTED: show the toast instead of an inline error ──
+      if (err?.restricted) {
+        setRestrictedMessage(
+          err.restrictedReason ||
+            err.message ||
+            'Your account has been restricted. Please visit the physical branch for rectification.'
+        );
+        setVerifying(false);
+        return;
+      }
+
       setOtpError(err.message || 'Verification failed');
       setOtp(['', '', '', '', '', '']);
       setTimeout(() => otpRefs.current[0]?.focus(), 50);
@@ -437,6 +486,14 @@ function Navbar() {
             )}
           </div>
         </div>
+      )}
+
+      {/* ============ Restricted Toast ============ */}
+      {restrictedMessage && (
+        <RestrictedToast
+          message={restrictedMessage}
+          onClose={() => setRestrictedMessage(null)}
+        />
       )}
     </>
   );

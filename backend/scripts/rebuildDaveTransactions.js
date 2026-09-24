@@ -5,20 +5,20 @@
 //
 // Combined target (checking + savings) = $2,403,729.00  ← exact
 //
-// ★ Accenture weekly payroll runs EVERY SATURDAY, all the way through —
-//   including Saturdays that fall on a protected day (e.g. 19 Sep 2026).
+// ★ Pinned current-month transactions:
 //
-// ★ PROTECTED DAYS (current month): 19th, 20th, 21st.
-//   Only these appear on those days:
-//     19th (Saturday)  09:00   Accenture Weekly Payroll        +$3,088.00
-//     19th             13:20   CVS Pharmacy Medicine Refill      -$304.91
-//     19th             15:00   STC Bahrain Contract Settlement +$198,000.00
-//     19th             17:45   Flight Ticket Booking             -$1,300.00
-//     20th             14:00   Titan Blockchain Capital Profit +$328,431.00
-//     21st                    (nothing — free slot)
+//     18th  1:27 PM   CVS Pharmacy Medicine Refill                -$304.91
+//     19th  3:00 PM   STC Bahrain Contract Settlement           +$198,000.00
+//     19th  4:38 PM   Titan Blockchain Capital Profit Credit    +$328,431.00
+//     19th  6:12 PM   Flight Ticket Booking                       -$1,300.00
+//     20th  8:17 AM   Conrad Bahrain Hotel                        -$4,303.00
 //
-// ★ Conrad Bahrain Hotel is pinned to YESTERDAY at 14:30.
-//   Category: "Hotel & Lodging".
+// ★ PROTECTED DAYS (current month): the 19th, 20th, and 21st.
+//     - 19th → only the three pinned rows above + Saturday payroll
+//     - 20th → ONLY Conrad Bahrain Hotel (nothing else)
+//     - 21st → NOTHING (today stays empty)
+//
+// ★ Accenture weekly payroll runs every SATURDAY (including the 19th).
 //
 // ── USAGE ───────────────────────────────────────────────────────────────
 //   node scripts/rebuildDaveTransactions.js
@@ -55,23 +55,6 @@ const FLIGHT_DEBIT         = 1_300;
 const TITAN_FIXED_CREDIT   = 328_431;
 const CONRAD_HOTEL_DEBIT   = 4_303;
 const CVS_REFILL_DEBIT     = 304.91;
-
-const STC_DATE = (() => {
-  const d = new Date(TODAY);
-  d.setDate(19); d.setHours(15, 0, 0, 0);
-  if (d > TODAY) d.setMonth(d.getMonth() - 1);
-  return d;
-})();
-const FLIGHT_DATE = (() => {
-  const d = new Date(STC_DATE); d.setHours(17, 45, 0, 0);
-  return d;
-})();
-const CONRAD_DATE = (() => {
-  const d = new Date(TODAY);
-  d.setDate(d.getDate() - 1);
-  d.setHours(14, 30, 0, 0);
-  return d;
-})();
 
 const OPENING_BALANCE    = 120_000;
 const SAVINGS_MONTHLY    = 5_000;
@@ -125,7 +108,8 @@ const monthKey = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 const clean = (s) => String(s).replace(/\s*—\s*/g, ' ').replace(/\s+/g, ' ').trim();
 
-// Protected days — current-month 19th, 20th, 21st
+// ★ Protected days — current-month 19th, 20th, 21st.
+//   Nothing from the base loop or the padding pass touches these.
 const isProtectedDate = (d) =>
   d.getFullYear() === TODAY.getFullYear() &&
   d.getMonth()    === TODAY.getMonth()    &&
@@ -193,7 +177,7 @@ function buildBaseLedger() {
                    d.getMonth()    === TODAY.getMonth();
     const protectedDay = isProtectedDate(d);
 
-    // ── Accenture payroll — every SATURDAY (runs even on protected days) ──
+    // ── Payroll — every SATURDAY (runs even on protected days) ──
     if (dow === 6) {
       push(at(d, 9, 0), 'Accenture Weekly Payroll Direct Deposit',
         ACCENTURE_WEEKLY, {
@@ -202,7 +186,7 @@ function buildBaseLedger() {
         });
     }
 
-    // ── Protected days: skip everything except the payroll above ──
+    // ── Protected days: skip everything else ──
     if (protectedDay) {
       cursor.setDate(cursor.getDate() + 1);
       continue;
@@ -304,35 +288,27 @@ function buildBaseLedger() {
 
   // ═══════════════════════════════════════════════════════════════════
   //  PINNED CURRENT-MONTH TRANSACTIONS
-  //  (No payroll pin — Saturdays are handled by the base loop and
-  //   already include the 19th.)
   // ═══════════════════════════════════════════════════════════════════
   const cm  = TODAY.getFullYear();
   const cmo = TODAY.getMonth();
 
-  // 19th — CVS
-  push(new Date(cm, cmo, 19, 13, 20), 'CVS Pharmacy Medicine Refill',
+  // 18th — CVS at 1:27 PM
+  push(new Date(cm, cmo, 18, 13, 27), 'CVS Pharmacy Medicine Refill',
     -CVS_REFILL_DEBIT, {
       kind: 'pharmacy', category: 'Healthcare', method: 'Card',
       merchant: 'CVS Pharmacy',
     });
 
-  // 19th — STC
-  push(STC_DATE, 'STC Bahrain Contract Settlement', STC_BAHRAIN_CREDIT, {
-    kind: 'stc-bahrain', category: 'Income', method: 'Wire',
-    merchant: 'STC Bahrain',
-    reference: 'STC-BH-' + STC_DATE.toISOString().slice(0, 10),
-  });
+  // 19th — STC at 3:00 PM
+  push(new Date(cm, cmo, 19, 15, 0),
+    'STC Bahrain Contract Settlement', STC_BAHRAIN_CREDIT, {
+      kind: 'stc-bahrain', category: 'Income', method: 'Wire',
+      merchant: 'STC Bahrain',
+      reference: 'STC-BH-' + new Date(cm, cmo, 19).toISOString().slice(0, 10),
+    });
 
-  // 19th — Flight
-  push(FLIGHT_DATE, 'Flight Ticket Booking', -FLIGHT_DEBIT, {
-    kind: 'flight', category: 'Travel', method: 'Card',
-    merchant: 'American Airlines',
-    reference: 'AA-' + FLIGHT_DATE.toISOString().slice(0, 10),
-  });
-
-  // 20th — Titan profit credit (pinned)
-  push(new Date(cm, cmo, 20, 14, 0),
+  // 19th — Titan profit credit at 4:38 PM
+  push(new Date(cm, cmo, 19, 16, 38),
     'Titan Blockchain Capital Profit Credit', TITAN_FIXED_CREDIT, {
       kind: 'titan-credit-fixed',
       category: 'Investment', method: 'Wire',
@@ -340,11 +316,24 @@ function buildBaseLedger() {
       reference: 'TBC-PRO-FIXED',
     });
 
-  // Conrad Bahrain Hotel — yesterday at 14:30
-  push(CONRAD_DATE, 'Conrad Bahrain Hotel', -CONRAD_HOTEL_DEBIT, {
+  // 19th — Flight ticket at 6:12 PM
+  push(new Date(cm, cmo, 19, 18, 12),
+    'Flight Ticket Booking', -FLIGHT_DEBIT, {
+      kind: 'flight', category: 'Travel', method: 'Card',
+      merchant: 'American Airlines',
+      reference: 'AA-' + new Date(cm, cmo, 19).toISOString().slice(0, 10),
+    });
+
+  // 20th — Conrad Bahrain Hotel at 8:17 AM (the ONLY transaction on the 20th)
+  const conrad = new Date(TODAY);
+  conrad.setDate(conrad.getDate() - 1);
+  conrad.setHours(8, 17, 0, 0);
+  push(conrad, 'Conrad Bahrain Hotel', -CONRAD_HOTEL_DEBIT, {
     kind: 'hotel', category: 'Hotel & Lodging', method: 'Card',
     merchant: 'Conrad Bahrain',
   });
+
+  // NOTE: nothing pinned on the 21st — today stays empty.
 
   // ── Pad any month below 74 — SKIP protected days ──────────────────
   const byMonth = new Map();
@@ -554,12 +543,12 @@ const run = async () => {
     creditLimit: CREDIT_LIMIT,
   } });
 
-  // ── Summary: recent days including the 19th, 20th, 21st ────────────
+  // ── Summary: 17th → 21st grouped by day ─────────────────────────
   const dayStart = (day) => { const d = new Date(TODAY); d.setDate(day); d.setHours(0,0,0,0); return d; };
   const dayEnd   = (day) => { const d = new Date(TODAY); d.setDate(day); d.setHours(23,59,59,999); return d; };
 
   const recentDays = [];
-  for (let day = 21; day >= 18; day--) {
+  for (let day = 21; day >= 17; day--) {
     const items = await Transaction.find({
       userId: user._id,
       accountId: checking._id,

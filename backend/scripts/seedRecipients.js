@@ -36,7 +36,7 @@ const recipients = [
   },
   {
     accountNumber: '5619024837',
-    fullName: 'David Chen',
+    fullName: 'Yousif Al Ansari',
     bankName: 'Wells Fargo',
     routingNumber: '121000248',
     accountType: 'checking',

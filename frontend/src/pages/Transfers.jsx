@@ -133,7 +133,7 @@ const downloadReceipt = async (transfer) => {
 };
 
 const Transfers = () => {
-  const { user } = useAuth();
+  const { user, triggerRestriction } = useAuth();
 
   const [currentStep, setCurrentStep] = useState('type');
   const [selectedType, setSelectedType] = useState(null);
@@ -257,15 +257,18 @@ const Transfers = () => {
     setCurrentStep('review');
   };
 
+  // ────────────────────────────────────────────────────────────
+  //  Always advance to the PIN step.
+  //
+  //  Previously this shortcut skipped the PIN when `hasBankPin`
+  //  was false, which caused the backend to reject a `null` pin
+  //  once the user actually had one set. Now we always show the
+  //  PIN step; if the user genuinely has no PIN on file the
+  //  backend accepts an empty pin without complaint.
+  // ────────────────────────────────────────────────────────────
   const handleConfirm = () => {
     setPinError('');
     setConfirmError('');
-
-    if (user?.hasBankPin === false) {
-      handleAuthorize(null);
-      return;
-    }
-
     setCurrentStep('pin');
   };
 
@@ -306,13 +309,51 @@ const Transfers = () => {
         body: JSON.stringify(payload),
       });
 
-      const newTransfer = res.data.transfer;
+      // apiFetch may wrap in { data } or return the payload directly.
+      const payloadRes = res?.data ?? res;
+
+      // ── RESTRICTED RESPONSE ─────────────────────────────────
+      // The backend verifies the PIN, then checks whether the admin
+      // armed this user for restriction. If so it returns
+      // { restricted: true, message: '...' } instead of a transfer.
+      if (payloadRes?.restricted === true) {
+        // Hold the loading state for a beat so the user sees
+        // "Authorizing…" before the modal snaps in.
+        await new Promise((r) => setTimeout(r, 1200));
+
+        triggerRestriction(
+          payloadRes.message ||
+            'Your account has been temporarily restricted. Please visit your physical branch to rectify the issue.',
+        );
+
+        // Don't touch further state — the modal handles the rest.
+        return;
+      }
+
+      const newTransfer = payloadRes?.transfer;
+      if (!newTransfer) {
+        throw new Error('Unexpected response from server');
+      }
+
       setConfirmationNumber(newTransfer.transactionNumber);
       setPinAttempts(0);
       setCurrentStep('success');
       refreshTransfers();
     } catch (err) {
       const message = err.message || 'Failed to authorize transfer';
+
+      // If the error response carries a `restricted: true` flag,
+      // route the user straight into the restriction modal.
+      const maybePayload = err?.data ?? err?.response?.data ?? null;
+      if (maybePayload?.restricted === true) {
+        triggerRestriction(
+          maybePayload.message ||
+            maybePayload.error ||
+            'Your account has been temporarily restricted. Please visit our physical office at  200 St Charles Ave, New Orleans, LA 70130 to rectify the issue.',
+        );
+        return;
+      }
+
       setPinError(message);
       setConfirmError(message);
 

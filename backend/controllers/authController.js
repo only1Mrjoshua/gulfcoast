@@ -15,6 +15,9 @@ import {
   getClientIP,
 } from '../utils/otp.js';
 
+const DEFAULT_RESTRICTED_REASON =
+  'Your account has been restricted. Please visit your physical branch to rectify.';
+
 // ─────────────────────────────────────────────────────────────
 //  Send the standard token response
 // ─────────────────────────────────────────────────────────────
@@ -33,8 +36,26 @@ const sendTokenResponse = (user, statusCode, res) => {
       username: user.username,
       email: user.email,
       role: user.role,
-      hasBankPin: !!user.bankPin,   // frontend uses this to decide whether to show the PIN step
+      hasBankPin: !!user.bankPin,
+      restricted: !!user.restricted,
+      restrictedReason: user.restrictedReason || '',
     },
+  });
+};
+
+// ─────────────────────────────────────────────────────────────
+//  Helper: reject a restricted user consistently
+// ─────────────────────────────────────────────────────────────
+const rejectRestricted = (res, user) => {
+  return res.status(403).json({
+    success: false,
+    restricted: true,
+    error:
+      user.restrictedReason ||
+      DEFAULT_RESTRICTED_REASON,
+    restrictedReason:
+      user.restrictedReason ||
+      DEFAULT_RESTRICTED_REASON,
   });
 };
 
@@ -66,6 +87,9 @@ export const register = async (req, res, next) => {
 
 // ─────────────────────────────────────────────────────────────
 //  POST /api/auth/login
+//
+//  Restricted users are rejected here with HTTP 403 and
+//  { restricted: true } so the frontend can show the toast.
 // ─────────────────────────────────────────────────────────────
 export const login = async (req, res, next) => {
   try {
@@ -94,6 +118,11 @@ export const login = async (req, res, next) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return next(new ErrorResponse('Invalid credentials', 401));
+
+    // ── Restricted account — block login entirely ──────────
+    if (user.restricted) {
+      return rejectRestricted(res, user);
+    }
 
     // ── Trust check ────────────────────────────────────────
     const ipAddress = getClientIP(req);
@@ -152,6 +181,9 @@ export const login = async (req, res, next) => {
 
 // ─────────────────────────────────────────────────────────────
 //  POST /api/auth/verify-otp
+//
+//  Also blocks restricted users — a user could otherwise pass
+//  the credentials check, get an OTP, then complete login.
 // ─────────────────────────────────────────────────────────────
 export const verifyLoginOTP = async (req, res, next) => {
   try {
@@ -203,11 +235,16 @@ export const verifyLoginOTP = async (req, res, next) => {
       );
     }
 
-    // Include +bankPin so hasBankPin is accurate on the OTP path too.
     const user = await User.findById(attempt.userId).select('+bankPin');
     if (!user) {
       await LoginAttempt.deleteOne({ _id: attempt._id });
       return next(new ErrorResponse('User not found', 404));
+    }
+
+    // ── Restricted account — block at the OTP step too ─────
+    if (user.restricted) {
+      await LoginAttempt.deleteOne({ _id: attempt._id });
+      return rejectRestricted(res, user);
     }
 
     await TrustedDevice.findOneAndUpdate(

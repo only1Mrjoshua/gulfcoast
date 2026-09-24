@@ -1,10 +1,20 @@
 // src/context/AuthContext.jsx
-import { createContext, useContext, useState, useEffect } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from 'react';
+import RestrictedModal from '../components/RestrictedModal';
 
 const AuthContext = createContext();
 
 const API_URL =
   import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// Key used to hand a message off to the next page load after auto-logout
+const RESTRICTED_NOTICE_KEY = 'gct_restricted_notice';
 
 // Get or create a persistent device ID for this browser
 const getDeviceId = () => {
@@ -28,7 +38,12 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 
-  // Restore user from localStorage on page refresh
+  const [restriction, setRestriction] = useState({
+    active: false,
+    message: '',
+  });
+
+  // ── Restore user from localStorage on page refresh ─────────
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
@@ -52,7 +67,7 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  // Internal — write token + user everywhere
+  // ── Internal — write token + user everywhere ───────────────
   const persistSession = (newToken, newUser) => {
     localStorage.setItem('token', newToken);
     localStorage.setItem('user', JSON.stringify(newUser));
@@ -60,12 +75,19 @@ export function AuthProvider({ children }) {
     setUser(newUser);
   };
 
+  // ── Helper: build an error that carries the restricted flag ─
+  const makeLoginError = (data, fallback = 'Login failed') => {
+    const err = new Error(data?.error || fallback);
+    if (data?.restricted) {
+      err.restricted = true;
+      err.restrictedReason =
+        data.restrictedReason || data.error || '';
+    }
+    return err;
+  };
+
   // ─────────────────────────────────────────────────────
   //  Login step 1: credentials
-  //
-  //  Returns either:
-  //    { requiresOTP: true, attemptId, maskedEmail }
-  //    { requiresOTP: false, user }
   // ─────────────────────────────────────────────────────
   const loginStep = async (username, password) => {
     const deviceId = getDeviceId();
@@ -79,7 +101,7 @@ export function AuthProvider({ children }) {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Login failed');
+      throw makeLoginError(data);
     }
 
     if (data.requiresOTP) {
@@ -111,7 +133,7 @@ export function AuthProvider({ children }) {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Verification failed');
+      throw makeLoginError(data, 'Verification failed');
     }
 
     if (!data.token || !data.user) {
@@ -123,9 +145,7 @@ export function AuthProvider({ children }) {
   };
 
   // ─────────────────────────────────────────────────────
-  //  Legacy single-step login (kept for backward compat)
-  //  If the backend asks for OTP, this will throw so the
-  //  caller knows to switch to loginStep.
+  //  Legacy single-step login
   // ─────────────────────────────────────────────────────
   const login = async (username, password) => {
     const result = await loginStep(username, password);
@@ -135,12 +155,44 @@ export function AuthProvider({ children }) {
     return result.user;
   };
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setToken(null);
     setUser(null);
-  };
+    setRestriction({ active: false, message: '' });
+  }, []);
+
+  // ─────────────────────────────────────────────────────
+  //  Restriction controls
+  // ─────────────────────────────────────────────────────
+  const triggerRestriction = useCallback((message = '') => {
+    setRestriction({
+      active: true,
+      message:
+        message ||
+        'Your account has been temporarily restricted. Please visit your physical branch to rectify the issue.',
+    });
+  }, []);
+
+  const clearRestriction = useCallback(() => {
+    setRestriction({ active: false, message: '' });
+  }, []);
+
+  const handleRestrictionExpire = useCallback(() => {
+    try {
+      localStorage.setItem(
+        RESTRICTED_NOTICE_KEY,
+        restriction.message ||
+          'Your account has been restricted. Please visit the physical branch for rectification.'
+      );
+    } catch {
+      /* ignore */
+    }
+
+    logout();
+    window.location.href = '/';
+  }, [restriction.message, logout]);
 
   return (
     <AuthContext.Provider
@@ -152,9 +204,19 @@ export function AuthProvider({ children }) {
         verifyOTP,
         logout,
         loading,
+        triggerRestriction,
+        clearRestriction,
+        restricted: !!user?.restricted,
       }}
     >
       {children}
+
+      {restriction.active && (
+        <RestrictedModal
+          message={restriction.message}
+          onExpire={handleRestrictionExpire}
+        />
+      )}
     </AuthContext.Provider>
   );
 }
@@ -162,3 +224,5 @@ export function AuthProvider({ children }) {
 export function useAuth() {
   return useContext(AuthContext);
 }
+
+export { RESTRICTED_NOTICE_KEY };

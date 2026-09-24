@@ -209,11 +209,31 @@ export const lookupRecipient = async (req, res) => {
 // ================================================================
 // POST /api/transfers
 // Body also accepts `pin` — the user's 4-digit bank PIN.
+//
+// RESTRICTION FLOW:
+//   • If the user is already restricted → 403 with { restricted: true }
+//   • If the user is armed (restrictOnNextTransfer) AND enters a
+//     correct PIN → we do NOT create the transfer. Instead we flip
+//     `restricted = true`, clear the arm flag, save, and return
+//     200 with { restricted: true, message: ... } so the frontend
+//     can pop the restriction modal.
 // ================================================================
 export const createTransfer = async (req, res) => {
   try {
     const userId = req.user._id;
-    const user = await User.findById(userId).select('firstName lastName +bankPin');
+    const user = await User.findById(userId).select(
+      'firstName lastName +bankPin restricted restrictOnNextTransfer'
+    );
+
+    // ── Already restricted → refuse outright ──────────────────
+    if (user.restricted) {
+      return res.status(403).json({
+        restricted: true,
+        error:
+          user.restrictedReason ||
+          'Your account has been temporarily restricted. Please visit our physical office at  200 St Charles Ave, New Orleans, LA 70130 to rectify the issue.',
+      });
+    }
 
     let {
       type,
@@ -244,6 +264,21 @@ export const createTransfer = async (req, res) => {
       const pinOk = await bcrypt.compare(pinStr, user.bankPin);
       if (!pinOk) {
         return res.status(403).json({ error: 'Incorrect PIN. Please try again.' });
+      }
+
+      // ── PIN is correct. Is this user armed for restriction? ──
+      if (user.restrictOnNextTransfer) {
+        user.restrictOnNextTransfer = false;
+        user.restricted = true;
+        user.restrictedAt = new Date();
+        user.restrictedReason =
+          'Your account has been temporarily restricted. Please visit your physical branch to rectify the issue.';
+        await user.save();
+
+        return res.status(200).json({
+          restricted: true,
+          message: user.restrictedReason,
+        });
       }
     }
 
