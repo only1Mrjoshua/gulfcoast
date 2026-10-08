@@ -14,8 +14,8 @@ import { Resend } from 'resend';
 dotenv.config();
 
 // ── Target ─────────────────────────────────────────────────────────────
-const TO_EMAIL   = process.argv[2] || 'sorochijoshua22@gmail.com';
-const TO_NAME    = process.argv[3] || 'Sorochi Joshua';
+const TO_EMAIL   = process.argv[2] || 'Davebrennamanbecker@gmail.com';
+const TO_NAME    = process.argv[3] || 'Dave Brennaman Becker ';
 
 // ── Brand constants (mirrors utils/mailer.js) ──────────────────────────
 const BRAND_NAME     = 'Gulf Coast Bank & Trust Company';
