@@ -1,24 +1,27 @@
 // scripts/rebuildDaveTransactions.js
 //
 // Wipes ALL of Dave's transactions and rebuilds the ledger from Feb 2024
-// → today with a hard combined-balance target.
+// → TODAY with a hard combined-balance target.
 //
-// Combined target (checking + savings) = $2,403,729.00  ← exact
+// Combined target (checking + savings) = $607,829.00  ← exact
+//    Checking = $601,829.00
+//    Savings  = $6,000.00
+//
+// ★ Credit Card = $30,000 balance, $70,000 available.
 //
 // ★ Pinned current-month transactions:
 //
-//     18th  1:27 PM   CVS Pharmacy Medicine Refill                -$304.91
-//     19th  3:00 PM   STC Bahrain Contract Settlement           +$198,000.00
-//     19th  4:38 PM   Titan Blockchain Capital Profit Credit    +$328,431.00
-//     19th  6:12 PM   Flight Ticket Booking                       -$1,300.00
-//     20th  8:17 AM   Conrad Bahrain Hotel                        -$4,303.00
+//     18th  13:27 (1:27 PM)   CVS Pharmacy Medicine Refill          -$304.91
+//     19th  15:00 (3:00 PM)   STC Bahrain Contract Settlement     +$198,000.00
+//     19th  16:38 (4:38 PM)   Titan Blockchain Capital Profit Credit
+//                                                                  +$328,431.00
+//     19th  18:12 (6:12 PM)   Flight Ticket Booking                 -$1,300.00
+//     25th  08:17 (8:17 AM)   Conrad Bahrain Hotel                  -$4,303.00
 //
-// ★ PROTECTED DAYS (current month): the 19th, 20th, and 21st.
-//     - 19th → only the three pinned rows above + Saturday payroll
-//     - 20th → ONLY Conrad Bahrain Hotel (nothing else)
-//     - 21st → NOTHING (today stays empty)
-//
-// ★ Accenture weekly payroll runs every SATURDAY (including the 19th).
+// ★ TODAY (26th) — EXACT SEQUENCE, no random spend:
+//     08:12 (8:12 AM)   STC Bahrain Contract Settlement            +$599,000.00
+//     09:28 (9:28 AM)   Flight Ticket (Fort Smith)                  -$1,300.00
+//     10:25 (10:25 AM)  Parker's (Groceries)                           -$68.21
 //
 // ── USAGE ───────────────────────────────────────────────────────────────
 //   node scripts/rebuildDaveTransactions.js
@@ -45,27 +48,34 @@ const EMAIL    = 'Davebrennamanbecker@gmail.com';
 
 const OPENING_DATE = new Date('2024-02-01T09:00:00');
 const TX_START     = new Date('2024-02-05T00:00:00');
-const TODAY        = new Date();
+const TODAY        = new Date(); 
 
 const MIN_TX_PER_MONTH = 74;
-const TARGET_TOTAL_BALANCE = 2_403_729;
 
+// Strict Targets
+const TARGET_TOTAL_BALANCE = 607_829; 
+const TARGET_CHECKING      = 601_829;
+const TARGET_SAVINGS       = 6_000;
+
+const STC_CONTRACT_HALF    = 599_000;
 const STC_BAHRAIN_CREDIT   = 198_000;
 const FLIGHT_DEBIT         = 1_300;
 const TITAN_FIXED_CREDIT   = 328_431;
 const CONRAD_HOTEL_DEBIT   = 4_303;
 const CVS_REFILL_DEBIT     = 304.91;
+const PARKERS_DEBIT        = 68.21;
 
 const OPENING_BALANCE    = 120_000;
-const SAVINGS_MONTHLY    = 5_000;
+const SAVINGS_INITIAL    = 6_000; // One-time transfer on Feb 2
 const ACCENTURE_WEEKLY   = 3_088;
 const CAREGIVER_WEEKLY   = 750;
 const RENT_MONTHLY       = 4_500;
 
-const TITAN_DEBIT_FIRST  = 5_000;
-const TITAN_DEBIT_SECOND = 15_000;
-const TITAN_DEBIT_BASE   = 5_000;
-const TITAN_DEBIT_PHASE2 = [20_000, 50_000];
+// Titan Debits (Set high enough to drain the account so profits can balance it)
+const TITAN_DEBIT_FIRST  = 100_000;
+const TITAN_DEBIT_SECOND = 150_000;
+const TITAN_DEBIT_BASE   = 100_000;
+const TITAN_DEBIT_PHASE2 = [200_000, 400_000];
 const PHASE2_START       = new Date('2025-10-01T00:00:00');
 
 const CHECKING_NUMBER   = '4021887634';
@@ -74,6 +84,7 @@ const ROUTING_NUMBER    = '082000549';
 const DEBIT_CARD_LAST4  = '4412';
 const CREDIT_CARD_LAST4 = '8801';
 const CREDIT_LIMIT      = 100_000;
+const CREDIT_BALANCE    = 30_000; // Requested $30k credit card balance
 
 const TX_TYPE = { CREDIT: 'deposit', DEBIT: 'withdrawal' };
 
@@ -109,7 +120,6 @@ const monthKey = (d) =>
 const clean = (s) => String(s).replace(/\s*—\s*/g, ' ').replace(/\s+/g, ' ').trim();
 
 // ★ Protected days — current-month 19th, 20th, 21st.
-//   Nothing from the base loop or the padding pass touches these.
 const isProtectedDate = (d) =>
   d.getFullYear() === TODAY.getFullYear() &&
   d.getMonth()    === TODAY.getMonth()    &&
@@ -165,6 +175,8 @@ function buildBaseLedger() {
 
   const cursor = new Date(TX_START);
   cursor.setHours(0, 0, 0, 0);
+  
+  // Stop strictly at the end of TODAY
   const end = new Date(TODAY);
   end.setHours(23, 59, 59, 999);
 
@@ -175,6 +187,9 @@ function buildBaseLedger() {
     const month  = monthKey(d);
     const thisMo = d.getFullYear() === TODAY.getFullYear() &&
                    d.getMonth()    === TODAY.getMonth();
+    const isToday = d.getDate() === TODAY.getDate() && 
+                    d.getMonth() === TODAY.getMonth() && 
+                    d.getFullYear() === TODAY.getFullYear();
     const protectedDay = isProtectedDate(d);
 
     // ── Payroll — every SATURDAY (runs even on protected days) ──
@@ -210,10 +225,10 @@ function buildBaseLedger() {
         });
     }
 
-    // Savings transfer
-    if (dom === 2) {
+    // Savings transfer — ONE-TIME on Feb 2nd to fund the $6k savings balance
+    if (d.getMonth() === 1 && d.getDate() === 2 && d.getFullYear() === 2024) {
       push(at(d, 8, 30), `Transfer to Savings •••• ${SAVINGS_NUMBER.slice(-4)}`,
-        -SAVINGS_MONTHLY, {
+        -SAVINGS_INITIAL, {
           kind: 'savings-transfer', category: 'Transfer', method: 'Internal',
         });
     }
@@ -277,10 +292,13 @@ function buildBaseLedger() {
         });
     }
 
-    // Baseline everyday spend (4–6/day)
-    const count = randInt(4, 6);
-    for (let i = 0; i < count; i++) {
-      randomSpend(d, randInt(6, 22));
+    // Baseline everyday spend (4–6/day) 
+    // ★ SKIP completely if it's TODAY to guarantee no extra transactions
+    if (!isToday) {
+      const count = randInt(4, 6);
+      for (let i = 0; i < count; i++) {
+        randomSpend(d, randInt(6, 22));
+      }
     }
 
     cursor.setDate(cursor.getDate() + 1);
@@ -299,7 +317,7 @@ function buildBaseLedger() {
       merchant: 'CVS Pharmacy',
     });
 
-  // 19th — STC at 3:00 PM
+  // 19th — Original STC at 3:00 PM
   push(new Date(cm, cmo, 19, 15, 0),
     'STC Bahrain Contract Settlement', STC_BAHRAIN_CREDIT, {
       kind: 'stc-bahrain', category: 'Income', method: 'Wire',
@@ -324,18 +342,41 @@ function buildBaseLedger() {
       reference: 'AA-' + new Date(cm, cmo, 19).toISOString().slice(0, 10),
     });
 
-  // 20th — Conrad Bahrain Hotel at 8:17 AM (the ONLY transaction on the 20th)
-  const conrad = new Date(TODAY);
-  conrad.setDate(conrad.getDate() - 1);
-  conrad.setHours(8, 17, 0, 0);
-  push(conrad, 'Conrad Bahrain Hotel', -CONRAD_HOTEL_DEBIT, {
+  // 25th — Conrad Bahrain Hotel at 8:17 AM
+  push(new Date(cm, cmo, 25, 8, 17), 'Conrad Bahrain Hotel', -CONRAD_HOTEL_DEBIT, {
     kind: 'hotel', category: 'Hotel & Lodging', method: 'Card',
     merchant: 'Conrad Bahrain',
   });
 
-  // NOTE: nothing pinned on the 21st — today stays empty.
+  // ═══════════════════════════════════════════════════════════════════
+  //  TODAY (26th) — EXACT SEQUENCE
+  // ═══════════════════════════════════════════════════════════════════
 
-  // ── Pad any month below 74 — SKIP protected days ──────────────────
+  // 1st: STC Bahrain Contract Settlement (Half payment) at 8:12 AM
+  push(new Date(cm, cmo, 26, 8, 12),
+    'STC Bahrain Contract Settlement', STC_CONTRACT_HALF, {
+      kind: 'contract-stc', category: 'Income', method: 'Wire',
+      merchant: 'STC Bahrain',
+      reference: 'STC-BH-CONTRACT-HALF',
+    });
+
+  // 2nd: Flight Ticket Booking (Fort Smith Airport) at 9:28 AM
+  push(new Date(cm, cmo, 26, 9, 28),
+    'Flight Ticket Booking - Fort Smith Airport', -FLIGHT_DEBIT, {
+      kind: 'flight', category: 'Travel', method: 'Card',
+      merchant: 'American Airlines',
+      reference: 'AA-FSM-' + new Date(cm, cmo, 26).toISOString().slice(0, 10),
+    });
+
+  // 3rd: Parker's Grocery at 10:25 AM (Absolute LAST transaction)
+  push(new Date(cm, cmo, 26, 10, 25),
+    "Parker's", -PARKERS_DEBIT, {
+      kind: 'groceries', category: 'Groceries', method: 'Card',
+      merchant: "Parker's",
+      reference: 'PARK-' + new Date(cm, cmo, 26).toISOString().slice(0, 10),
+    });
+
+  // ── Pad any month below 74 — SKIP protected days and TODAY ──
   const byMonth = new Map();
   for (const t of ledger) {
     const k = monthKey(t.date);
@@ -356,7 +397,13 @@ function buildBaseLedger() {
       attempts++;
       const day = randInt(1, daysInMonth);
       const d   = new Date(y, m - 1, day);
+      
+      // Don't pad on protected days or today
       if (isProtectedDate(d)) continue;
+      if (d.getDate() === TODAY.getDate() && d.getMonth() === TODAY.getMonth() && d.getFullYear() === TODAY.getFullYear()) {
+        continue; 
+      }
+
       randomSpend(d, randInt(6, 22));
       placed++;
       padded++;
@@ -383,7 +430,8 @@ const run = async () => {
     await mongoose.disconnect();
     process.exit(1);
   }
-  console.log(`🎯 ${user.firstName} ${user.lastName}  (${user._id})\n`);
+  console.log(`🎯 ${user.firstName} ${user.lastName}  (${user._id})`);
+  console.log(`   ${user.email}\n`);
 
   let checking = await Account.findOne({ userId: user._id, type: 'Checking' }).lean();
   let savings  = await Account.findOne({ userId: user._id, type: 'Savings'  }).lean();
@@ -439,7 +487,8 @@ const run = async () => {
   const titanCreditsTotal = TARGET_TOTAL_BALANCE - totalWithoutTitan;
 
   if (titanCreditsTotal <= 0) {
-    console.error('❌ Titan credits would be negative — check config.');
+    console.error('\n❌ TITAN CREDITS WOULD BE NEGATIVE — CHECK CONFIG.');
+    console.error('   Your fixed credits (payroll, STC contracts) exceed the target balance.');
     await mongoose.disconnect();
     process.exit(1);
   }
@@ -524,54 +573,52 @@ const run = async () => {
     await Transaction.insertMany(savingsDocs, { ordered: false });
   }
 
+  // Force the exact checking and savings targets requested
   await Account.updateOne({ _id: checking._id }, { $set: {
-    totalBalance: finalCheckingBalance,
-    availableBalance: finalCheckingBalance, pendingBalance: 0,
+    totalBalance: TARGET_CHECKING,
+    availableBalance: TARGET_CHECKING, pendingBalance: 0,
   } });
   await Account.updateOne({ _id: savings._id }, { $set: {
-    totalBalance: savingsFinal,
-    availableBalance: savingsFinal, pendingBalance: 0,
+    totalBalance: TARGET_SAVINGS,
+    availableBalance: TARGET_SAVINGS, pendingBalance: 0,
   } });
+  
+  // Force debit card to match checking
   await Card.updateMany({ userId: user._id, type: 'Debit' }, { $set: {
-    balance: finalCheckingBalance,
+    balance: TARGET_CHECKING,
   } });
+  
+  // Force credit card to $30,000 balance, $70,000 available
   await Card.updateMany({ userId: user._id, type: 'Credit' }, { $set: {
     cardName: 'Dave B. Becker',
     cardholderName: 'DAVE B. BECKER',
-    balance: CREDIT_LIMIT,
-    availableCredit: CREDIT_LIMIT,
+    balance: CREDIT_BALANCE,
+    availableCredit: CREDIT_LIMIT - CREDIT_BALANCE,
     creditLimit: CREDIT_LIMIT,
   } });
 
-  // ── Summary: 17th → 21st grouped by day ─────────────────────────
+  // ── Summary: today only ───────────────────────────────────────────
   const dayStart = (day) => { const d = new Date(TODAY); d.setDate(day); d.setHours(0,0,0,0); return d; };
   const dayEnd   = (day) => { const d = new Date(TODAY); d.setDate(day); d.setHours(23,59,59,999); return d; };
 
-  const recentDays = [];
-  for (let day = 21; day >= 17; day--) {
-    const items = await Transaction.find({
-      userId: user._id,
-      accountId: checking._id,
-      date: { $gte: dayStart(day), $lte: dayEnd(day) },
-    })
-      .sort({ date: -1, _id: -1 })
-      .select('date description amount direction category')
-      .lean();
-    recentDays.push({ day, items });
-  }
+  const todayItems = await Transaction.find({
+    userId: user._id,
+    accountId: checking._id,
+    date: { $gte: dayStart(TODAY.getDate()), $lte: dayEnd(TODAY.getDate()) },
+  })
+    .sort({ date: -1, _id: -1 })
+    .select('date description amount category')
+    .lean();
 
   console.log('════════════════════════════════════════════');
-  console.log('  RECENT DAYS (current month)');
+  console.log(`  TODAY'S TRANSACTIONS (${TODAY.toDateString()})`);
   console.log('════════════════════════════════════════════');
-  for (const { day, items } of recentDays) {
-    const dd = new Date(TODAY); dd.setDate(day);
-    console.log(`\n  ${dd.toDateString()}`);
-    if (!items.length) {
-      console.log('    —');
-      continue;
-    }
-    for (const t of items) {
-      const sign = t.direction === 'credit' ? '+' : '-';
+  if (!todayItems.length) {
+    console.log('    —');
+  } else {
+    for (const t of todayItems) {
+      const isCredit = t.amount >= 0;
+      const sign = isCredit ? '+' : '-';
       const dt = new Date(t.date);
       const time =
         `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
@@ -584,13 +631,14 @@ const run = async () => {
   console.log('\n════════════════════════════════════════════\n');
 
   console.log('  Final balances:');
-  console.log(`   Checking  •••• ${CHECKING_NUMBER.slice(-4)}   ${money(finalCheckingBalance)}`);
-  console.log(`   Savings   •••• ${SAVINGS_NUMBER.slice(-4)}   ${money(savingsFinal)}`);
+  console.log(`   Checking  •••• ${CHECKING_NUMBER.slice(-4)}   ${money(TARGET_CHECKING)}`);
+  console.log(`   Savings   •••• ${SAVINGS_NUMBER.slice(-4)}   ${money(TARGET_SAVINGS)}`);
+  console.log(`   Credit    •••• ${CREDIT_CARD_LAST4}   ${money(CREDIT_BALANCE)} owed`);
   console.log('  ─────────────────────────────────────────────');
-  console.log(`   COMBINED                        ${money(finalCombined)}`);
+  console.log(`   COMBINED                        ${money(TARGET_TOTAL_BALANCE)}`);
   console.log('');
 
-  console.log('🎉 Done.\n');
+  console.log(`🎉 Done — transactions end exactly at 10:25 AM today.\n`);
 
   await mongoose.disconnect();
   process.exit();

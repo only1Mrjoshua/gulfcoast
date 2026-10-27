@@ -1,8 +1,8 @@
 // scripts/updateHenryTransactions.js
 //
 // Inspects (or rebuilds) Henry Dorian's transaction history so it runs
-// all the way to YESTERDAY, with a combined checking + savings balance
-// of exactly $524,000.00.
+// up to OCTOBER 4th, with a combined checking + savings balance of
+// exactly $524,000.00.
 //
 // ── USAGE ───────────────────────────────────────────────────────────────
 //   node scripts/updateHenryTransactions.js              → inspect only
@@ -39,27 +39,32 @@ const TARGET_TOTAL  = TARGET_IDX !== -1 ? parseFloat(args[TARGET_IDX + 1]) : 524
 // How far back to rebuild if the account has no `openedAt`.
 const DEFAULT_START = new Date('2024-02-01T09:00:00');
 
-// Yesterday, end of day — the newest transaction we generate.
-const YESTERDAY_END = (() => {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
+// ═════════════════════════════════════════════════════════════════════════
+//  CUT-OFF — the newest transaction is dated October 4th.
+//  Change STOP_MONTH / STOP_DAY below if you ever need a different date.
+// ═════════════════════════════════════════════════════════════════════════
+const STOP_YEAR  = new Date().getFullYear();
+const STOP_MONTH = 10;   // October
+const STOP_DAY   = 4;
+
+const STOP_END = (() => {
+  const d = new Date(STOP_YEAR, STOP_MONTH - 1, STOP_DAY);
   d.setHours(23, 59, 59, 999);
   return d;
 })();
 
-const YESTERDAY_START = (() => {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
+const STOP_START = (() => {
+  const d = new Date(STOP_YEAR, STOP_MONTH - 1, STOP_DAY);
   d.setHours(0, 0, 0, 0);
   return d;
 })();
 
 const MIN_TX_PER_MONTH = 60;
 
-// Recurring amounts (Henry's pattern)
-const PAYROLL_WEEKLY        = 3_088;
-const RENT_MONTHLY          = 4_500;
-const SAVINGS_MONTHLY       = 5_000;
+// Recurring amounts
+const PAYROLL_WEEKLY  = 3_088;
+const RENT_MONTHLY    = 4_500;
+const SAVINGS_MONTHLY = 5_000;
 
 const AUTOPAYS = [
   { name: 'Netflix',              amount:   22.99, day: 4,  category: 'Entertainment' },
@@ -68,9 +73,6 @@ const AUTOPAYS = [
   { name: 'Apple TV+',            amount:    9.99, day: 15, category: 'Entertainment' },
   { name: 'Apple Card Recharge',  amount: 1500.00, day: 20, category: 'Credit Card'   },
 ];
-
-// For the ledger we need account labels that don't depend on knowing
-// Henry's specific account numbers ahead of time. We read them from DB.
 
 // ═════════════════════════════════════════════════════════════════════════
 //  Helpers
@@ -97,6 +99,8 @@ const PHARMACY  = [['CVS Pharmacy',28,240],['Walgreens',25,180]];
 const MEDICAL   = [['Crossett Health Center',150,1800],['Ashley County Medical Center',200,2400]];
 const SHOPPING  = [['Amazon',25,620],['Zara',80,460],['Ralph Lauren',120,940],['Chrome Hearts',420,3600],['Suitsupply',520,2300],['Tom Ford',320,2600],['Nordstrom',90,780]];
 const ESSENTIALS= [['Foot Locker',90,360],['Nike',85,340],['Watch Station',180,2400],["Macy's",60,420],['Best Buy',80,900]];
+
+const OPENING_DATE = new Date('2024-02-01T09:00:00');
 
 // ═════════════════════════════════════════════════════════════════════════
 //  Ledger
@@ -138,11 +142,11 @@ const randomSpend = (date, hour) => {
 
 function buildLedger(startDate) {
   ledger = [];
-  const businessIncomeSlots = []; // { date, month } — filled in later
+  const businessIncomeSlots = [];
 
   const cursor = new Date(startDate);
   cursor.setHours(0, 0, 0, 0);
-  const end = new Date(YESTERDAY_END);
+  const end = new Date(STOP_END);
 
   while (cursor <= end) {
     const d      = new Date(cursor);
@@ -217,12 +221,21 @@ function buildLedger(startDate) {
     const [y, m] = key.split('-').map(Number);
     const daysInMonth = new Date(y, m, 0).getDate();
 
-    for (let i = 0; i < need; i++) {
-      const day = randInt(1, daysInMonth);
+    // If this is the cut-off month, only pad up to STOP_DAY
+    const lastDayForMonth =
+      y === STOP_YEAR && m === STOP_MONTH
+        ? Math.min(STOP_DAY, daysInMonth)
+        : daysInMonth;
+
+    let placed = 0;
+    let attempts = 0;
+    while (placed < need && attempts < need * 15) {
+      attempts++;
+      const day = randInt(1, lastDayForMonth);
       const d   = new Date(y, m - 1, day);
-      // Don't pad past yesterday if this is the current month
-      if (d > YESTERDAY_END) continue;
+      if (d > STOP_END) continue;
       randomSpend(d, randInt(6, 22));
+      placed++;
       padded++;
     }
   }
@@ -262,18 +275,18 @@ const run = async () => {
   }
 
   if (checking) {
-    console.log(`💳 Checking •••• ${String(checking.accountNumber).slice(-4)}   ${money(checking.totalBalance)}`);
+    console.log(`💳 Checking •••• ${String(checking.accountNumber || '').slice(-4)}   ${money(checking.totalBalance)}`);
   }
   if (savings) {
-    console.log(`💳 Savings  •••• ${String(savings.accountNumber).slice(-4)}   ${money(savings.totalBalance)}`);
+    console.log(`💳 Savings  •••• ${String(savings.accountNumber  || '').slice(-4)}   ${money(savings.totalBalance)}`);
   }
   const currentCombined = (checking?.totalBalance ?? 0) + (savings?.totalBalance ?? 0);
   console.log(`   ─────────────────────────────`);
   console.log(`   Combined: ${money(currentCombined)}\n`);
 
   // ── Current transactions snapshot ───────────────────────────────────
-  const txCount = await Transaction.countDocuments({ userId: henry._id });
-  const latest  = await Transaction.findOne({ userId: henry._id })
+  const txCount  = await Transaction.countDocuments({ userId: henry._id });
+  const latest   = await Transaction.findOne({ userId: henry._id })
     .sort({ date: -1 }).select('date description').lean();
   const earliest = await Transaction.findOne({ userId: henry._id })
     .sort({ date: 1 }).select('date description').lean();
@@ -284,12 +297,12 @@ const run = async () => {
   console.log(`  Total count : ${txCount}`);
   console.log(`  Earliest    : ${earliest ? new Date(earliest.date).toDateString() : '—'}`);
   console.log(`  Latest      : ${latest ? new Date(latest.date).toDateString() : '—'}`);
-  console.log(`  Yesterday   : ${YESTERDAY_END.toDateString()}`);
+  console.log(`  Cut-off     : ${STOP_END.toDateString()}`);
   console.log('════════════════════════════════════════════\n');
 
   if (!APPLY) {
     console.log('ℹ️  Dry-run mode. Nothing was changed.');
-    console.log('   Re-run with --apply to rebuild the ledger to reach yesterday.\n');
+    console.log('   Re-run with --apply to rebuild the ledger to reach October 4th.\n');
     await mongoose.disconnect();
     process.exit();
   }
@@ -302,16 +315,12 @@ const run = async () => {
   console.log(`   Deleted ${del.deletedCount} transaction(s)\n`);
 
   const startDate = checking?.openedAt ? new Date(checking.openedAt) : DEFAULT_START;
-  console.log(`⏳ Building ledger from ${startDate.toDateString()} → ${YESTERDAY_END.toDateString()}…`);
+  console.log(`⏳ Building ledger from ${startDate.toDateString()} → ${STOP_END.toDateString()}…`);
   const { businessIncomeSlots, padded } = buildLedger(startDate);
   if (padded) console.log(`   Padded ${padded} transaction(s) to reach ${MIN_TX_PER_MONTH}/month`);
   console.log('');
 
-  // ── Compute the amount that Business Income must fill ──────────────
-  //
-  // Combined total = opening + all credits − non-transfer debits
-  // (savings transfers cancel out at the combined level)
-  //
+  // ── Compute the amount Business Income must fill ───────────────────
   const OPENING_BALANCE = 120_000;
   let sumCreditsExBiz = 0;
   let sumDebitsTotal  = 0;
@@ -339,10 +348,9 @@ const run = async () => {
   console.log(`   Business income to distribute: ${money(businessIncomeTotal)} across ${businessIncomeSlots.length} months`);
   console.log(`   Average: ${money(businessIncomeTotal / businessIncomeSlots.length)}/month\n`);
 
-  // Distribute evenly; slight jitter for realism
   const perMonthBase = businessIncomeTotal / businessIncomeSlots.length;
   for (const slot of businessIncomeSlots) {
-    const jitter = rand(-0.03, 0.03); // ±3%
+    const jitter = rand(-0.03, 0.03);
     const amount = round2(perMonthBase * (1 + jitter));
     push(slot.date, 'Business Consulting Income', amount, {
       kind: 'business-income',
@@ -386,25 +394,7 @@ const run = async () => {
     process.exit(1);
   }
 
-  // ── Insert ────────────────────────────────────────────────────────
-  const docFor = (accountId, t) => ({
-    userId: henry._id,
-    accountId,
-    description: clean(t.description),
-    amount: t.direction === 'credit' ? t.amount : -t.amount,
-    type: t.type,
-    status: 'Completed',
-    date: t.date,
-    balanceAfter: t.balanceAfter,
-    direction: t.direction,
-    category: t.category,
-    merchant: t.merchant,
-    method: t.method,
-    isAutomatic: !!t.isAutomatic,
-    reference: t.reference,
-  });
-
-  // Ensure Henry has accounts (create if missing)
+  // ── Ensure Henry has accounts (create if missing) ──────────────────
   if (!checking) {
     checking = (await Account.create({
       userId: henry._id, type: 'Checking', subType: null,
@@ -425,6 +415,24 @@ const run = async () => {
     })).toObject();
     console.log('🆕 Created Savings account');
   }
+
+  // ── Insert ────────────────────────────────────────────────────────
+  const docFor = (accountId, t) => ({
+    userId: henry._id,
+    accountId,
+    description: clean(t.description),
+    amount: t.direction === 'credit' ? t.amount : -t.amount,
+    type: t.type,
+    status: 'Completed',
+    date: t.date,
+    balanceAfter: t.balanceAfter,
+    direction: t.direction,
+    category: t.category,
+    merchant: t.merchant,
+    method: t.method,
+    isAutomatic: !!t.isAutomatic,
+    reference: t.reference,
+  });
 
   const openingTx = {
     userId: henry._id,
@@ -504,20 +512,17 @@ const run = async () => {
   console.log('════════════════════════════════════════════\n');
 
   console.log('  Final balances:');
-  console.log(`   Checking  •••• ${String(checking.accountNumber || '').slice(-4).padStart(4, '•')}   ${money(finalCheckingBalance)}`);
-  console.log(`   Savings   •••• ${String(savings.accountNumber  || '').slice(-4).padStart(4, '•')}   ${money(finalSavingsBalance)}`);
+  console.log(`   Checking  •••• ${String(checking.accountNumber || '').slice(-4)}   ${money(finalCheckingBalance)}`);
+  console.log(`   Savings   •••• ${String(savings.accountNumber  || '').slice(-4)}   ${money(finalSavingsBalance)}`);
   console.log('  ─────────────────────────────────────────────');
   console.log(`   COMBINED                        ${money(finalCombined)}`);
   console.log('');
 
-  console.log(`🎉 Done — transactions now run to ${YESTERDAY_END.toDateString()}.\n`);
+  console.log(`🎉 Done — transactions now stop on ${STOP_END.toDateString()}.\n`);
 
   await mongoose.disconnect();
   process.exit();
 };
-
-// Referenced above but defined here for readability
-const OPENING_DATE = new Date('2024-02-01T09:00:00');
 
 run().catch((err) => {
   console.error('❌ Failed:', err);
