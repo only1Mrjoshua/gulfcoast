@@ -16,12 +16,14 @@
 //     19th  16:38 (4:38 PM)   Titan Blockchain Capital Profit Credit
 //                                                                  +$328,431.00
 //     19th  18:12 (6:12 PM)   Flight Ticket Booking                 -$1,300.00
-//     25th  08:17 (8:17 AM)   Conrad Bahrain Hotel                  -$4,303.00
 //
-// ★ TODAY (26th) — EXACT SEQUENCE, no random spend:
+// ★ 26th — EXACT SEQUENCE, no random spend:
 //     08:12 (8:12 AM)   STC Bahrain Contract Settlement            +$599,000.00
 //     09:28 (9:28 AM)   Flight Ticket (Fort Smith)                  -$1,300.00
 //     10:25 (10:25 AM)  Parker's (Groceries)                           -$68.21
+//
+// ★ 27th (TODAY) — The Hotel
+//     08:17 (8:17 AM)   Conrad Bahrain Hotel                        -$4,303.00
 //
 // ── USAGE ───────────────────────────────────────────────────────────────
 //   node scripts/rebuildDaveTransactions.js
@@ -342,14 +344,8 @@ function buildBaseLedger() {
       reference: 'AA-' + new Date(cm, cmo, 19).toISOString().slice(0, 10),
     });
 
-  // 25th — Conrad Bahrain Hotel at 8:17 AM
-  push(new Date(cm, cmo, 25, 8, 17), 'Conrad Bahrain Hotel', -CONRAD_HOTEL_DEBIT, {
-    kind: 'hotel', category: 'Hotel & Lodging', method: 'Card',
-    merchant: 'Conrad Bahrain',
-  });
-
   // ═══════════════════════════════════════════════════════════════════
-  //  TODAY (26th) — EXACT SEQUENCE
+  //  26th — EXACT SEQUENCE
   // ═══════════════════════════════════════════════════════════════════
 
   // 1st: STC Bahrain Contract Settlement (Half payment) at 8:12 AM
@@ -368,13 +364,23 @@ function buildBaseLedger() {
       reference: 'AA-FSM-' + new Date(cm, cmo, 26).toISOString().slice(0, 10),
     });
 
-  // 3rd: Parker's Grocery at 10:25 AM (Absolute LAST transaction)
+  // 3rd: Parker's Grocery at 10:25 AM (Absolute LAST transaction for the 26th)
   push(new Date(cm, cmo, 26, 10, 25),
     "Parker's", -PARKERS_DEBIT, {
       kind: 'groceries', category: 'Groceries', method: 'Card',
       merchant: "Parker's",
       reference: 'PARK-' + new Date(cm, cmo, 26).toISOString().slice(0, 10),
     });
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  27th (TODAY) — The Hotel
+  // ═══════════════════════════════════════════════════════════════════
+
+  // 27th — Conrad Bahrain Hotel at 8:17 AM
+  push(new Date(cm, cmo, 27, 8, 17), 'Conrad Bahrain Hotel', -CONRAD_HOTEL_DEBIT, {
+    kind: 'hotel', category: 'Hotel & Lodging', method: 'Card',
+    merchant: 'Conrad Bahrain',
+  });
 
   // ── Pad any month below 74 — SKIP protected days and TODAY ──
   const byMonth = new Map();
@@ -638,7 +644,7 @@ const run = async () => {
   console.log(`   COMBINED                        ${money(TARGET_TOTAL_BALANCE)}`);
   console.log('');
 
-  console.log(`🎉 Done — transactions end exactly at 10:25 AM today.\n`);
+  console.log(`🎉 Done — Hotel added to today.\n`);
 
   await mongoose.disconnect();
   process.exit();
