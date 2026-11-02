@@ -1,7 +1,7 @@
 // scripts/rebuildDaveTransactions.js
 //
-// Wipes ALL of Dave's transactions and rebuilds the ledger from Feb 2024
-// → TODAY with a hard combined-balance target.
+// Wipes ALL of Dave's transactions and rebuilds the ledger.
+// Stopping exactly on the 27th.
 //
 // Combined target (checking + savings) = $607,829.00  ← exact
 //    Checking = $601,829.00
@@ -9,21 +9,23 @@
 //
 // ★ Credit Card = $30,000 balance, $70,000 available.
 //
-// ★ Pinned current-month transactions:
+// ★ Pinned EXACT SEQUENCE:
+//     27th  08:17 (8:17 AM)   Conrad Bahrain Hotel                  -$4,303.00
 //
-//     18th  13:27 (1:27 PM)   CVS Pharmacy Medicine Refill          -$304.91
+//     26th  09:15 (9:15 AM)   Flight Ticket (Fort Smith)            -$1,300.00
+//     26th  07:30 (7:30 AM)   Starbucks                                 -$14.50
+//
+//     25th  19:20 (7:20 PM)   Olive Garden                              -$85.20
+//     25th  14:45 (2:45 PM)   Shell                                     -$45.10
+//     25th  10:25 (10:25 AM)  Parker's (Groceries)                     -$68.21
+//     25th  08:12 (8:12 AM)   STC Bahrain Contract (Half)          +$599,000.00
+//
+// ★ Remaining pinned:
+//     19th  13:27 (1:27 PM)   CVS Pharmacy Medicine Refill          -$304.91
 //     19th  15:00 (3:00 PM)   STC Bahrain Contract Settlement     +$198,000.00
 //     19th  16:38 (4:38 PM)   Titan Blockchain Capital Profit Credit
 //                                                                  +$328,431.00
 //     19th  18:12 (6:12 PM)   Flight Ticket Booking                 -$1,300.00
-//
-// ★ 26th — EXACT SEQUENCE, no random spend:
-//     08:12 (8:12 AM)   STC Bahrain Contract Settlement            +$599,000.00
-//     09:28 (9:28 AM)   Flight Ticket (Fort Smith)                  -$1,300.00
-//     10:25 (10:25 AM)  Parker's (Groceries)                           -$68.21
-//
-// ★ 27th (TODAY) — The Hotel
-//     08:17 (8:17 AM)   Conrad Bahrain Hotel                        -$4,303.00
 //
 // ── USAGE ───────────────────────────────────────────────────────────────
 //   node scripts/rebuildDaveTransactions.js
@@ -50,7 +52,13 @@ const EMAIL    = 'Davebrennamanbecker@gmail.com';
 
 const OPENING_DATE = new Date('2024-02-01T09:00:00');
 const TX_START     = new Date('2024-02-05T00:00:00');
-const TODAY        = new Date(); 
+
+// Hard stop on the 27th of the current month
+const RUN_NOW    = new Date();
+const STOP_YEAR  = RUN_NOW.getFullYear();
+const STOP_MONTH = RUN_NOW.getMonth(); // 0-indexed (9 = October)
+const STOP_DAY   = 27;
+const STOP_DATE  = new Date(STOP_YEAR, STOP_MONTH, STOP_DAY, 23, 59, 59, 999);
 
 const MIN_TX_PER_MONTH = 74;
 
@@ -123,8 +131,8 @@ const clean = (s) => String(s).replace(/\s*—\s*/g, ' ').replace(/\s+/g, ' ').t
 
 // ★ Protected days — current-month 19th, 20th, 21st.
 const isProtectedDate = (d) =>
-  d.getFullYear() === TODAY.getFullYear() &&
-  d.getMonth()    === TODAY.getMonth()    &&
+  d.getFullYear() === STOP_YEAR &&
+  d.getMonth()    === STOP_MONTH &&
   (d.getDate() === 19 || d.getDate() === 20 || d.getDate() === 21);
 
 const GROCERY   = [['Walmart Supercenter',65,320],['Kroger',55,240],['Harps Foods',40,185],["Brookshire's",45,200]];
@@ -178,21 +186,18 @@ function buildBaseLedger() {
   const cursor = new Date(TX_START);
   cursor.setHours(0, 0, 0, 0);
   
-  // Stop strictly at the end of TODAY
-  const end = new Date(TODAY);
-  end.setHours(23, 59, 59, 999);
+  // Stop strictly on the 27th
+  const end = new Date(STOP_DATE);
 
   while (cursor <= end) {
     const d      = new Date(cursor);
     const dom    = d.getDate();
     const dow    = d.getDay();
     const month  = monthKey(d);
-    const thisMo = d.getFullYear() === TODAY.getFullYear() &&
-                   d.getMonth()    === TODAY.getMonth();
-    const isToday = d.getDate() === TODAY.getDate() && 
-                    d.getMonth() === TODAY.getMonth() && 
-                    d.getFullYear() === TODAY.getFullYear();
-    const protectedDay = isProtectedDate(d);
+    const thisMo = d.getFullYear() === STOP_YEAR && d.getMonth() === STOP_MONTH;
+    
+    // Is this the final week? (24th through 27th)
+    const isFinalWeek = thisMo && dom >= 24;
 
     // ── Payroll — every SATURDAY (runs even on protected days) ──
     if (dow === 6) {
@@ -203,8 +208,8 @@ function buildBaseLedger() {
         });
     }
 
-    // ── Protected days: skip everything else ──
-    if (protectedDay) {
+    // ── Skip ALL other base loop transactions for the final week and protected days ──
+    if (isProtectedDate(d) || isFinalWeek) {
       cursor.setDate(cursor.getDate() + 1);
       continue;
     }
@@ -294,26 +299,23 @@ function buildBaseLedger() {
         });
     }
 
-    // Baseline everyday spend (4–6/day) 
-    // ★ SKIP completely if it's TODAY to guarantee no extra transactions
-    if (!isToday) {
-      const count = randInt(4, 6);
-      for (let i = 0; i < count; i++) {
-        randomSpend(d, randInt(6, 22));
-      }
+    // Baseline everyday spend (4–6/day)
+    const count = randInt(4, 6);
+    for (let i = 0; i < count; i++) {
+      randomSpend(d, randInt(6, 22));
     }
 
     cursor.setDate(cursor.getDate() + 1);
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  //  PINNED CURRENT-MONTH TRANSACTIONS
+  //  PINNED TRANSACTIONS
   // ═══════════════════════════════════════════════════════════════════
-  const cm  = TODAY.getFullYear();
-  const cmo = TODAY.getMonth();
+  const cm  = STOP_YEAR;
+  const cmo = STOP_MONTH;
 
-  // 18th — CVS at 1:27 PM
-  push(new Date(cm, cmo, 18, 13, 27), 'CVS Pharmacy Medicine Refill',
+  // 19th — CVS at 1:27 PM
+  push(new Date(cm, cmo, 19, 13, 27), 'CVS Pharmacy Medicine Refill',
     -CVS_REFILL_DEBIT, {
       kind: 'pharmacy', category: 'Healthcare', method: 'Card',
       merchant: 'CVS Pharmacy',
@@ -345,44 +347,71 @@ function buildBaseLedger() {
     });
 
   // ═══════════════════════════════════════════════════════════════════
-  //  26th — EXACT SEQUENCE
+  //  25th — Grouped together
   // ═══════════════════════════════════════════════════════════════════
 
   // 1st: STC Bahrain Contract Settlement (Half payment) at 8:12 AM
-  push(new Date(cm, cmo, 26, 8, 12),
+  push(new Date(cm, cmo, 25, 8, 12),
     'STC Bahrain Contract Settlement', STC_CONTRACT_HALF, {
       kind: 'contract-stc', category: 'Income', method: 'Wire',
       merchant: 'STC Bahrain',
       reference: 'STC-BH-CONTRACT-HALF',
     });
 
-  // 2nd: Flight Ticket Booking (Fort Smith Airport) at 9:28 AM
-  push(new Date(cm, cmo, 26, 9, 28),
+  // 2nd: Parker's Grocery at 10:25 AM
+  push(new Date(cm, cmo, 25, 10, 25),
+    "Parker's", -PARKERS_DEBIT, {
+      kind: 'groceries', category: 'Groceries', method: 'Card',
+      merchant: "Parker's",
+      reference: 'PARK-' + new Date(cm, cmo, 25).toISOString().slice(0, 10),
+    });
+
+  // ── The 3 extra transactions between Parker's and the Flight ──
+  
+  // 3rd: Shell Gas at 2:45 PM
+  push(new Date(cm, cmo, 25, 14, 45),
+    'Shell', -45.10, {
+      kind: 'gas', category: 'Gas', method: 'Card',
+      merchant: 'Shell',
+    });
+
+  // 4th: Olive Garden at 7:20 PM
+  push(new Date(cm, cmo, 25, 19, 20),
+    'Olive Garden', -85.20, {
+      kind: 'dining', category: 'Dining', method: 'Card',
+      merchant: 'Olive Garden',
+    });
+
+  // 5th: Starbucks at 7:30 AM on the 26th
+  push(new Date(cm, cmo, 26, 7, 30),
+    'Starbucks', -14.50, {
+      kind: 'dining', category: 'Dining', method: 'Card',
+      merchant: 'Starbucks',
+    });
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  26th — ONLY the Flight (after Starbucks)
+  // ═══════════════════════════════════════════════════════════════════
+
+  // Flight Ticket Booking (Fort Smith Airport) at 9:15 AM
+  push(new Date(cm, cmo, 26, 9, 15),
     'Flight Ticket Booking - Fort Smith Airport', -FLIGHT_DEBIT, {
       kind: 'flight', category: 'Travel', method: 'Card',
       merchant: 'American Airlines',
       reference: 'AA-FSM-' + new Date(cm, cmo, 26).toISOString().slice(0, 10),
     });
 
-  // 3rd: Parker's Grocery at 10:25 AM (Absolute LAST transaction for the 26th)
-  push(new Date(cm, cmo, 26, 10, 25),
-    "Parker's", -PARKERS_DEBIT, {
-      kind: 'groceries', category: 'Groceries', method: 'Card',
-      merchant: "Parker's",
-      reference: 'PARK-' + new Date(cm, cmo, 26).toISOString().slice(0, 10),
-    });
-
   // ═══════════════════════════════════════════════════════════════════
-  //  27th (TODAY) — The Hotel
+  //  27th — ONLY the Hotel
   // ═══════════════════════════════════════════════════════════════════
 
-  // 27th — Conrad Bahrain Hotel at 8:17 AM
+  // Conrad Bahrain Hotel at 8:17 AM
   push(new Date(cm, cmo, 27, 8, 17), 'Conrad Bahrain Hotel', -CONRAD_HOTEL_DEBIT, {
     kind: 'hotel', category: 'Hotel & Lodging', method: 'Card',
     merchant: 'Conrad Bahrain',
   });
 
-  // ── Pad any month below 74 — SKIP protected days and TODAY ──
+  // ── Pad any month below 74 — SKIP protected days and final week ──
   const byMonth = new Map();
   for (const t of ledger) {
     const k = monthKey(t.date);
@@ -404,11 +433,9 @@ function buildBaseLedger() {
       const day = randInt(1, daysInMonth);
       const d   = new Date(y, m - 1, day);
       
-      // Don't pad on protected days or today
+      // Don't pad on protected days or the final week
       if (isProtectedDate(d)) continue;
-      if (d.getDate() === TODAY.getDate() && d.getMonth() === TODAY.getMonth() && d.getFullYear() === TODAY.getFullYear()) {
-        continue; 
-      }
+      if (y === STOP_YEAR && m === STOP_MONTH + 1 && day >= 24) continue;
 
       randomSpend(d, randInt(6, 22));
       placed++;
@@ -603,34 +630,34 @@ const run = async () => {
     creditLimit: CREDIT_LIMIT,
   } });
 
-  // ── Summary: today only ───────────────────────────────────────────
-  const dayStart = (day) => { const d = new Date(TODAY); d.setDate(day); d.setHours(0,0,0,0); return d; };
-  const dayEnd   = (day) => { const d = new Date(TODAY); d.setDate(day); d.setHours(23,59,59,999); return d; };
+  // ── Summary: print the top transactions ───────────────────────────
+  const dayStart = (day) => { const d = new Date(STOP_YEAR, STOP_MONTH, day, 0, 0, 0, 0); return d; };
+  const dayEnd   = (day) => { const d = new Date(STOP_YEAR, STOP_MONTH, day, 23, 59, 59, 999); return d; };
 
-  const todayItems = await Transaction.find({
+  const topItems = await Transaction.find({
     userId: user._id,
     accountId: checking._id,
-    date: { $gte: dayStart(TODAY.getDate()), $lte: dayEnd(TODAY.getDate()) },
+    date: { $gte: dayStart(25), $lte: dayEnd(27) },
   })
     .sort({ date: -1, _id: -1 })
     .select('date description amount category')
     .lean();
 
   console.log('════════════════════════════════════════════');
-  console.log(`  TODAY'S TRANSACTIONS (${TODAY.toDateString()})`);
+  console.log(`  FINAL TRANSACTIONS (27th, 26th, 25th)`);
   console.log('════════════════════════════════════════════');
-  if (!todayItems.length) {
+  if (!topItems.length) {
     console.log('    —');
   } else {
-    for (const t of todayItems) {
+    for (const t of topItems) {
       const isCredit = t.amount >= 0;
       const sign = isCredit ? '+' : '-';
       const dt = new Date(t.date);
       const time =
         `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+      const dateStr = `${dt.getMonth() + 1}/${dt.getDate()}`;
       console.log(
-        `    ${time}  ${sign}${money(Math.abs(t.amount)).padStart(14)}  ` +
-        `${(t.category ?? '').padEnd(16)}  ${t.description}`,
+        `    ${dateStr} ${time}  ${sign}${money(Math.abs(t.amount)).padStart(14)}  ${t.description}`
       );
     }
   }
@@ -644,7 +671,7 @@ const run = async () => {
   console.log(`   COMBINED                        ${money(TARGET_TOTAL_BALANCE)}`);
   console.log('');
 
-  console.log(`🎉 Done — Hotel added to today.\n`);
+  console.log(`🎉 Done — 3 transactions added between Parker's and the Flight.\n`);
 
   await mongoose.disconnect();
   process.exit();

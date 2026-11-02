@@ -4,7 +4,6 @@ import {
   Search,
   Building2,
   CreditCard,
-  Phone,
   Clock,
   Car,
   Landmark,
@@ -20,7 +19,6 @@ const locationsData = [
     city: 'Metairie',
     state: 'LA',
     zip: '70005',
-    phone: '504-841-2830',
     distance: '0.0',
     services: ['Drive Thru', 'Coin Counting', 'Safe Deposit Box'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
@@ -35,7 +33,6 @@ const locationsData = [
     city: 'New Orleans',
     state: 'LA',
     zip: '70124',
-    phone: '504-539-7300',
     distance: '2.3',
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
@@ -50,7 +47,6 @@ const locationsData = [
     city: 'Metairie',
     state: 'LA',
     zip: '70006',
-    phone: '504-539-7310',
     distance: '3.1',
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
@@ -65,7 +61,6 @@ const locationsData = [
     city: 'New Orleans',
     state: 'LA',
     zip: '70119',
-    phone: '504-544-6310',
     distance: '3.2',
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
@@ -80,7 +75,6 @@ const locationsData = [
     city: 'Harahan',
     state: 'LA',
     zip: '70123',
-    phone: '504-841-6050',
     distance: '3.9',
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
@@ -95,7 +89,6 @@ const locationsData = [
     city: 'New Orleans',
     state: 'LA',
     zip: '70130',
-    phone: '504-561-6100',
     distance: '5.6',
     services: [],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
@@ -110,7 +103,6 @@ const locationsData = [
     city: 'Kenner',
     state: 'LA',
     zip: '70065',
-    phone: '504-565-3656',
     distance: '5.8',
     services: ['Drive Thru', 'Coin Counting', 'Safe Deposit Box'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
@@ -125,7 +117,6 @@ const locationsData = [
     city: 'New Orleans',
     state: 'LA',
     zip: '70126',
-    phone: '',
     distance: '6.1',
     services: [],
     lobbyHours: 'ATM Hours: 24 hours / 7 days a week',
@@ -140,7 +131,6 @@ const locationsData = [
     city: 'New Orleans',
     state: 'LA',
     zip: '70115',
-    phone: '504-841-6000',
     distance: '6.4',
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
@@ -155,7 +145,6 @@ const locationsData = [
     city: 'Gretna',
     state: 'LA',
     zip: '70053',
-    phone: '504-544-5599',
     distance: '7.6',
     services: ['Drive Thru'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
@@ -170,7 +159,6 @@ const locationsData = [
     city: 'Harvey',
     state: 'LA',
     zip: '70058',
-    phone: '504-544-6350',
     distance: '9.7',
     services: ['Coin Counting', 'Safe Deposit Box'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
@@ -185,7 +173,6 @@ const locationsData = [
     city: 'Terrytown',
     state: 'LA',
     zip: '70056',
-    phone: '504-561-6110',
     distance: '9.9',
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
@@ -200,7 +187,6 @@ const locationsData = [
     city: 'Chalmette',
     state: 'LA',
     zip: '70043',
-    phone: '504-561-1300',
     distance: '10.2',
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
@@ -215,7 +201,6 @@ const locationsData = [
     city: 'Chalmette',
     state: 'LA',
     zip: '70043',
-    phone: '504-569-1900',
     distance: '12.6',
     services: ['Drive Thru', 'Coin Counting', 'Safe Deposit Box'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
@@ -230,7 +215,6 @@ const locationsData = [
     city: 'St. Bernard',
     state: 'LA',
     zip: '70085',
-    phone: '',
     distance: '18.8',
     services: [],
     lobbyHours: 'ATM - Deposit Cash and Checks | 24 hours / 7 days a week',
@@ -245,7 +229,6 @@ const locationsData = [
     city: 'Slidell',
     state: 'LA',
     zip: '70461',
-    phone: '985-646-6500',
     distance: '26.4',
     services: ['Drive Thru', 'Coin Counting', 'Safe Deposit Box'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
@@ -260,7 +243,6 @@ const locationsData = [
     city: 'Mandeville',
     state: 'LA',
     zip: '70471',
-    phone: '985-249-7240',
     distance: '27.4',
     services: ['Drive Thru', 'Safe Deposit Box'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
@@ -275,7 +257,6 @@ const locationsData = [
     city: 'Covington',
     state: 'LA',
     zip: '70433',
-    phone: '985-898-3900',
     distance: '31.0',
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm | Sat. 9am-noon',
@@ -290,7 +271,6 @@ const locationsData = [
     city: 'Covington',
     state: 'LA',
     zip: '70433',
-    phone: '985-646-6530',
     distance: '32.8',
     services: ['Drive Thru', 'Safe Deposit Box'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
@@ -305,7 +285,6 @@ const locationsData = [
     city: 'Hammond',
     state: 'LA',
     zip: '70403',
-    phone: '985-249-7272',
     distance: '39.5',
     services: ['Drive Thru'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
@@ -320,7 +299,6 @@ const locationsData = [
     city: 'Baton Rouge',
     state: 'LA',
     zip: '70810',
-    phone: '225-763-2000',
     distance: '60.4',
     services: ['Drive Thru', 'Coin Counting'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
@@ -335,7 +313,6 @@ const locationsData = [
     city: 'Baton Rouge',
     state: 'LA',
     zip: '70806',
-    phone: '225-932-7272',
     distance: '65.2',
     services: ['Drive Thru', 'Coin Counting', 'Safe Deposit Box'],
     lobbyHours: 'Mon.-Fri. 9am-4pm',
@@ -350,7 +327,6 @@ const locationsData = [
     city: 'Hattiesburg',
     state: 'MS',
     zip: '39401',
-    phone: '',
     distance: '103.3',
     services: [],
     lobbyHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-4:30pm',
@@ -365,7 +341,6 @@ const locationsData = [
     city: 'Gulf Shores',
     state: 'AL',
     zip: '36542',
-    phone: '',
     distance: '148.0',
     services: [],
     lobbyHours: 'ATM Hours: 6am - 11pm / 7 days a week',
@@ -380,7 +355,6 @@ const locationsData = [
     city: 'Orange Beach',
     state: 'AL',
     zip: '36561',
-    phone: '',
     distance: '153.8',
     services: [],
     lobbyHours: 'ATM Hours: 24 hours / 7 days a week',
@@ -395,7 +369,6 @@ const locationsData = [
     city: 'Orange Beach',
     state: 'AL',
     zip: '36561',
-    phone: '251-262-6500',
     distance: '154.5',
     services: [],
     lobbyHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm',
@@ -410,7 +383,6 @@ const locationsData = [
     city: 'Miramar Beach',
     state: 'FL',
     zip: '32550',
-    phone: '850-483-6410',
     distance: '226.5',
     services: [],
     lobbyHours: 'Mon.-Thu. 9am-4pm | Fri. 9am-5pm',
@@ -634,7 +606,7 @@ function LocationsPage() {
 
                   {/* Body */}
                   <div className="mt-4 grid grid-cols-1 gap-x-8 gap-y-3 text-sm text-body md:grid-cols-2">
-                    {/* Left column: address, phone, hours */}
+                    {/* Left column: address, hours */}
                     <div className="flex flex-col gap-3">
                       <div className="flex items-start gap-2">
                         <MapPin
@@ -648,21 +620,6 @@ function LocationsPage() {
                           </p>
                         </div>
                       </div>
-
-                      {location.phone && (
-                        <div className="flex items-center gap-2">
-                          <Phone
-                            className="h-3.5 w-3.5 shrink-0 text-primary"
-                            strokeWidth={1.75}
-                          />
-                          <a
-                            href={`tel:${location.phone.replace(/[^0-9]/g, '')}`}
-                            className="text-sm text-primary hover:underline"
-                          >
-                            {location.phone}
-                          </a>
-                        </div>
-                      )}
 
                       {location.lobbyHours && (
                         <div className="flex items-start gap-2">
